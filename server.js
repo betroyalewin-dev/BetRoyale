@@ -5,6 +5,7 @@ const fetch = require("node-fetch");
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const session = require("express-session");
+const { Pool } = require("pg");
 require("dotenv").config();
 
 const app = express();
@@ -12,9 +13,20 @@ const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || "127.0.0.1";
 const API_TOKEN = process.env.CR_API_TOKEN;
 const SESSION_SECRET = process.env.SESSION_SECRET || "dev-secret";
+const DATABASE_URL = process.env.DATABASE_URL;
 
 const STORE_PATH =
   process.env.STORE_PATH || path.join(__dirname, "data", "store.json");
+const DB_SSL =
+  DATABASE_URL &&
+  !DATABASE_URL.includes("localhost") &&
+  !DATABASE_URL.includes("127.0.0.1");
+const pool = DATABASE_URL
+  ? new Pool({
+      connectionString: DATABASE_URL,
+      ssl: DB_SSL ? { rejectUnauthorized: false } : undefined,
+    })
+  : null;
 const QUEUE_TTL_MS = 1000 * 60 * 30;
 const MATCH_TTL_MS = 1000 * 60 * 60 * 6;
 const MATCH_LOCK_MS = 1000 * 60 * 2;
@@ -32,6 +44,63 @@ let store = {
 };
 
 let writeChain = Promise.resolve();
+
+function parseJsonValue(value, fallback = null) {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === "object") return value;
+  if (typeof value !== "string") return fallback;
+  try {
+    return JSON.parse(value);
+  } catch (err) {
+    return fallback;
+  }
+}
+
+async function ensureDatabaseSchema() {
+  if (!pool) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      username TEXT UNIQUE NOT NULL,
+      tag TEXT,
+      friend_link TEXT,
+      credits INTEGER,
+      gems INTEGER,
+      stats JSONB,
+      active_match_id TEXT,
+      active_match_until BIGINT,
+      player_profile JSONB,
+      is_verified BOOLEAN,
+      verification_code TEXT,
+      verification_expires_at BIGINT,
+      created_at BIGINT,
+      updated_at BIGINT
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS recorded_matches (
+      match_key TEXT PRIMARY KEY,
+      match_id TEXT,
+      tag_a TEXT,
+      tag_b TEXT,
+      wager_a INTEGER,
+      wager_b INTEGER,
+      currency_a TEXT,
+      currency_b TEXT,
+      recorded_at TEXT
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS app_meta (
+      key TEXT PRIMARY KEY,
+      value JSONB
+    )
+  `);
+}
 
 if (!API_TOKEN) {
   console.warn("Missing CR_API_TOKEN in .env");
@@ -53,19 +122,67 @@ app.use(express.static(path.join(__dirname, "public")));
 
 async function loadStore() {
   try {
-    const raw = await fs.readFile(STORE_PATH, "utf8");
-    const parsed = JSON.parse(raw);
-    store = {
-      users: Array.isArray(parsed.users) ? parsed.users : [],
-      recordedMatches:
-        parsed.recordedMatches && typeof parsed.recordedMatches === "object"
-          ? parsed.recordedMatches
-          : {},
-      migrations:
-        parsed.migrations && typeof parsed.migrations === "object"
-          ? parsed.migrations
-          : {},
-    };
+    if (pool) {
+      await ensureDatabaseSchema();
+      const [userResult, matchResult, metaResult] = await Promise.all([
+        pool.query("SELECT * FROM users"),
+        pool.query("SELECT * FROM recorded_matches"),
+        pool.query("SELECT value FROM app_meta WHERE key = $1", ["migrations"]),
+      ]);
+
+      store = {
+        users: userResult.rows.map((row) => ({
+          id: row.id,
+          email: row.email,
+          passwordHash: row.password_hash,
+          username: row.username,
+          tag: row.tag || "",
+          friendLink: row.friend_link || "",
+          credits:
+            typeof row.credits === "number" ? row.credits : STARTING_CREDITS,
+          gems: typeof row.gems === "number" ? row.gems : 0,
+          stats: parseJsonValue(row.stats, null),
+          activeMatchId: row.active_match_id,
+          activeMatchUntil: row.active_match_until,
+          playerProfile: parseJsonValue(row.player_profile, null),
+          isVerified:
+            typeof row.is_verified === "boolean" ? row.is_verified : true,
+          verificationCode: row.verification_code,
+          verificationExpiresAt: row.verification_expires_at,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        })),
+        recordedMatches: {},
+        migrations: parseJsonValue(metaResult.rows?.[0]?.value, {}) || {},
+      };
+
+      matchResult.rows.forEach((row) => {
+        store.recordedMatches[row.match_key] = {
+          matchId: row.match_id,
+          tagA: row.tag_a,
+          tagB: row.tag_b,
+          wagerA: row.wager_a,
+          wagerB: row.wager_b,
+          currencyA: row.currency_a,
+          currencyB: row.currency_b,
+          recordedAt: row.recorded_at,
+        };
+      });
+    } else {
+      const raw = await fs.readFile(STORE_PATH, "utf8");
+      const parsed = JSON.parse(raw);
+      store = {
+        users: Array.isArray(parsed.users) ? parsed.users : [],
+        recordedMatches:
+          parsed.recordedMatches && typeof parsed.recordedMatches === "object"
+            ? parsed.recordedMatches
+            : {},
+        migrations:
+          parsed.migrations && typeof parsed.migrations === "object"
+            ? parsed.migrations
+            : {},
+      };
+    }
     let changed = false;
     store.users.forEach((user) => {
       if (ensureUserDefaults(user)) {
@@ -91,6 +208,9 @@ async function loadStore() {
       await saveStore();
     }
   } catch (err) {
+    if (pool) {
+      throw err;
+    }
     if (err.code !== "ENOENT") {
       throw err;
     }
@@ -100,9 +220,139 @@ async function loadStore() {
 }
 
 function saveStore() {
-  writeChain = writeChain.then(() =>
-    fs.writeFile(STORE_PATH, JSON.stringify(store, null, 2))
-  );
+  writeChain = writeChain.then(async () => {
+    if (!pool) {
+      await fs.writeFile(STORE_PATH, JSON.stringify(store, null, 2));
+      return;
+    }
+    await ensureDatabaseSchema();
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `
+        INSERT INTO app_meta (key, value)
+        VALUES ($1, $2)
+        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+        `,
+        ["migrations", store.migrations || {}]
+      );
+
+      for (const user of store.users) {
+        await client.query(
+          `
+          INSERT INTO users (
+            id,
+            email,
+            password_hash,
+            username,
+            tag,
+            friend_link,
+            credits,
+            gems,
+            stats,
+            active_match_id,
+            active_match_until,
+            player_profile,
+            is_verified,
+            verification_code,
+            verification_expires_at,
+            created_at,
+            updated_at
+          )
+          VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9,
+            $10, $11, $12, $13, $14, $15, $16, $17
+          )
+          ON CONFLICT (id) DO UPDATE SET
+            email = EXCLUDED.email,
+            password_hash = EXCLUDED.password_hash,
+            username = EXCLUDED.username,
+            tag = EXCLUDED.tag,
+            friend_link = EXCLUDED.friend_link,
+            credits = EXCLUDED.credits,
+            gems = EXCLUDED.gems,
+            stats = EXCLUDED.stats,
+            active_match_id = EXCLUDED.active_match_id,
+            active_match_until = EXCLUDED.active_match_until,
+            player_profile = EXCLUDED.player_profile,
+            is_verified = EXCLUDED.is_verified,
+            verification_code = EXCLUDED.verification_code,
+            verification_expires_at = EXCLUDED.verification_expires_at,
+            created_at = EXCLUDED.created_at,
+            updated_at = EXCLUDED.updated_at
+          `,
+          [
+            user.id,
+            user.email,
+            user.passwordHash,
+            user.username,
+            user.tag || "",
+            user.friendLink || "",
+            Number.isFinite(user.credits) ? user.credits : STARTING_CREDITS,
+            Number.isFinite(user.gems) ? user.gems : 0,
+            user.stats || {},
+            user.activeMatchId || null,
+            user.activeMatchUntil || null,
+            user.playerProfile || null,
+            Boolean(user.isVerified),
+            user.verificationCode || null,
+            user.verificationExpiresAt || null,
+            user.createdAt || null,
+            user.updatedAt || null,
+          ]
+        );
+      }
+
+      for (const [matchKey, record] of Object.entries(
+        store.recordedMatches || {}
+      )) {
+        await client.query(
+          `
+          INSERT INTO recorded_matches (
+            match_key,
+            match_id,
+            tag_a,
+            tag_b,
+            wager_a,
+            wager_b,
+            currency_a,
+            currency_b,
+            recorded_at
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          ON CONFLICT (match_key) DO UPDATE SET
+            match_id = EXCLUDED.match_id,
+            tag_a = EXCLUDED.tag_a,
+            tag_b = EXCLUDED.tag_b,
+            wager_a = EXCLUDED.wager_a,
+            wager_b = EXCLUDED.wager_b,
+            currency_a = EXCLUDED.currency_a,
+            currency_b = EXCLUDED.currency_b,
+            recorded_at = EXCLUDED.recorded_at
+          `,
+          [
+            matchKey,
+            record.matchId || null,
+            record.tagA || null,
+            record.tagB || null,
+            Number.isFinite(record.wagerA) ? record.wagerA : 0,
+            Number.isFinite(record.wagerB) ? record.wagerB : 0,
+            record.currencyA || null,
+            record.currencyB || null,
+            record.recordedAt || null,
+          ]
+        );
+      }
+
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  });
   return writeChain;
 }
 
