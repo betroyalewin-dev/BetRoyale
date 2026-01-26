@@ -92,6 +92,17 @@
             <span class="balance-label">Gems</span>
             <span id="balance-gems" class="balance-value">0</span>
           </div>
+          <button type="button" class="menu-button store-button" data-section="store">
+            <span class="icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M6 7l2-3h8l2 3"></path>
+                <path d="M4 7h16"></path>
+                <path d="M6 7v11h12V7"></path>
+                <path d="M9 11h6"></path>
+              </svg>
+            </span>
+            Store
+          </button>
         </div>
       </nav>
       <header class="hero">
@@ -291,6 +302,12 @@
               placeholder="Paste your friend link from the game"
               autocomplete="off"
             />
+            <p class="hint">
+              Example format:
+              <code
+                >https://link.clashroyale.com/invite/friend/en?tag=CY2YC90V&token=n3m8npfz&platform=iOS</code
+              >
+            </p>
           </div>
           <div class="profile-profile">
             <p class="label">Clash Profile</p>
@@ -363,6 +380,39 @@
               </ol>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section id="store-panel" class="panel store hidden">
+        <div class="store-header">
+          <div>
+            <p class="eyebrow">Store</p>
+            <h2>Daily Rewards</h2>
+            <p class="subhead">
+              Log in each day to climb the streak ladder. Miss a day and the
+              streak resets back to day 1.
+            </p>
+          </div>
+          <div class="store-streak">
+            <p class="store-streak-label">Current streak</p>
+            <p id="store-streak-count" class="store-streak-count">0</p>
+            <p id="store-next" class="store-next">Next reward: —</p>
+          </div>
+        </div>
+        <div class="store-card">
+          <div class="store-card-header">
+            <h3>Streak progression</h3>
+            <button type="button" id="store-claim">
+              <span class="icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M5 12l4 4L19 7"></path>
+                </svg>
+              </span>
+              Claim today's reward
+            </button>
+          </div>
+          <p id="store-message" class="store-message"></p>
+          <div id="store-rewards" class="reward-grid"></div>
         </div>
       </section>
 

@@ -126,6 +126,12 @@ body::before {
   text-align: right;
 }
 
+.menu-button.store-button {
+  justify-self: end;
+  padding: 8px 14px;
+  font-size: 0.85rem;
+}
+
 .balance-item {
   display: inline-flex;
   align-items: center;
@@ -377,6 +383,113 @@ button:disabled {
   margin-top: 16px;
   display: grid;
   gap: 16px;
+}
+
+.store {
+  margin-top: 24px;
+  display: grid;
+  gap: 18px;
+}
+
+.store-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.store-streak {
+  background: rgba(10, 14, 22, 0.7);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  padding: 14px 18px;
+  min-width: 200px;
+  text-align: right;
+}
+
+.store-streak-label {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin: 0 0 6px;
+}
+
+.store-streak-count {
+  font-size: 2rem;
+  margin: 0;
+  font-weight: 700;
+}
+
+.store-next {
+  margin: 8px 0 0;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.store-card {
+  background: rgba(10, 14, 22, 0.7);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  padding: 18px;
+}
+
+.store-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.store-message {
+  margin: 12px 0 0;
+  color: var(--muted);
+}
+
+.reward-grid {
+  margin-top: 16px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.reward-card {
+  border-radius: 14px;
+  border: 1px solid rgba(244, 193, 93, 0.2);
+  background: rgba(12, 16, 26, 0.85);
+  padding: 14px;
+  display: grid;
+  gap: 8px;
+}
+
+.reward-card.claimed {
+  opacity: 0.6;
+}
+
+.reward-card.today {
+  border-color: rgba(244, 193, 93, 0.7);
+  box-shadow: 0 0 0 1px rgba(244, 193, 93, 0.35);
+}
+
+.reward-title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.reward-value {
+  margin: 0;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.reward-badge {
+  align-self: start;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
 }
 
 .verify-status {
