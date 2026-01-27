@@ -1,7 +1,7 @@
 const authPanel = document.getElementById("auth-panel");
 const profilePanel = document.getElementById("profile-panel");
 const queuePanel = document.getElementById("queue-panel");
-const storePanel = document.getElementById("store-panel");
+const shopPanel = document.getElementById("shop-panel");
 
 const registerForm = document.getElementById("register-form");
 const loginForm = document.getElementById("login-form");
@@ -36,11 +36,11 @@ const statLosses = document.getElementById("stat-losses");
 const statDraws = document.getElementById("stat-draws");
 const balanceCoins = document.getElementById("balance-coins");
 const balanceGems = document.getElementById("balance-gems");
-const storeRewardsEl = document.getElementById("store-rewards");
-const storeClaimBtn = document.getElementById("store-claim");
-const storeStreakEl = document.getElementById("store-streak-count");
-const storeNextEl = document.getElementById("store-next");
-const storeMessageEl = document.getElementById("store-message");
+const shopRewardsEl = document.getElementById("shop-rewards");
+const shopClaimBtn = document.getElementById("shop-claim");
+const shopStreakEl = document.getElementById("shop-streak-count");
+const shopNextEl = document.getElementById("shop-next");
+const shopMessageEl = document.getElementById("shop-message");
 
 const joinQueueBtn = document.getElementById("join-queue");
 const wagerInput = document.getElementById("wager-amount");
@@ -73,7 +73,7 @@ const currencyButtons = Array.from(
 const sectionPanels = {
   auth: authPanel,
   profile: profilePanel,
-  store: storePanel,
+  shop: shopPanel,
   queue: queuePanel,
   match: matchSection,
   results: resultsPanel,
@@ -132,8 +132,8 @@ function setActiveSection(section) {
     button.classList.toggle("active", button.dataset.section === target);
   });
   activeSection = target;
-  if (target === "store") {
-    refreshStoreStatus();
+  if (target === "shop") {
+    refreshShopStatus();
   }
 }
 
@@ -177,7 +177,7 @@ function setAuthState(user) {
 
   if (user) {
     updateProfileUI(user);
-    refreshStoreStatus();
+    refreshShopStatus();
     startQueuePolling();
   } else {
     profileEmail.textContent = "—";
@@ -204,10 +204,10 @@ function setAuthState(user) {
     if (queueEmptyEl) queueEmptyEl.classList.remove("hidden");
     if (balanceCoins) balanceCoins.textContent = "0";
     if (balanceGems) balanceGems.textContent = "0";
-    if (storeStreakEl) storeStreakEl.textContent = "0";
-    if (storeNextEl) storeNextEl.textContent = "Next reward: —";
-    if (storeMessageEl) storeMessageEl.textContent = "";
-    if (storeRewardsEl) storeRewardsEl.innerHTML = "";
+    if (shopStreakEl) shopStreakEl.textContent = "0";
+    if (shopNextEl) shopNextEl.textContent = "Next reward: —";
+    if (shopMessageEl) shopMessageEl.textContent = "";
+    if (shopRewardsEl) shopRewardsEl.innerHTML = "";
     stopQueuePolling();
   }
 
@@ -264,9 +264,9 @@ function formatReward(reward) {
   return `${reward.coins} coins`;
 }
 
-function renderStoreRewards(rewards, streak, canClaim, nextRewardIndex) {
-  if (!storeRewardsEl) return;
-  storeRewardsEl.innerHTML = "";
+function renderShopRewards(rewards, streak, canClaim, nextRewardIndex) {
+  if (!shopRewardsEl) return;
+  shopRewardsEl.innerHTML = "";
   if (!Array.isArray(rewards)) return;
 
   rewards.forEach((reward) => {
@@ -304,63 +304,66 @@ function renderStoreRewards(rewards, streak, canClaim, nextRewardIndex) {
     card.appendChild(title);
     card.appendChild(value);
     card.appendChild(badge);
-    storeRewardsEl.appendChild(card);
+    shopRewardsEl.appendChild(card);
   });
 }
 
-function updateStoreUI(status) {
+function updateShopUI(status) {
   if (!status) return;
   const streak = Number(status.streak) || 0;
   const canClaim = Boolean(status.canClaim);
   const nextRewardIndex = Number(status.nextRewardIndex) || 1;
   const nextReward = status.nextReward || null;
 
-  if (storeStreakEl) storeStreakEl.textContent = streak;
-  if (storeNextEl) {
-    storeNextEl.textContent = `Next reward: ${formatReward(nextReward)}`;
+  if (shopStreakEl) shopStreakEl.textContent = streak;
+  if (shopNextEl) {
+    shopNextEl.textContent = `Next reward: ${formatReward(nextReward)}`;
   }
-  if (storeMessageEl) {
-    storeMessageEl.textContent = canClaim
+  if (shopMessageEl) {
+    shopMessageEl.textContent = canClaim
       ? "Claim today’s reward to keep the streak alive."
       : "You’ve claimed today’s reward. Come back tomorrow!";
   }
-  if (storeClaimBtn) {
-    storeClaimBtn.disabled = !canClaim;
+  if (shopClaimBtn) {
+    shopClaimBtn.disabled = !canClaim;
   }
-  renderStoreRewards(status.rewards, streak, canClaim, nextRewardIndex);
+  renderShopRewards(status.rewards, streak, canClaim, nextRewardIndex);
 }
 
-async function refreshStoreStatus() {
+async function refreshShopStatus() {
   if (!currentUser) return;
   try {
     const data = await apiRequest("/api/store/status", { method: "GET" });
-    updateStoreUI(data);
+    updateShopUI(data);
   } catch (err) {
-    if (storeMessageEl) {
-      storeMessageEl.textContent = err.message || "Unable to load store.";
+    if (shopMessageEl) {
+      shopMessageEl.textContent = err.message || "Unable to load shop.";
     }
   }
 }
 
 async function claimDailyReward() {
   if (!currentUser) {
-    showStatus("Log in to claim rewards.", true);
+    if (shopMessageEl) {
+      shopMessageEl.textContent = "Log in to claim rewards.";
+    }
     return;
   }
-  if (storeClaimBtn) storeClaimBtn.disabled = true;
-  if (storeMessageEl) storeMessageEl.textContent = "Claiming reward...";
+  if (shopClaimBtn) shopClaimBtn.disabled = true;
+  if (shopMessageEl) shopMessageEl.textContent = "Claiming reward...";
   try {
     const data = await apiRequest("/api/store/claim", { method: "POST" });
     if (data.user) {
       setAuthState(data.user);
     }
-    await refreshStoreStatus();
-    showStatus(
-      `Daily reward claimed: ${formatReward(data.reward || {})}.`
-    );
+    await refreshShopStatus();
+    if (shopMessageEl) {
+      shopMessageEl.textContent = `Claimed: ${formatReward(
+        data.reward || {}
+      )}.`;
+    }
   } catch (err) {
-    if (storeMessageEl) storeMessageEl.textContent = err.message;
-    showStatus(err.message, true);
+    if (shopMessageEl) shopMessageEl.textContent = err.message;
   }
 }
 
@@ -1042,7 +1045,7 @@ trackBattleBtn.addEventListener("click", trackFriendlyBattle);
 if (refreshQueueBtn) refreshQueueBtn.addEventListener("click", manualRefreshQueue);
 if (cancelQueueBtn) cancelQueueBtn.addEventListener("click", cancelQueue);
 if (verifyButton) verifyButton.addEventListener("click", verifyAccount);
-if (storeClaimBtn) storeClaimBtn.addEventListener("click", claimDailyReward);
+if (shopClaimBtn) shopClaimBtn.addEventListener("click", claimDailyReward);
 if (wagerInput) {
   wagerInput.addEventListener("input", (event) => {
     updatePresetActive(event.target.value);

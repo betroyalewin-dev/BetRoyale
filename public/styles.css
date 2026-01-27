@@ -126,7 +126,7 @@ body::before {
   text-align: right;
 }
 
-.menu-button.store-button {
+.menu-button.shop-button {
   justify-self: end;
   padding: 8px 14px;
   font-size: 0.85rem;
@@ -385,13 +385,13 @@ button:disabled {
   gap: 16px;
 }
 
-.store {
+.shop {
   margin-top: 24px;
   display: grid;
   gap: 18px;
 }
 
-.store-header {
+.shop-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -399,7 +399,7 @@ button:disabled {
   flex-wrap: wrap;
 }
 
-.store-streak {
+.shop-streak {
   background: rgba(10, 14, 22, 0.7);
   border-radius: 14px;
   border: 1px solid var(--border);
@@ -408,7 +408,7 @@ button:disabled {
   text-align: right;
 }
 
-.store-streak-label {
+.shop-streak-label {
   text-transform: uppercase;
   letter-spacing: 0.12em;
   font-size: 0.7rem;
@@ -416,26 +416,26 @@ button:disabled {
   margin: 0 0 6px;
 }
 
-.store-streak-count {
+.shop-streak-count {
   font-size: 2rem;
   margin: 0;
   font-weight: 700;
 }
 
-.store-next {
+.shop-next {
   margin: 8px 0 0;
   color: var(--accent);
   font-weight: 600;
 }
 
-.store-card {
+.shop-card {
   background: rgba(10, 14, 22, 0.7);
   border-radius: 16px;
   border: 1px solid var(--border);
   padding: 18px;
 }
 
-.store-card-header {
+.shop-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -443,7 +443,7 @@ button:disabled {
   gap: 12px;
 }
 
-.store-message {
+.shop-message {
   margin: 12px 0 0;
   color: var(--muted);
 }
@@ -939,6 +939,7 @@ button:disabled {
   }
 
   .profile-header,
+  .shop-header,
   .queue-header,
   .match-header {
     flex-direction: column;
