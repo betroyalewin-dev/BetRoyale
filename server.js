@@ -6,6 +6,7 @@ const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const session = require("express-session");
 const { Pool } = require("pg");
+const nodemailer = require("nodemailer");
 require("dotenv").config();
 
 const app = express();
@@ -14,6 +15,9 @@ const HOST = process.env.HOST || "127.0.0.1";
 const API_TOKEN = process.env.CR_API_TOKEN;
 const SESSION_SECRET = process.env.SESSION_SECRET || "dev-secret";
 const DATABASE_URL = process.env.DATABASE_URL;
+const EMAIL_USER = process.env.EMAIL_USER;
+const EMAIL_PASS = process.env.EMAIL_PASS;
+const EMAIL_FROM = process.env.EMAIL_FROM || EMAIL_USER || "no-reply@betroyale.win";
 
 const STORE_PATH =
   process.env.STORE_PATH || path.join(__dirname, "data", "store.json");
@@ -27,20 +31,21 @@ const pool = DATABASE_URL
       ssl: DB_SSL ? { rejectUnauthorized: false } : undefined,
     })
   : null;
+const mailTransport =
+  EMAIL_USER && EMAIL_PASS
+    ? nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: EMAIL_USER,
+          pass: EMAIL_PASS,
+        },
+      })
+    : null;
 const QUEUE_TTL_MS = 1000 * 60 * 30;
 const MATCH_TTL_MS = 1000 * 60 * 60 * 6;
 const MATCH_LOCK_MS = 1000 * 60 * 2;
 const STARTING_CREDITS = 1000;
 const VERIFICATION_TTL_MS = 1000 * 60 * 30;
-const ONE_DAY_MS = 1000 * 60 * 60 * 24;
-const DAILY_REWARDS = [
-  { day: 1, coins: 100, gems: 0 },
-  { day: 2, coins: 200, gems: 0 },
-  { day: 3, coins: 250, gems: 0 },
-  { day: 4, coins: 500, gems: 0 },
-  { day: 5, coins: 0, gems: 1 },
-];
-
 const waitingQueue = [];
 const tickets = new Map();
 const matches = new Map();
@@ -84,16 +89,8 @@ async function ensureDatabaseSchema() {
       verification_code TEXT,
       verification_expires_at BIGINT,
       created_at BIGINT,
-      updated_at BIGINT,
-      daily_streak INTEGER,
-      last_daily_claim_at BIGINT
+      updated_at BIGINT
     )
-  `);
-
-  await pool.query(`
-    ALTER TABLE users
-      ADD COLUMN IF NOT EXISTS daily_streak INTEGER,
-      ADD COLUMN IF NOT EXISTS last_daily_claim_at BIGINT
   `);
 
   await pool.query(`
@@ -120,6 +117,9 @@ async function ensureDatabaseSchema() {
 
 if (!API_TOKEN) {
   console.warn("Missing CR_API_TOKEN in .env");
+}
+if (!mailTransport) {
+  console.warn("Missing EMAIL_USER/EMAIL_PASS; verification emails disabled.");
 }
 
 app.use(express.json());
@@ -165,9 +165,6 @@ async function loadStore() {
             typeof row.is_verified === "boolean" ? row.is_verified : true,
           verificationCode: row.verification_code,
           verificationExpiresAt: row.verification_expires_at,
-          dailyStreak:
-            typeof row.daily_streak === "number" ? row.daily_streak : 0,
-          lastDailyClaimAt: row.last_daily_claim_at || null,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
         })),
@@ -277,13 +274,11 @@ function saveStore() {
             verification_code,
             verification_expires_at,
             created_at,
-            updated_at,
-            daily_streak,
-            last_daily_claim_at
+            updated_at
           )
           VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9,
-            $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
+            $10, $11, $12, $13, $14, $15, $16, $17
           )
           ON CONFLICT (id) DO UPDATE SET
             email = EXCLUDED.email,
@@ -301,9 +296,7 @@ function saveStore() {
             verification_code = EXCLUDED.verification_code,
             verification_expires_at = EXCLUDED.verification_expires_at,
             created_at = EXCLUDED.created_at,
-            updated_at = EXCLUDED.updated_at,
-            daily_streak = EXCLUDED.daily_streak,
-            last_daily_claim_at = EXCLUDED.last_daily_claim_at
+            updated_at = EXCLUDED.updated_at
           `,
           [
             user.id,
@@ -323,8 +316,6 @@ function saveStore() {
             user.verificationExpiresAt || null,
             user.createdAt || null,
             user.updatedAt || null,
-            Number.isFinite(user.dailyStreak) ? user.dailyStreak : 0,
-            user.lastDailyClaimAt || null,
           ]
         );
       }
@@ -381,52 +372,33 @@ function saveStore() {
   return writeChain;
 }
 
-function getUtcDayStart(timestamp) {
-  const date = new Date(timestamp);
-  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
-}
-
-function getDailyStatus(user, now = Date.now()) {
-  const lastClaimAt =
-    typeof user.lastDailyClaimAt === "number" ? user.lastDailyClaimAt : null;
-  let currentStreak =
-    typeof user.dailyStreak === "number" && Number.isFinite(user.dailyStreak)
-      ? user.dailyStreak
-      : 0;
-  const todayStart = getUtcDayStart(now);
-  const lastStart = lastClaimAt ? getUtcDayStart(lastClaimAt) : null;
-  const claimedToday = lastStart === todayStart;
-  if (claimedToday && currentStreak < 1) {
-    currentStreak = 1;
+async function sendVerificationEmail({ email, username, code }) {
+  if (!mailTransport) {
+    throw new Error("Email transport is not configured.");
   }
+  const safeName = username ? ` ${username}` : "";
+  const subject = "BetRoyale verification code";
+  const text = `Hi${safeName},\n\nYour BetRoyale verification code is: ${code}\n\nEnter this code to verify your account.\n\nIf you did not request this, you can ignore this email.`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; color: #111;">
+      <h2 style="margin: 0 0 12px;">BetRoyale verification</h2>
+      <p>Hi${safeName},</p>
+      <p>Your verification code is:</p>
+      <div style="font-size: 22px; font-weight: bold; letter-spacing: 3px; margin: 12px 0;">
+        ${code}
+      </div>
+      <p>Enter this code in the app to verify your account.</p>
+      <p style="color: #666;">If you did not request this, you can ignore this email.</p>
+    </div>
+  `;
 
-  let nextStreak = 1;
-  if (lastStart && todayStart - lastStart === ONE_DAY_MS) {
-    nextStreak = currentStreak + 1;
-    if (nextStreak > DAILY_REWARDS.length) {
-      nextStreak = 1;
-    }
-  }
-
-  return {
-    rewards: DAILY_REWARDS,
-    streak: currentStreak,
-    canClaim: !claimedToday,
-    nextStreak: claimedToday ? currentStreak : nextStreak,
-    nextRewardIndex: claimedToday ? currentStreak || 1 : nextStreak,
-    lastClaimAt,
-  };
-}
-
-function applyDailyReward(user, dayIndex) {
-  const reward = DAILY_REWARDS[dayIndex - 1];
-  if (!reward) return null;
-  if (reward.gems > 0) {
-    user.gems = Math.max(0, (user.gems || 0) + reward.gems);
-  } else {
-    user.credits = Math.max(0, (user.credits || 0) + reward.coins);
-  }
-  return reward;
+  await mailTransport.sendMail({
+    from: EMAIL_FROM,
+    to: email,
+    subject,
+    text,
+    html,
+  });
 }
 
 function sanitizeTag(tag) {
@@ -580,14 +552,6 @@ function ensureUserDefaults(user) {
     user.verificationExpiresAt = null;
     changed = true;
   }
-  if (typeof user.dailyStreak !== "number" || !Number.isFinite(user.dailyStreak)) {
-    user.dailyStreak = 0;
-    changed = true;
-  }
-  if (!("lastDailyClaimAt" in user)) {
-    user.lastDailyClaimAt = null;
-    changed = true;
-  }
   return changed;
 }
 
@@ -617,8 +581,6 @@ function createUser(email, passwordHash) {
     isVerified: false,
     verificationCode,
     verificationExpiresAt: now + VERIFICATION_TTL_MS,
-    dailyStreak: 0,
-    lastDailyClaimAt: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -642,8 +604,6 @@ function publicUser(user) {
     credits: user.credits,
     coins: user.credits,
     gems: user.gems,
-    dailyStreak: user.dailyStreak || 0,
-    lastDailyClaimAt: user.lastDailyClaimAt || null,
     stats: user.stats,
     playerProfile: user.playerProfile,
     isVerified: user.isVerified,
@@ -1046,10 +1006,25 @@ app.post("/api/auth/register", async (req, res) => {
     user.username = username;
     store.users.push(user);
     await saveStore();
+    if (user.verificationCode) {
+      try {
+        await sendVerificationEmail({
+          email: user.email,
+          username: user.username,
+          code: user.verificationCode,
+        });
+      } catch (mailErr) {
+        store.users = store.users.filter((entry) => entry.id !== user.id);
+        await saveStore();
+        return res
+          .status(500)
+          .json({ error: "Unable to send verification email." });
+      }
+    }
     req.session.userId = user.id;
     return res.status(201).json({
       user: publicUser(user),
-      verificationCode: user.verificationCode,
+      verificationCode: mailTransport ? null : user.verificationCode,
       verificationExpiresAt: user.verificationExpiresAt,
     });
   } catch (err) {
@@ -1172,50 +1147,6 @@ app.put("/api/profile", async (req, res) => {
   user.updatedAt = Date.now();
   await saveStore();
   return res.json({ user: publicUser(user) });
-});
-
-app.get("/api/store/status", (req, res) => {
-  const user = requireAuth(req, res);
-  if (!user) return;
-
-  const status = getDailyStatus(user);
-  const nextReward = DAILY_REWARDS[status.nextRewardIndex - 1] || null;
-  return res.json({
-    streak: status.streak,
-    canClaim: status.canClaim,
-    nextRewardIndex: status.nextRewardIndex,
-    nextReward,
-    lastClaimAt: status.lastClaimAt,
-    rewards: status.rewards,
-  });
-});
-
-app.post("/api/store/claim", async (req, res) => {
-  const user = requireAuth(req, res);
-  if (!user) return;
-
-  const status = getDailyStatus(user);
-  if (!status.canClaim) {
-    return res
-      .status(400)
-      .json({ error: "Daily reward already claimed. Try again tomorrow." });
-  }
-
-  const reward = applyDailyReward(user, status.nextStreak);
-  if (!reward) {
-    return res.status(400).json({ error: "Reward unavailable." });
-  }
-
-  user.dailyStreak = status.nextStreak;
-  user.lastDailyClaimAt = Date.now();
-  user.updatedAt = Date.now();
-  await saveStore();
-  return res.json({
-    user: publicUser(user),
-    reward,
-    streak: user.dailyStreak,
-    lastClaimAt: user.lastDailyClaimAt,
-  });
 });
 
 app.get("/api/battlelog", async (req, res) => {

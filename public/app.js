@@ -1,8 +1,6 @@
 const authPanel = document.getElementById("auth-panel");
 const profilePanel = document.getElementById("profile-panel");
 const queuePanel = document.getElementById("queue-panel");
-const shopPanel = document.getElementById("shop-panel");
-
 const registerForm = document.getElementById("register-form");
 const loginForm = document.getElementById("login-form");
 const logoutBtn = document.getElementById("logout");
@@ -36,12 +34,6 @@ const statLosses = document.getElementById("stat-losses");
 const statDraws = document.getElementById("stat-draws");
 const balanceCoins = document.getElementById("balance-coins");
 const balanceGems = document.getElementById("balance-gems");
-const shopRewardsEl = document.getElementById("shop-rewards");
-const shopClaimBtn = document.getElementById("shop-claim");
-const shopStreakEl = document.getElementById("shop-streak-count");
-const shopNextEl = document.getElementById("shop-next");
-const shopMessageEl = document.getElementById("shop-message");
-
 const joinQueueBtn = document.getElementById("join-queue");
 const wagerInput = document.getElementById("wager-amount");
 const wagerLabel = document.getElementById("wager-label");
@@ -73,7 +65,6 @@ const currencyButtons = Array.from(
 const sectionPanels = {
   auth: authPanel,
   profile: profilePanel,
-  shop: shopPanel,
   queue: queuePanel,
   match: matchSection,
   results: resultsPanel,
@@ -132,9 +123,6 @@ function setActiveSection(section) {
     button.classList.toggle("active", button.dataset.section === target);
   });
   activeSection = target;
-  if (target === "shop") {
-    refreshShopStatus();
-  }
 }
 
 function updateMenuState(user) {
@@ -177,7 +165,6 @@ function setAuthState(user) {
 
   if (user) {
     updateProfileUI(user);
-    refreshShopStatus();
     startQueuePolling();
   } else {
     profileEmail.textContent = "—";
@@ -204,10 +191,6 @@ function setAuthState(user) {
     if (queueEmptyEl) queueEmptyEl.classList.remove("hidden");
     if (balanceCoins) balanceCoins.textContent = "0";
     if (balanceGems) balanceGems.textContent = "0";
-    if (shopStreakEl) shopStreakEl.textContent = "0";
-    if (shopNextEl) shopNextEl.textContent = "Next reward: —";
-    if (shopMessageEl) shopMessageEl.textContent = "";
-    if (shopRewardsEl) shopRewardsEl.innerHTML = "";
     stopQueuePolling();
   }
 
@@ -254,117 +237,6 @@ function updateProfileHelp(user) {
   if (!profileHelp) return;
   const needsProfile = !user?.tag || !user?.friendLink;
   profileHelp.classList.toggle("hidden", !needsProfile);
-}
-
-function formatReward(reward) {
-  if (!reward) return "—";
-  if (reward.gems) {
-    return `${reward.gems} gem${reward.gems === 1 ? "" : "s"}`;
-  }
-  return `${reward.coins} coins`;
-}
-
-function renderShopRewards(rewards, streak, canClaim, nextRewardIndex) {
-  if (!shopRewardsEl) return;
-  shopRewardsEl.innerHTML = "";
-  if (!Array.isArray(rewards)) return;
-
-  rewards.forEach((reward) => {
-    const card = document.createElement("div");
-    card.className = "reward-card";
-
-    const dayIndex = reward.day || 0;
-    const claimed = canClaim
-      ? dayIndex < nextRewardIndex
-      : dayIndex <= streak;
-    const highlightIndex = canClaim ? nextRewardIndex : streak || 1;
-    const isToday = dayIndex === highlightIndex;
-
-    if (claimed) card.classList.add("claimed");
-    if (isToday) card.classList.add("today");
-
-    const title = document.createElement("p");
-    title.className = "reward-title";
-    title.textContent = `Day ${dayIndex}`;
-
-    const value = document.createElement("p");
-    value.className = "reward-value";
-    value.textContent = formatReward(reward);
-
-    const badge = document.createElement("span");
-    badge.className = "reward-badge";
-    if (isToday && canClaim) {
-      badge.textContent = "Today";
-    } else if (claimed) {
-      badge.textContent = "Claimed";
-    } else {
-      badge.textContent = "Locked";
-    }
-
-    card.appendChild(title);
-    card.appendChild(value);
-    card.appendChild(badge);
-    shopRewardsEl.appendChild(card);
-  });
-}
-
-function updateShopUI(status) {
-  if (!status) return;
-  const streak = Number(status.streak) || 0;
-  const canClaim = Boolean(status.canClaim);
-  const nextRewardIndex = Number(status.nextRewardIndex) || 1;
-  const nextReward = status.nextReward || null;
-
-  if (shopStreakEl) shopStreakEl.textContent = streak;
-  if (shopNextEl) {
-    shopNextEl.textContent = `Next reward: ${formatReward(nextReward)}`;
-  }
-  if (shopMessageEl) {
-    shopMessageEl.textContent = canClaim
-      ? "Claim today’s reward to keep the streak alive."
-      : "You’ve claimed today’s reward. Come back tomorrow!";
-  }
-  if (shopClaimBtn) {
-    shopClaimBtn.disabled = !canClaim;
-  }
-  renderShopRewards(status.rewards, streak, canClaim, nextRewardIndex);
-}
-
-async function refreshShopStatus() {
-  if (!currentUser) return;
-  try {
-    const data = await apiRequest("/api/store/status", { method: "GET" });
-    updateShopUI(data);
-  } catch (err) {
-    if (shopMessageEl) {
-      shopMessageEl.textContent = err.message || "Unable to load shop.";
-    }
-  }
-}
-
-async function claimDailyReward() {
-  if (!currentUser) {
-    if (shopMessageEl) {
-      shopMessageEl.textContent = "Log in to claim rewards.";
-    }
-    return;
-  }
-  if (shopClaimBtn) shopClaimBtn.disabled = true;
-  if (shopMessageEl) shopMessageEl.textContent = "Claiming reward...";
-  try {
-    const data = await apiRequest("/api/store/claim", { method: "POST" });
-    if (data.user) {
-      setAuthState(data.user);
-    }
-    await refreshShopStatus();
-    if (shopMessageEl) {
-      shopMessageEl.textContent = `Claimed: ${formatReward(
-        data.reward || {}
-      )}.`;
-    }
-  } catch (err) {
-    if (shopMessageEl) shopMessageEl.textContent = err.message;
-  }
 }
 
 async function apiRequest(url, options = {}) {
@@ -1045,7 +917,6 @@ trackBattleBtn.addEventListener("click", trackFriendlyBattle);
 if (refreshQueueBtn) refreshQueueBtn.addEventListener("click", manualRefreshQueue);
 if (cancelQueueBtn) cancelQueueBtn.addEventListener("click", cancelQueue);
 if (verifyButton) verifyButton.addEventListener("click", verifyAccount);
-if (shopClaimBtn) shopClaimBtn.addEventListener("click", claimDailyReward);
 if (wagerInput) {
   wagerInput.addEventListener("input", (event) => {
     updatePresetActive(event.target.value);
