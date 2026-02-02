@@ -1,6 +1,7 @@
 const authPanel = document.getElementById("auth-panel");
 const profilePanel = document.getElementById("profile-panel");
 const queuePanel = document.getElementById("queue-panel");
+const shopPanel = document.getElementById("shop-panel");
 const registerForm = document.getElementById("register-form");
 const loginForm = document.getElementById("login-form");
 const logoutBtn = document.getElementById("logout");
@@ -24,6 +25,7 @@ const verifyPanel = document.getElementById("verify-panel");
 const verifyStatus = document.getElementById("verify-status");
 const verifyCodeInput = document.getElementById("verify-code");
 const verifyButton = document.getElementById("verify-button");
+const verifyResendButton = document.getElementById("verify-resend");
 const verifyDisplay = document.getElementById("verify-display");
 
 const statMatches = document.getElementById("stat-matches");
@@ -34,6 +36,10 @@ const statLosses = document.getElementById("stat-losses");
 const statDraws = document.getElementById("stat-draws");
 const balanceCoins = document.getElementById("balance-coins");
 const balanceGems = document.getElementById("balance-gems");
+const shopBundlesEl = document.getElementById("shop-bundles");
+const shopMessageEl = document.getElementById("shop-message");
+const shopCoinsEl = document.getElementById("shop-coins");
+const shopGemsEl = document.getElementById("shop-gems");
 const joinQueueBtn = document.getElementById("join-queue");
 const wagerInput = document.getElementById("wager-amount");
 const wagerLabel = document.getElementById("wager-label");
@@ -65,6 +71,7 @@ const currencyButtons = Array.from(
 const sectionPanels = {
   auth: authPanel,
   profile: profilePanel,
+  shop: shopPanel,
   queue: queuePanel,
   match: matchSection,
   results: resultsPanel,
@@ -123,6 +130,9 @@ function setActiveSection(section) {
     button.classList.toggle("active", button.dataset.section === target);
   });
   activeSection = target;
+  if (target === "shop") {
+    refreshShop();
+  }
 }
 
 function updateMenuState(user) {
@@ -166,6 +176,7 @@ function setAuthState(user) {
   if (user) {
     updateProfileUI(user);
     startQueuePolling();
+    refreshShop();
   } else {
     profileEmail.textContent = "—";
     if (profileUsername) profileUsername.value = "";
@@ -191,6 +202,10 @@ function setAuthState(user) {
     if (queueEmptyEl) queueEmptyEl.classList.remove("hidden");
     if (balanceCoins) balanceCoins.textContent = "0";
     if (balanceGems) balanceGems.textContent = "0";
+    if (shopCoinsEl) shopCoinsEl.textContent = "0";
+    if (shopGemsEl) shopGemsEl.textContent = "0";
+    if (shopMessageEl) shopMessageEl.textContent = "";
+    if (shopBundlesEl) shopBundlesEl.innerHTML = "";
     stopQueuePolling();
   }
 
@@ -211,6 +226,8 @@ function updateProfileUI(user) {
   if (statGems) statGems.textContent = user.gems ?? 0;
   if (balanceCoins) balanceCoins.textContent = coins;
   if (balanceGems) balanceGems.textContent = user.gems ?? 0;
+  if (shopCoinsEl) shopCoinsEl.textContent = coins;
+  if (shopGemsEl) shopGemsEl.textContent = user.gems ?? 0;
   statWins.textContent = stats.wins || 0;
   statLosses.textContent = stats.losses || 0;
   statDraws.textContent = stats.draws || 0;
@@ -231,6 +248,66 @@ function updateProfileUI(user) {
     verifyPanel.classList.toggle("hidden", user.isVerified);
   }
   updateProfileHelp(user);
+}
+
+function renderShopBundles(bundles = []) {
+  if (!shopBundlesEl) return;
+  shopBundlesEl.innerHTML = "";
+  bundles.forEach((bundle) => {
+    const card = document.createElement("div");
+    card.className = "shop-card";
+
+    const title = document.createElement("p");
+    title.className = "shop-card-title";
+    title.textContent = `${bundle.gems} gems`;
+
+    const price = document.createElement("p");
+    price.className = "shop-card-price";
+    price.textContent = `${bundle.coins} coins`;
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = "Purchase";
+    button.addEventListener("click", () => buyGems(bundle.id));
+
+    card.appendChild(title);
+    card.appendChild(price);
+    card.appendChild(button);
+    shopBundlesEl.appendChild(card);
+  });
+}
+
+async function refreshShop() {
+  if (!currentUser) return;
+  try {
+    const data = await apiRequest("/api/shop/bundles", { method: "GET" });
+    renderShopBundles(data.bundles || []);
+    if (shopMessageEl) shopMessageEl.textContent = "";
+  } catch (err) {
+    if (shopMessageEl) shopMessageEl.textContent = err.message;
+  }
+}
+
+async function buyGems(bundleId) {
+  if (!currentUser) {
+    showStatus("Log in to purchase gems.", true);
+    return;
+  }
+  if (shopMessageEl) shopMessageEl.textContent = "Processing purchase...";
+  try {
+    const data = await apiRequest("/api/shop/buy", {
+      method: "POST",
+      body: JSON.stringify({ bundleId }),
+    });
+    if (data.user) {
+      setAuthState(data.user);
+    }
+    if (shopMessageEl) {
+      shopMessageEl.textContent = `Purchased ${data.purchase.gems} gems for ${data.purchase.coins} coins.`;
+    }
+  } catch (err) {
+    if (shopMessageEl) shopMessageEl.textContent = err.message;
+  }
 }
 
 function updateProfileHelp(user) {
@@ -375,6 +452,29 @@ async function verifyAccount() {
     verifyCodeInput.value = "";
   } catch (err) {
     showStatus(err.message, true);
+  }
+}
+
+async function resendVerificationCode() {
+  showStatus("Sending a new verification code...");
+  if (verifyDisplay) verifyDisplay.classList.add("hidden");
+  try {
+    const data = await apiRequest("/api/auth/resend", { method: "POST" });
+    if (verifyDisplay) {
+      if (data.verificationCode) {
+        verifyDisplay.textContent = `Verification code: ${data.verificationCode}`;
+      } else {
+        verifyDisplay.textContent = "Verification code sent. Check your email.";
+      }
+      verifyDisplay.classList.remove("hidden");
+    }
+    showStatus("New verification code sent.");
+  } catch (err) {
+    showStatus(err.message, true);
+    if (verifyDisplay) {
+      verifyDisplay.textContent = err.message;
+      verifyDisplay.classList.remove("hidden");
+    }
   }
 }
 
@@ -917,6 +1017,9 @@ trackBattleBtn.addEventListener("click", trackFriendlyBattle);
 if (refreshQueueBtn) refreshQueueBtn.addEventListener("click", manualRefreshQueue);
 if (cancelQueueBtn) cancelQueueBtn.addEventListener("click", cancelQueue);
 if (verifyButton) verifyButton.addEventListener("click", verifyAccount);
+if (verifyResendButton) {
+  verifyResendButton.addEventListener("click", resendVerificationCode);
+}
 if (wagerInput) {
   wagerInput.addEventListener("input", (event) => {
     updatePresetActive(event.target.value);

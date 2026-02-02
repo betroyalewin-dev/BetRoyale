@@ -46,6 +46,12 @@ const MATCH_TTL_MS = 1000 * 60 * 60 * 6;
 const MATCH_LOCK_MS = 1000 * 60 * 2;
 const STARTING_CREDITS = 1000;
 const VERIFICATION_TTL_MS = 1000 * 60 * 30;
+const GEM_BUNDLES = [
+  { id: "gems-10", gems: 10, coins: 1000 },
+  { id: "gems-25", gems: 25, coins: 2500 },
+  { id: "gems-50", gems: 50, coins: 5000 },
+  { id: "gems-100", gems: 100, coins: 10000 },
+];
 const waitingQueue = [];
 const tickets = new Map();
 const matches = new Map();
@@ -962,6 +968,10 @@ function createMatchKey(battle, tagA, tagB) {
   return `${timeKey}:${tags}`;
 }
 
+function getGemBundle(bundleId) {
+  return GEM_BUNDLES.find((bundle) => bundle.id === bundleId) || null;
+}
+
 app.get("/api/auth/session", (req, res) => {
   const userId = req.session.userId;
   if (!userId) {
@@ -1099,6 +1109,53 @@ app.post("/api/auth/verify", async (req, res) => {
   return res.json({ user: publicUser(user) });
 });
 
+app.post("/api/auth/resend", async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  if (user.isVerified) {
+    return res.status(400).json({ error: "Account already verified." });
+  }
+
+  if (user.verificationExpiresAt && Date.now() <= user.verificationExpiresAt) {
+    return res
+      .status(400)
+      .json({ error: "Current verification code is still valid." });
+  }
+
+  const previousCode = user.verificationCode;
+  const previousExpiry = user.verificationExpiresAt;
+  const nextCode = generateVerificationCode();
+  const nextExpiry = Date.now() + VERIFICATION_TTL_MS;
+  user.verificationCode = nextCode;
+  user.verificationExpiresAt = nextExpiry;
+
+  if (mailTransport) {
+    try {
+      await sendVerificationEmail({
+        email: user.email,
+        username: user.username,
+        code: nextCode,
+      });
+    } catch (err) {
+      user.verificationCode = previousCode;
+      user.verificationExpiresAt = previousExpiry;
+      await saveStore();
+      return res
+        .status(500)
+        .json({ error: "Unable to send verification email." });
+    }
+  }
+
+  user.updatedAt = Date.now();
+  await saveStore();
+  return res.json({
+    ok: true,
+    verificationCode: mailTransport ? null : user.verificationCode,
+    verificationExpiresAt: user.verificationExpiresAt,
+  });
+});
+
 app.post("/api/auth/logout", (req, res) => {
   req.session.destroy(() => {
     res.json({ ok: true });
@@ -1147,6 +1204,48 @@ app.put("/api/profile", async (req, res) => {
   user.updatedAt = Date.now();
   await saveStore();
   return res.json({ user: publicUser(user) });
+});
+
+app.get("/api/shop/bundles", (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  return res.json({
+    bundles: GEM_BUNDLES,
+    balance: {
+      coins: user.credits,
+      gems: user.gems,
+    },
+  });
+});
+
+app.post("/api/shop/buy", async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  const bundleId = String(req.body?.bundleId || "").trim();
+  const bundle = getGemBundle(bundleId);
+  if (!bundle) {
+    return res.status(400).json({ error: "Invalid gem bundle." });
+  }
+
+  if (user.credits < bundle.coins) {
+    return res.status(400).json({ error: "Not enough coins to purchase." });
+  }
+
+  user.credits = Math.max(0, user.credits - bundle.coins);
+  user.gems = Math.max(0, user.gems + bundle.gems);
+  user.updatedAt = Date.now();
+  await saveStore();
+
+  return res.json({
+    user: publicUser(user),
+    purchase: {
+      bundleId: bundle.id,
+      gems: bundle.gems,
+      coins: bundle.coins,
+    },
+  });
 });
 
 app.get("/api/battlelog", async (req, res) => {

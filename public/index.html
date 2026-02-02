@@ -92,6 +92,17 @@
             <span class="balance-label">Gems</span>
             <span id="balance-gems" class="balance-value">0</span>
           </div>
+          <button type="button" class="menu-button shop-button" data-section="shop">
+            <span class="icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M6 7l2-3h8l2 3"></path>
+                <path d="M4 7h16"></path>
+                <path d="M6 7v11h12V7"></path>
+                <path d="M9 11h6"></path>
+              </svg>
+            </span>
+            Shop
+          </button>
         </div>
       </nav>
       <header class="hero">
@@ -346,6 +357,15 @@
               </span>
               Verify Account
             </button>
+            <button type="button" id="verify-resend" class="secondary">
+              <span class="icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M20 12a8 8 0 1 1-2.34-5.66"></path>
+                  <path d="M20 4v6h-6"></path>
+                </svg>
+              </span>
+              Resend Code
+            </button>
           </div>
           <p id="verify-display" class="verify-display hidden"></p>
         </div>
@@ -370,6 +390,27 @@
             </div>
           </div>
         </div>
+      </section>
+
+      <section id="shop-panel" class="panel shop hidden">
+        <div class="shop-header">
+          <div>
+            <p class="eyebrow">Shop</p>
+            <h2>Gem Bundles</h2>
+            <p class="subhead">
+              Exchange coins for gems to unlock higher-stakes wagers.
+            </p>
+          </div>
+          <div class="shop-balance">
+            <p class="shop-balance-label">Your Balance</p>
+            <p class="shop-balance-value">
+              <span id="shop-coins">0</span> coins ·
+              <span id="shop-gems">0</span> gems
+            </p>
+          </div>
+        </div>
+        <p id="shop-message" class="shop-message"></p>
+        <div id="shop-bundles" class="shop-grid"></div>
       </section>
 
       <section id="queue-panel" class="panel queue hidden">
