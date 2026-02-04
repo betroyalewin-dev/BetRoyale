@@ -7,6 +7,7 @@ const bcrypt = require("bcryptjs");
 const session = require("express-session");
 const { Pool } = require("pg");
 const nodemailer = require("nodemailer");
+const Stripe = require("stripe");
 require("dotenv").config();
 
 const app = express();
@@ -15,6 +16,10 @@ const HOST = process.env.HOST || "127.0.0.1";
 const API_TOKEN = process.env.CR_API_TOKEN;
 const SESSION_SECRET = process.env.SESSION_SECRET || "dev-secret";
 const DATABASE_URL = process.env.DATABASE_URL;
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+const PUBLIC_URL =
+  process.env.PUBLIC_URL || `http://${process.env.HOST || "127.0.0.1"}:${PORT}`;
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
 const EMAIL_FROM = process.env.EMAIL_FROM || EMAIL_USER || "no-reply@betroyale.win";
@@ -41,17 +46,16 @@ const mailTransport =
         },
       })
     : null;
+const stripe = STRIPE_SECRET_KEY
+  ? new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2023-10-16" })
+  : null;
 const QUEUE_TTL_MS = 1000 * 60 * 30;
 const MATCH_TTL_MS = 1000 * 60 * 60 * 6;
 const MATCH_LOCK_MS = 1000 * 60 * 2;
 const STARTING_CREDITS = 1000;
 const VERIFICATION_TTL_MS = 1000 * 60 * 30;
-const GEM_BUNDLES = [
-  { id: "gems-10", gems: 10, coins: 1000 },
-  { id: "gems-25", gems: 25, coins: 2500 },
-  { id: "gems-50", gems: 50, coins: 5000 },
-  { id: "gems-100", gems: 100, coins: 10000 },
-];
+const MIN_GEM_PURCHASE_CENTS = 50;
+const MAX_GEM_PURCHASE_CENTS = 100000;
 const waitingQueue = [];
 const tickets = new Map();
 const matches = new Map();
@@ -60,6 +64,7 @@ let store = {
   users: [],
   recordedMatches: {},
   migrations: {},
+  purchases: {},
 };
 
 let writeChain = Promise.resolve();
@@ -119,6 +124,16 @@ async function ensureDatabaseSchema() {
       value JSONB
     )
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS purchases (
+      session_id TEXT PRIMARY KEY,
+      user_id TEXT,
+      amount_cents INTEGER,
+      gems INTEGER,
+      created_at BIGINT
+    )
+  `);
 }
 
 if (!API_TOKEN) {
@@ -127,6 +142,63 @@ if (!API_TOKEN) {
 if (!mailTransport) {
   console.warn("Missing EMAIL_USER/EMAIL_PASS; verification emails disabled.");
 }
+if (!stripe) {
+  console.warn("Missing STRIPE_SECRET_KEY; shop checkout disabled.");
+}
+if (!STRIPE_WEBHOOK_SECRET) {
+  console.warn("Missing STRIPE_WEBHOOK_SECRET; Stripe webhooks disabled.");
+}
+
+app.post(
+  "/api/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+    if (!stripe || !STRIPE_WEBHOOK_SECRET) {
+      return res.status(400).send("Stripe not configured.");
+    }
+    const signature = req.headers["stripe-signature"];
+    let event = null;
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        signature,
+        STRIPE_WEBHOOK_SECRET
+      );
+    } catch (err) {
+      return res.status(400).send("Invalid signature.");
+    }
+
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object;
+      if (session.payment_status === "paid") {
+        const sessionId = session.id;
+        const userId = session.metadata?.userId;
+        const gems = Number(session.metadata?.gems) || 0;
+        const amountCents = Number(session.amount_total) || 0;
+
+        if (userId && gems > 0) {
+          const wasRecorded = await recordPurchase(
+            sessionId,
+            userId,
+            amountCents,
+            gems
+          );
+          if (!wasRecorded) {
+            return res.json({ received: true });
+          }
+          const user = findUserById(userId);
+          if (user) {
+            user.gems = Math.max(0, (user.gems || 0) + gems);
+            user.updatedAt = Date.now();
+            await saveStore();
+          }
+        }
+      }
+    }
+
+    return res.json({ received: true });
+  }
+);
 
 app.use(express.json());
 app.use(
@@ -176,6 +248,7 @@ async function loadStore() {
         })),
         recordedMatches: {},
         migrations: parseJsonValue(metaResult.rows?.[0]?.value, {}) || {},
+        purchases: {},
       };
 
       matchResult.rows.forEach((row) => {
@@ -202,6 +275,10 @@ async function loadStore() {
         migrations:
           parsed.migrations && typeof parsed.migrations === "object"
             ? parsed.migrations
+            : {},
+        purchases:
+          parsed.purchases && typeof parsed.purchases === "object"
+            ? parsed.purchases
             : {},
       };
     }
@@ -376,6 +453,35 @@ function saveStore() {
     }
   });
   return writeChain;
+}
+
+async function recordPurchase(sessionId, userId, amountCents, gems) {
+  if (!sessionId) return false;
+  if (pool) {
+    const result = await pool.query(
+      `
+      INSERT INTO purchases (session_id, user_id, amount_cents, gems, created_at)
+      VALUES ($1, $2, $3, $4, $5)
+      ON CONFLICT (session_id) DO NOTHING
+      `,
+      [sessionId, userId || null, amountCents || 0, gems || 0, Date.now()]
+    );
+    return result.rowCount > 0;
+  }
+
+  if (store.purchases?.[sessionId]) {
+    return false;
+  }
+  if (!store.purchases) store.purchases = {};
+  store.purchases[sessionId] = {
+    sessionId,
+    userId,
+    amountCents,
+    gems,
+    createdAt: Date.now(),
+  };
+  await saveStore();
+  return true;
 }
 
 async function sendVerificationEmail({ email, username, code }) {
@@ -1206,46 +1312,56 @@ app.put("/api/profile", async (req, res) => {
   return res.json({ user: publicUser(user) });
 });
 
-app.get("/api/shop/bundles", (req, res) => {
+app.post("/api/shop/checkout", async (req, res) => {
   const user = requireAuth(req, res);
   if (!user) return;
 
-  return res.json({
-    bundles: GEM_BUNDLES,
-    balance: {
-      coins: user.credits,
-      gems: user.gems,
-    },
-  });
-});
-
-app.post("/api/shop/buy", async (req, res) => {
-  const user = requireAuth(req, res);
-  if (!user) return;
-
-  const bundleId = String(req.body?.bundleId || "").trim();
-  const bundle = getGemBundle(bundleId);
-  if (!bundle) {
-    return res.status(400).json({ error: "Invalid gem bundle." });
+  if (!stripe) {
+    return res.status(400).json({ error: "Stripe is not configured." });
   }
 
-  if (user.credits < bundle.coins) {
-    return res.status(400).json({ error: "Not enough coins to purchase." });
+  const amountCents = Number(req.body?.amountCents);
+  if (!Number.isFinite(amountCents) || amountCents % 1 !== 0) {
+    return res.status(400).json({ error: "Enter a valid USD amount." });
+  }
+  if (
+    amountCents < MIN_GEM_PURCHASE_CENTS ||
+    amountCents > MAX_GEM_PURCHASE_CENTS
+  ) {
+    return res.status(400).json({
+      error: `Amount must be between $${(
+        MIN_GEM_PURCHASE_CENTS / 100
+      ).toFixed(2)} and $${(MAX_GEM_PURCHASE_CENTS / 100).toFixed(2)}.`,
+    });
   }
 
-  user.credits = Math.max(0, user.credits - bundle.coins);
-  user.gems = Math.max(0, user.gems + bundle.gems);
-  user.updatedAt = Date.now();
-  await saveStore();
-
-  return res.json({
-    user: publicUser(user),
-    purchase: {
-      bundleId: bundle.id,
-      gems: bundle.gems,
-      coins: bundle.coins,
+  const gems = amountCents;
+  const session = await stripe.checkout.sessions.create({
+    mode: "payment",
+    payment_method_types: ["card"],
+    customer_email: user.email,
+    metadata: {
+      userId: user.id,
+      gems: String(gems),
     },
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: "usd",
+          unit_amount: amountCents,
+          product_data: {
+            name: `${gems} Gems`,
+            description: "BetRoyale gem purchase",
+          },
+        },
+      },
+    ],
+    success_url: `${PUBLIC_URL}/?shop=success&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${PUBLIC_URL}/?shop=cancel`,
   });
+
+  return res.json({ url: session.url });
 });
 
 app.get("/api/battlelog", async (req, res) => {
