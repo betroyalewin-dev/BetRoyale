@@ -1122,6 +1122,7 @@ app.post("/api/auth/register", async (req, res) => {
     user.username = username;
     store.users.push(user);
     await saveStore();
+    let verificationWarning = null;
     if (user.verificationCode) {
       try {
         await sendVerificationEmail({
@@ -1130,11 +1131,9 @@ app.post("/api/auth/register", async (req, res) => {
           code: user.verificationCode,
         });
       } catch (mailErr) {
-        store.users = store.users.filter((entry) => entry.id !== user.id);
-        await saveStore();
-        return res
-          .status(500)
-          .json({ error: "Unable to send verification email." });
+        console.error("Verification email failed:", mailErr);
+        verificationWarning =
+          "Account created, but verification email could not be sent.";
       }
     }
     req.session.userId = user.id;
@@ -1142,6 +1141,7 @@ app.post("/api/auth/register", async (req, res) => {
       user: publicUser(user),
       verificationCode: mailTransport ? null : user.verificationCode,
       verificationExpiresAt: user.verificationExpiresAt,
+      warning: verificationWarning,
     });
   } catch (err) {
     return res.status(500).json({ error: "Unable to create account." });
