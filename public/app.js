@@ -473,7 +473,8 @@ profileForm.addEventListener("submit", async (event) => {
 
 async function verifyAccount() {
   if (!verifyCodeInput) return;
-  showStatus("Verifying account...");
+  setProfileNotice("Verifying account...");
+  showStatus("");
   try {
     const data = await apiRequest("/api/auth/verify", {
       method: "POST",
@@ -487,7 +488,7 @@ async function verifyAccount() {
     if (verifyDisplay) verifyDisplay.classList.add("hidden");
     verifyCodeInput.value = "";
   } catch (err) {
-    showStatus(err.message, true);
+    setProfileNotice(err.message, true);
   }
 }
 
