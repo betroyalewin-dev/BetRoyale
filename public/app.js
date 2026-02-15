@@ -19,6 +19,7 @@ const profileEmail = document.getElementById("profile-email");
 const profileUsername = document.getElementById("profile-username");
 const profileTag = document.getElementById("profile-tag");
 const profileLink = document.getElementById("profile-link");
+const profileNotice = document.getElementById("profile-notice");
 const profileHelp = document.getElementById("profile-help");
 const profileName = document.getElementById("profile-name");
 const profileArena = document.getElementById("profile-arena");
@@ -185,6 +186,21 @@ function setFormMessage(target, message, isError = false) {
   target.classList.toggle("error", Boolean(isError && message));
 }
 
+function setProfileNotice(html, isError = false) {
+  if (!profileNotice) return;
+  profileNotice.innerHTML = html || "";
+  profileNotice.classList.toggle("hidden", !html);
+  profileNotice.classList.toggle("error", Boolean(isError && html));
+}
+
+function updateProfileHighlights(user) {
+  if (!profileTag || !profileLink) return;
+  const needsTag = !user?.tag;
+  const needsLink = !user?.friendLink;
+  profileTag.classList.toggle("highlight-field", needsTag);
+  profileLink.classList.toggle("highlight-field", needsLink);
+}
+
 function clearResults() {
   resultsEl.innerHTML = "";
 }
@@ -216,6 +232,8 @@ function setAuthState(user) {
     }
     if (verifyPanel) verifyPanel.classList.add("hidden");
     if (verifyDisplay) verifyDisplay.classList.add("hidden");
+    if (profileNotice) profileNotice.classList.add("hidden");
+    if (profileNotice) profileNotice.textContent = "";
     if (queueListEl) queueListEl.innerHTML = "";
     if (queueCountEl) queueCountEl.textContent = "0 waiting";
     if (queueEmptyEl) queueEmptyEl.classList.remove("hidden");
@@ -268,6 +286,7 @@ function updateProfileUI(user) {
   if (verifyPanel) {
     verifyPanel.classList.toggle("hidden", user.isVerified);
   }
+  updateProfileHighlights(user);
   updateProfileHelp(user);
 }
 
@@ -461,7 +480,10 @@ async function verifyAccount() {
       body: JSON.stringify({ code: verifyCodeInput.value }),
     });
     setAuthState(data.user);
-    showStatus("Account verified. You can join the queue now.");
+    setProfileNotice(
+      "<strong>Account Verified.</strong> Next, paste your Clash Royale player tag and friend link below to be able to join the queue!"
+    );
+    updateProfileHighlights(data.user);
     if (verifyDisplay) verifyDisplay.classList.add("hidden");
     verifyCodeInput.value = "";
   } catch (err) {
