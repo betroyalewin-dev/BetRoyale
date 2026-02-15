@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
@@ -396,9 +396,9 @@
         <div class="shop-header">
           <div>
             <p class="eyebrow">Shop</p>
-            <h2>Gem Bundles</h2>
+            <h2>Buy Gems</h2>
             <p class="subhead">
-              Exchange coins for gems to unlock higher-stakes wagers.
+              Choose your USD amount. Each cent equals one gem.
             </p>
           </div>
           <div class="shop-balance">
@@ -409,8 +409,32 @@
             </p>
           </div>
         </div>
+        <div class="shop-purchase">
+          <div class="field">
+            <label for="shop-amount">Amount (USD)</label>
+            <input
+              id="shop-amount"
+              name="shop-amount"
+              type="number"
+              min="0.50"
+              step="0.01"
+              placeholder="5.00"
+              inputmode="decimal"
+            />
+            <p class="field-hint">1¢ = 1 gem. $1.00 = 100 gems.</p>
+          </div>
+          <div class="shop-preview">
+            <p class="shop-preview-label">You get</p>
+            <p class="shop-preview-value">
+              <span id="shop-gems-preview">0</span> gems
+            </p>
+          </div>
+        </div>
+        <div class="shop-actions">
+          <button type="button" id="shop-checkout">Continue to payment</button>
+          <p class="shop-legal">Payments are processed securely by Stripe.</p>
+        </div>
         <p id="shop-message" class="shop-message"></p>
-        <div id="shop-bundles" class="shop-grid"></div>
       </section>
 
       <section id="queue-panel" class="panel queue hidden">

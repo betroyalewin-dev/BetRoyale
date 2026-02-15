@@ -36,10 +36,12 @@ const statLosses = document.getElementById("stat-losses");
 const statDraws = document.getElementById("stat-draws");
 const balanceCoins = document.getElementById("balance-coins");
 const balanceGems = document.getElementById("balance-gems");
-const shopBundlesEl = document.getElementById("shop-bundles");
 const shopMessageEl = document.getElementById("shop-message");
 const shopCoinsEl = document.getElementById("shop-coins");
 const shopGemsEl = document.getElementById("shop-gems");
+const shopAmountInput = document.getElementById("shop-amount");
+const shopCheckoutBtn = document.getElementById("shop-checkout");
+const shopGemsPreview = document.getElementById("shop-gems-preview");
 const joinQueueBtn = document.getElementById("join-queue");
 const wagerInput = document.getElementById("wager-amount");
 const wagerLabel = document.getElementById("wager-label");
@@ -205,7 +207,8 @@ function setAuthState(user) {
     if (shopCoinsEl) shopCoinsEl.textContent = "0";
     if (shopGemsEl) shopGemsEl.textContent = "0";
     if (shopMessageEl) shopMessageEl.textContent = "";
-    if (shopBundlesEl) shopBundlesEl.innerHTML = "";
+    if (shopAmountInput) shopAmountInput.value = "";
+    if (shopGemsPreview) shopGemsPreview.textContent = "0";
     stopQueuePolling();
   }
 
@@ -250,63 +253,54 @@ function updateProfileUI(user) {
   updateProfileHelp(user);
 }
 
-function renderShopBundles(bundles = []) {
-  if (!shopBundlesEl) return;
-  shopBundlesEl.innerHTML = "";
-  bundles.forEach((bundle) => {
-    const card = document.createElement("div");
-    card.className = "shop-card";
-
-    const title = document.createElement("p");
-    title.className = "shop-card-title";
-    title.textContent = `${bundle.gems} gems`;
-
-    const price = document.createElement("p");
-    price.className = "shop-card-price";
-    price.textContent = `${bundle.coins} coins`;
-
-    const button = document.createElement("button");
-    button.type = "button";
-    button.textContent = "Purchase";
-    button.addEventListener("click", () => buyGems(bundle.id));
-
-    card.appendChild(title);
-    card.appendChild(price);
-    card.appendChild(button);
-    shopBundlesEl.appendChild(card);
-  });
+function parseAmountToCents(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return null;
+  const cents = Math.round(amount * 100);
+  if (cents <= 0) return null;
+  return cents;
 }
 
-async function refreshShop() {
+function updateShopPreview() {
+  if (!shopGemsPreview) return;
+  const cents = parseAmountToCents(shopAmountInput?.value);
+  shopGemsPreview.textContent = cents ? String(cents) : "0";
+}
+
+function refreshShop() {
   if (!currentUser) return;
-  try {
-    const data = await apiRequest("/api/shop/bundles", { method: "GET" });
-    renderShopBundles(data.bundles || []);
-    if (shopMessageEl) shopMessageEl.textContent = "";
-  } catch (err) {
-    if (shopMessageEl) shopMessageEl.textContent = err.message;
-  }
+  updateShopPreview();
+  if (shopMessageEl) shopMessageEl.textContent = "";
 }
 
-async function buyGems(bundleId) {
+async function startCheckout() {
   if (!currentUser) {
     showStatus("Log in to purchase gems.", true);
     return;
   }
-  if (shopMessageEl) shopMessageEl.textContent = "Processing purchase...";
+  const cents = parseAmountToCents(shopAmountInput?.value);
+  if (!cents) {
+    if (shopMessageEl) shopMessageEl.textContent = "Enter a valid USD amount.";
+    return;
+  }
+  if (shopMessageEl) shopMessageEl.textContent = "Opening secure checkout...";
+  if (shopCheckoutBtn) shopCheckoutBtn.disabled = true;
   try {
-    const data = await apiRequest("/api/shop/buy", {
+    const data = await apiRequest("/api/shop/checkout", {
       method: "POST",
-      body: JSON.stringify({ bundleId }),
+      body: JSON.stringify({ amountCents: cents }),
     });
-    if (data.user) {
-      setAuthState(data.user);
+    if (data?.url) {
+      window.location.href = data.url;
+      return;
     }
     if (shopMessageEl) {
-      shopMessageEl.textContent = `Purchased ${data.purchase.gems} gems for ${data.purchase.coins} coins.`;
+      shopMessageEl.textContent = "Checkout link unavailable. Try again.";
     }
   } catch (err) {
     if (shopMessageEl) shopMessageEl.textContent = err.message;
+  } finally {
+    if (shopCheckoutBtn) shopCheckoutBtn.disabled = false;
   }
 }
 
@@ -1019,6 +1013,12 @@ if (cancelQueueBtn) cancelQueueBtn.addEventListener("click", cancelQueue);
 if (verifyButton) verifyButton.addEventListener("click", verifyAccount);
 if (verifyResendButton) {
   verifyResendButton.addEventListener("click", resendVerificationCode);
+}
+if (shopAmountInput) {
+  shopAmountInput.addEventListener("input", updateShopPreview);
+}
+if (shopCheckoutBtn) {
+  shopCheckoutBtn.addEventListener("click", startCheckout);
 }
 if (wagerInput) {
   wagerInput.addEventListener("input", (event) => {
