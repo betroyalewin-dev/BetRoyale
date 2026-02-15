@@ -11,7 +11,8 @@ const Stripe = require("stripe");
 require("dotenv").config();
 
 const app = express();
-const isProduction = process.env.NODE_ENV === "production";
+const isProduction =
+  process.env.NODE_ENV === "production" || PUBLIC_URL.startsWith("https://");
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || "127.0.0.1";
 const API_TOKEN = process.env.CR_API_TOKEN;
@@ -210,7 +211,7 @@ app.use(
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: isProduction ? "none" : "lax",
       secure: isProduction,
     },
   })
