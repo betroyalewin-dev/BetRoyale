@@ -11,6 +11,7 @@ const Stripe = require("stripe");
 require("dotenv").config();
 
 const app = express();
+const isProduction = process.env.NODE_ENV === "production";
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || "127.0.0.1";
 const API_TOKEN = process.env.CR_API_TOKEN;
@@ -201,6 +202,7 @@ app.post(
 );
 
 app.use(express.json());
+app.set("trust proxy", 1);
 app.use(
   session({
     secret: SESSION_SECRET,
@@ -209,6 +211,7 @@ app.use(
     cookie: {
       httpOnly: true,
       sameSite: "lax",
+      secure: isProduction,
     },
   })
 );

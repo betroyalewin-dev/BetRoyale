@@ -349,6 +349,7 @@ function updateProfileHelp(user) {
 
 async function apiRequest(url, options = {}) {
   const response = await fetch(url, {
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...(options.headers || {}),
