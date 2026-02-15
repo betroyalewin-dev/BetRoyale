@@ -147,10 +147,14 @@ function updateMenuState(user) {
     if (isLoggedIn) {
       button.disabled = false;
       button.classList.remove("disabled");
+      button.classList.remove("hidden");
     } else {
       const disable = section !== "auth";
       button.disabled = disable;
       button.classList.toggle("disabled", disable);
+      if (section === "shop") {
+        button.classList.add("hidden");
+      }
     }
   });
 
@@ -218,6 +222,7 @@ function setAuthState(user) {
     if (shopMessageEl) shopMessageEl.textContent = "";
     if (shopAmountInput) shopAmountInput.value = "";
     if (shopGemsPreview) shopGemsPreview.textContent = "0";
+    if (shopPanel) shopPanel.classList.add("hidden");
     stopQueuePolling();
   }
 

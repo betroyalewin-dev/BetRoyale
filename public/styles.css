@@ -120,6 +120,10 @@ body::before {
   transform: none;
 }
 
+.menu-button.hidden {
+  display: none;
+}
+
 .menu-balance {
   display: grid;
   gap: 6px;
