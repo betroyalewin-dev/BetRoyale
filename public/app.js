@@ -122,6 +122,10 @@ function resolveSectionTarget(section) {
 
 function setActiveSection(section) {
   const target = resolveSectionTarget(section);
+  if (!currentUser && target !== "auth") {
+    setActiveSection("auth");
+    return;
+  }
   if (!sectionPanels[target]) return;
   Object.entries(sectionPanels).forEach(([key, panel]) => {
     if (!panel) return;
