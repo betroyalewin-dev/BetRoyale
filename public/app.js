@@ -10,8 +10,10 @@ const profileForm = document.getElementById("profile-form");
 const registerUsername = document.getElementById("register-username");
 const registerEmail = document.getElementById("register-email");
 const registerPassword = document.getElementById("register-password");
+const registerMessage = document.getElementById("register-message");
 const loginEmail = document.getElementById("login-email");
 const loginPassword = document.getElementById("login-password");
+const loginMessage = document.getElementById("login-message");
 
 const profileEmail = document.getElementById("profile-email");
 const profileUsername = document.getElementById("profile-username");
@@ -166,6 +168,13 @@ function showStatus(message, isError = false) {
   statusEl.textContent = message;
   statusEl.classList.toggle("hidden", !message);
   statusEl.classList.toggle("error", isError);
+}
+
+function setFormMessage(target, message, isError = false) {
+  if (!target) return;
+  target.textContent = message || "";
+  target.classList.toggle("hidden", !message);
+  target.classList.toggle("error", Boolean(isError && message));
 }
 
 function clearResults() {
@@ -349,7 +358,7 @@ async function refreshProfile() {
 
 registerForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  showStatus("Creating account...");
+  setFormMessage(registerMessage, "Creating account...");
 
   try {
     const data = await apiRequest("/api/auth/register", {
@@ -361,6 +370,7 @@ registerForm.addEventListener("submit", async (event) => {
       }),
     });
     setAuthState(data.user);
+    setFormMessage(registerMessage, "");
     showStatus("Account created. Verify your account below.");
     if (verifyDisplay && data.verificationCode) {
       verifyDisplay.textContent = `Verification code: ${data.verificationCode}`;
@@ -369,13 +379,13 @@ registerForm.addEventListener("submit", async (event) => {
     registerForm.reset();
     profileTag.focus();
   } catch (err) {
-    showStatus(err.message, true);
+    setFormMessage(registerMessage, err.message, true);
   }
 });
 
 loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  showStatus("Logging in...");
+  setFormMessage(loginMessage, "Logging in...");
 
   try {
     const data = await apiRequest("/api/auth/login", {
@@ -386,6 +396,7 @@ loginForm.addEventListener("submit", async (event) => {
       }),
     });
     setAuthState(data.user);
+    setFormMessage(loginMessage, "");
     if (!data.user?.isVerified) {
       showStatus("Logged in. Verify your account to unlock matchmaking.");
     } else if (!data.user?.tag || !data.user?.friendLink) {
@@ -395,7 +406,7 @@ loginForm.addEventListener("submit", async (event) => {
     }
     loginForm.reset();
   } catch (err) {
-    showStatus(err.message, true);
+    setFormMessage(loginMessage, err.message, true);
   }
 });
 

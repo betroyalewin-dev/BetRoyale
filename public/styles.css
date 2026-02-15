@@ -301,6 +301,16 @@ input[type="number"] {
   font-size: 0.85rem;
 }
 
+.form-message {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.form-message.error {
+  color: #b91c1c;
+}
+
 button {
   border: none;
   padding: 12px 20px;
