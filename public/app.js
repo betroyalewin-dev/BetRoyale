@@ -830,26 +830,46 @@ function renderQueueList(entries) {
     left.className = "queue-info";
     const tag = document.createElement("span");
     tag.className = "queue-tag";
-    tag.textContent = entry.isYou ? `${entry.tag} (You)` : entry.tag;
+    tag.textContent = entry.isYou
+      ? `${entry.tag} (You)`
+      : entry.username
+      ? `${entry.username} · ${entry.tag}`
+      : entry.tag;
     const meta = document.createElement("div");
     meta.className = "queue-meta";
+    const wins = Number(entry.stats?.wins || 0);
+    const losses = Number(entry.stats?.losses || 0);
+    const draws = Number(entry.stats?.draws || 0);
+    const record = `${wins}W-${losses}L-${draws}D`;
     if (entry.profile?.name) {
       meta.textContent = `${entry.profile.name} · ${
         entry.profile.trophies ?? 0
-      } trophies`;
+      } trophies · ${record}`;
     } else {
-      meta.textContent = "Profile loading...";
+      meta.textContent = `Profile loading... · ${record}`;
     }
     left.appendChild(tag);
     left.appendChild(meta);
 
+    const right = document.createElement("div");
+    right.className = "queue-actions-inline";
     const wager = document.createElement("span");
     wager.className = "queue-wager";
     const currency = entry.currency || "coins";
     wager.textContent = `Wager: ${entry.wager ?? 0} ${currency}`;
+    right.appendChild(wager);
+
+    if (!entry.isYou) {
+      const acceptButton = document.createElement("button");
+      acceptButton.type = "button";
+      acceptButton.className = "secondary accept-wager-button";
+      acceptButton.textContent = "Accept";
+      acceptButton.addEventListener("click", () => acceptWager(entry));
+      right.appendChild(acceptButton);
+    }
 
     card.appendChild(left);
-    card.appendChild(wager);
+    card.appendChild(right);
     queueListEl.appendChild(card);
   });
 
@@ -873,17 +893,51 @@ function renderQueueList(entries) {
     left.appendChild(tag);
     left.appendChild(meta);
 
+    const right = document.createElement("div");
+    right.className = "queue-actions-inline";
     const wager = document.createElement("span");
     wager.className = "queue-wager";
     wager.textContent = `Wager: ${Number(wagerInput?.value || 0)} ${
       selectedCurrency || "coins"
     }`;
+    right.appendChild(wager);
 
     placeholder.appendChild(left);
-    placeholder.appendChild(wager);
+    placeholder.appendChild(right);
     queueListEl.prepend(placeholder);
     const count = entries.length + 1;
     queueCountEl.textContent = `${count} waiting`;
+  }
+}
+
+async function acceptWager(entry) {
+  if (!entry?.ticketId) {
+    showStatus("That queue entry is no longer available.", true);
+    return;
+  }
+  setWaitingState(true);
+  showStatus("Accepting wager...");
+  try {
+    const data = await apiRequest("/api/queue/accept", {
+      method: "POST",
+      body: JSON.stringify({ ticketId: entry.ticketId }),
+    });
+    currentTicketId = data.ticketId || null;
+    if (data.status === "matched" && data.match) {
+      renderMatch(data.match);
+      showStatus(`Matched with ${getOpponentTag(data.match)}.`);
+      setActiveSection("match");
+      setWaitingState(false);
+      stopPolling();
+      refreshQueueList();
+      return;
+    }
+    setWaitingState(false);
+    showStatus("Unable to create match from that wager.", true);
+  } catch (err) {
+    setWaitingState(false);
+    showStatus(err.message, true);
+    refreshQueueList();
   }
 }
 
@@ -931,13 +985,6 @@ async function joinQueue() {
 
     currentTicketId = data.ticketId;
     refreshQueueList();
-    if (queueCountEl && currentTicketId) {
-      const current = queueCountEl.textContent || "0 waiting";
-      const match = current.match(/^(\\d+)/);
-      const count = match ? Number(match[1]) : 0;
-      queueCountEl.textContent = `${count + 1} waiting`;
-    }
-
     if (data.status === "matched") {
       renderMatch(data.match);
       showStatus(`Matched with ${getOpponentTag(data.match)}.`);
@@ -948,7 +995,7 @@ async function joinQueue() {
       return;
     }
 
-    showStatus("Waiting for another player to join...");
+    showStatus("Challenge posted. Waiting for someone to accept.");
     startPolling();
   } catch (err) {
     setWaitingState(false);

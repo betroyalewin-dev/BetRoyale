@@ -1445,25 +1445,8 @@ app.post("/api/queue/join", (req, res) => {
         existing.wager = wager;
         existing.currency = currency;
         existing.profile = profile;
-        const opponent = dequeueOpponent(user.id, currency);
-        if (opponent) {
-          const match = createMatch(existing, opponent);
-          return res.json({
-            status: "matched",
-            ticketId: existing.id,
-            match,
-          });
-        }
-
         existing.updatedAt = Date.now();
         return res.json({ status: "waiting", ticketId: existing.id });
-      }
-
-      const opponent = dequeueOpponent(user.id, currency);
-      if (opponent) {
-        const ticket = createTicket(user, wager, currency);
-        const match = createMatch(ticket, opponent);
-        return res.json({ status: "matched", ticketId: ticket.id, match });
       }
 
       const ticket = createTicket(user, wager, currency);
@@ -1476,6 +1459,100 @@ app.post("/api/queue/join", (req, res) => {
         reason: err.reason,
       });
     });
+});
+
+app.post("/api/queue/accept", async (req, res) => {
+  cleanupQueues();
+
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  const activeMatch = getActiveMatchForUser(user);
+  if (activeMatch) {
+    return res.json({
+      status: "matched",
+      ticketId: null,
+      match: activeMatch,
+    });
+  }
+
+  if (!user.tag) {
+    return res.status(400).json({ error: "Add your player tag first." });
+  }
+
+  if (!user.friendLink) {
+    return res.status(400).json({ error: "Add your friend link first." });
+  }
+
+  if (!user.isVerified) {
+    return res
+      .status(400)
+      .json({ error: "Verify your account before joining the queue." });
+  }
+
+  const ticketId = String(req.body?.ticketId || "").trim().toUpperCase();
+  if (!ticketId) {
+    return res.status(400).json({ error: "Missing ticket to accept." });
+  }
+
+  const targetTicket = tickets.get(ticketId);
+  if (!targetTicket || targetTicket.matchId || isTicketExpired(targetTicket)) {
+    tickets.delete(ticketId);
+    removeFromQueue(ticketId);
+    return res.status(404).json({ error: "That queue entry is no longer available." });
+  }
+
+  if (targetTicket.userId === user.id) {
+    return res.status(400).json({ error: "You cannot accept your own wager." });
+  }
+
+  const targetWager = Math.max(0, Math.floor(targetTicket.wager || 0));
+  const targetCurrency = targetTicket.currency || "coins";
+  const balance = targetCurrency === "gems" ? user.gems : user.credits;
+  if (targetWager > balance) {
+    return res
+      .status(400)
+      .json({ error: `Not enough ${targetCurrency} to accept this wager.` });
+  }
+
+  try {
+    const profile = await fetchPlayerProfile(user.tag);
+    user.playerProfile = profile;
+    user.updatedAt = Date.now();
+    await saveStore();
+
+    const existing = findExistingTicket(user.id);
+    if (existing) {
+      removeFromQueue(existing.id);
+      tickets.delete(existing.id);
+    }
+
+    const refreshedTarget = tickets.get(ticketId);
+    if (
+      !refreshedTarget ||
+      refreshedTarget.matchId ||
+      isTicketExpired(refreshedTarget)
+    ) {
+      tickets.delete(ticketId);
+      removeFromQueue(ticketId);
+      return res
+        .status(409)
+        .json({ error: "Another player accepted this wager first." });
+    }
+
+    const accepterTicket = createTicket(user, targetWager, targetCurrency);
+    const match = createMatch(accepterTicket, refreshedTarget);
+    return res.json({
+      status: "matched",
+      ticketId: accepterTicket.id,
+      match,
+    });
+  } catch (err) {
+    return res.status(err.status || 500).json({
+      error: err.message || "Unable to accept this wager.",
+      reason: err.reason,
+    });
+  }
 });
 
 app.get("/api/queue/status/:ticketId", (req, res) => {
@@ -1517,10 +1594,14 @@ app.get("/api/queue/list", (req, res) => {
     }
     const queueUser = findUserById(ticket.userId);
     entries.push({
+      ticketId: ticket.id,
+      userId: ticket.userId,
+      username: queueUser?.username || "",
       tag: ticket.tag,
       wager: ticket.wager || 0,
       currency: ticket.currency || "coins",
       profile: ticket.profile || queueUser?.playerProfile || null,
+      stats: queueUser?.stats || null,
       joinedAt: ticket.createdAt,
       isYou: ticket.userId === user.id,
     });
