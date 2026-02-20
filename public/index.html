@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Clash Royale Matchmaking</title>
+    <title>BetRoyale</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -607,6 +608,17 @@
       <footer class="footer">
         Unofficial fan-made tool. Not affiliated with Supercell.
       </footer>
+    </div>
+    <div id="match-transition" class="match-transition hidden" aria-live="polite">
+      <div class="match-transition-card">
+        <div class="match-transition-pulse" aria-hidden="true"></div>
+        <p id="match-transition-title" class="match-transition-title">
+          Match Found
+        </p>
+        <p id="match-transition-subtitle" class="match-transition-subtitle">
+          Taking you to your 1v1...
+        </p>
+      </div>
     </div>
 
     <script src="app.js"></script>
