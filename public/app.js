@@ -64,6 +64,11 @@ const matchLockEl = document.getElementById("match-lock");
 const matchPotEl = document.getElementById("match-pot");
 const matchYourWagerEl = document.getElementById("match-your-wager");
 const matchOpponentWagerEl = document.getElementById("match-opponent-wager");
+const matchTransitionEl = document.getElementById("match-transition");
+const matchTransitionTitleEl = document.getElementById("match-transition-title");
+const matchTransitionSubtitleEl = document.getElementById(
+  "match-transition-subtitle"
+);
 const menuButtons = Array.from(document.querySelectorAll(".menu-button"));
 const heroSection = document.querySelector(".hero");
 const wagerPresetButtons = Array.from(
@@ -528,6 +533,13 @@ function sumCrowns(players) {
   return players.reduce((sum, player) => sum + (player.crowns || 0), 0);
 }
 
+function normalizeTagValue(tag) {
+  if (!tag) return "";
+  const cleaned = String(tag).trim().toUpperCase();
+  if (!cleaned) return "";
+  return cleaned.startsWith("#") ? cleaned : `#${cleaned}`;
+}
+
 function getPlayerNames(players) {
   if (!Array.isArray(players) || players.length === 0) return "Unknown";
   return players.map((p) => p.name).filter(Boolean).join(" + ");
@@ -538,9 +550,31 @@ function getCardNames(cards) {
   return cards.map((card) => card.name).filter(Boolean);
 }
 
+function extractUrlFromText(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const match = raw.match(/https?:\/\/[^\s<>"']+/i);
+  const candidate = match ? match[0] : raw;
+  return candidate.replace(/[),.;!?]+$/, "");
+}
+
 function renderBattle(battle, perspectiveTag) {
-  const team = battle.team || [];
-  const opponent = battle.opponent || [];
+  let team = battle.team || [];
+  let opponent = battle.opponent || [];
+
+  const normalizedPerspectiveTag = normalizeTagValue(perspectiveTag);
+  if (normalizedPerspectiveTag) {
+    const inTeam = team.some(
+      (player) => normalizeTagValue(player?.tag) === normalizedPerspectiveTag
+    );
+    const inOpponent = opponent.some(
+      (player) => normalizeTagValue(player?.tag) === normalizedPerspectiveTag
+    );
+    if (!inTeam && inOpponent) {
+      [team, opponent] = [opponent, team];
+    }
+  }
+
   const teamCrowns = sumCrowns(team);
   const opponentCrowns = sumCrowns(opponent);
 
@@ -730,7 +764,7 @@ function renderMatch(match) {
 
     const linkLine = document.createElement("div");
     if (player.friendLink) {
-      const trimmed = player.friendLink.trim();
+      const trimmed = extractUrlFromText(player.friendLink);
       const isUrl = /^https?:\/\//i.test(trimmed);
       if (isUrl) {
         const link = document.createElement("a");
@@ -771,6 +805,32 @@ function getOpponentTag(match) {
     (player) => player.userId !== currentUser.id
   );
   return opponent?.tag || "your opponent";
+}
+
+function showMatchTransition(title, subtitle) {
+  if (!matchTransitionEl) return Promise.resolve();
+  if (matchTransitionTitleEl) {
+    matchTransitionTitleEl.textContent = title || "Match Found";
+  }
+  if (matchTransitionSubtitleEl) {
+    matchTransitionSubtitleEl.textContent = subtitle || "Taking you to your 1v1...";
+  }
+  matchTransitionEl.classList.remove("hidden");
+  matchTransitionEl.classList.add("active");
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      matchTransitionEl.classList.remove("active");
+      matchTransitionEl.classList.add("hidden");
+      resolve();
+    }, 1200);
+  });
+}
+
+async function moveToMatch(match, transitionTitle, transitionSubtitle) {
+  renderMatch(match);
+  await showMatchTransition(transitionTitle, transitionSubtitle);
+  setActiveSection("match");
+  showStatus(`Matched with ${getOpponentTag(match)}.`);
 }
 
 function stopPolling() {
@@ -830,26 +890,35 @@ function renderQueueList(entries) {
     left.className = "queue-info";
     const tag = document.createElement("span");
     tag.className = "queue-tag";
-    tag.textContent = entry.isYou
-      ? `${entry.tag} (You)`
-      : entry.username
-      ? `${entry.username} · ${entry.tag}`
-      : entry.tag;
+    const primaryName =
+      entry.profile?.name || entry.username || entry.tag || "Unknown player";
+    tag.textContent = entry.isYou ? `${primaryName} (You)` : primaryName;
     const meta = document.createElement("div");
     meta.className = "queue-meta";
     const wins = Number(entry.stats?.wins || 0);
     const losses = Number(entry.stats?.losses || 0);
     const draws = Number(entry.stats?.draws || 0);
     const record = `${wins}W-${losses}L-${draws}D`;
-    if (entry.profile?.name) {
-      meta.textContent = `${entry.profile.name} · ${
+    if (entry.profile) {
+      meta.textContent = `${entry.tag} · ${
         entry.profile.trophies ?? 0
       } trophies · ${record}`;
     } else {
-      meta.textContent = `Profile loading... · ${record}`;
+      meta.textContent = `${entry.tag} · Profile loading... · ${record}`;
     }
     left.appendChild(tag);
     left.appendChild(meta);
+
+    if (entry.profile?.isUltimateChampion) {
+      const flair = document.createElement("div");
+      flair.className = "queue-flair";
+      const medals = Number(entry.profile?.ultimateChampionMedals || 0);
+      flair.textContent =
+        medals > 0
+          ? `Ultimate Champion • ${medals} medals`
+          : "Ultimate Champion";
+      left.appendChild(flair);
+    }
 
     const right = document.createElement("div");
     right.className = "queue-actions-inline";
@@ -880,18 +949,39 @@ function renderQueueList(entries) {
     left.className = "queue-info";
     const tag = document.createElement("span");
     tag.className = "queue-tag";
-    tag.textContent = currentUser?.tag ? `${currentUser.tag} (You)` : "You";
+    const primaryName =
+      currentUser?.playerProfile?.name ||
+      currentUser?.username ||
+      currentUser?.tag ||
+      "You";
+    tag.textContent = `${primaryName} (You)`;
     const meta = document.createElement("div");
     meta.className = "queue-meta";
-    if (currentUser?.playerProfile?.name) {
-      meta.textContent = `${currentUser.playerProfile.name} · ${
+    if (currentUser?.playerProfile) {
+      const wins = Number(currentUser?.stats?.wins || 0);
+      const losses = Number(currentUser?.stats?.losses || 0);
+      const draws = Number(currentUser?.stats?.draws || 0);
+      meta.textContent = `${currentUser.tag || "No tag"} · ${
         currentUser.playerProfile.trophies ?? 0
-      } trophies`;
+      } trophies · ${wins}W-${losses}L-${draws}D`;
     } else {
-      meta.textContent = "Profile loading...";
+      meta.textContent = `${currentUser?.tag || "No tag"} · Profile loading...`;
     }
     left.appendChild(tag);
     left.appendChild(meta);
+
+    if (currentUser?.playerProfile?.isUltimateChampion) {
+      const flair = document.createElement("div");
+      flair.className = "queue-flair";
+      const medals = Number(
+        currentUser?.playerProfile?.ultimateChampionMedals || 0
+      );
+      flair.textContent =
+        medals > 0
+          ? `Ultimate Champion • ${medals} medals`
+          : "Ultimate Champion";
+      left.appendChild(flair);
+    }
 
     const right = document.createElement("div");
     right.className = "queue-actions-inline";
@@ -924,9 +1014,11 @@ async function acceptWager(entry) {
     });
     currentTicketId = data.ticketId || null;
     if (data.status === "matched" && data.match) {
-      renderMatch(data.match);
-      showStatus(`Matched with ${getOpponentTag(data.match)}.`);
-      setActiveSection("match");
+      await moveToMatch(
+        data.match,
+        "Match Locked In",
+        "Challenge accepted. Opening your 1v1 arena..."
+      );
       setWaitingState(false);
       stopPolling();
       refreshQueueList();
@@ -986,9 +1078,7 @@ async function joinQueue() {
     currentTicketId = data.ticketId;
     refreshQueueList();
     if (data.status === "matched") {
-      renderMatch(data.match);
-      showStatus(`Matched with ${getOpponentTag(data.match)}.`);
-      setActiveSection("match");
+      await moveToMatch(data.match, "Match Found", "Opening your match page...");
       setWaitingState(false);
       stopPolling();
       refreshQueueList();
@@ -1038,9 +1128,11 @@ async function checkQueueStatus() {
     );
 
     if (data.status === "matched") {
-      renderMatch(data.match);
-      showStatus(`Matched with ${getOpponentTag(data.match)}.`);
-      setActiveSection("match");
+      await moveToMatch(
+        data.match,
+        "Challenge Accepted",
+        "A player accepted your wager. Taking you to the match page..."
+      );
       setWaitingState(false);
       stopPolling();
       return;

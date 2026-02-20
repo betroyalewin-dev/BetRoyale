@@ -536,7 +536,10 @@ function sanitizeFriendLink(link) {
   if (!link) return "";
   const trimmed = link.trim();
   if (!trimmed) return "";
-  return trimmed;
+  const urlMatch = trimmed.match(/https?:\/\/[^\s<>"']+/i);
+  const candidate = urlMatch ? urlMatch[0] : trimmed;
+  const cleaned = candidate.replace(/[),.;!?]+$/, "");
+  return cleaned;
 }
 
 function sanitizeUsername(username) {
@@ -930,12 +933,118 @@ async function fetchPlayerProfile(tag) {
     throw error;
   }
 
+  const pathCandidates = [
+    data?.bestPathOfLegendSeasonResult,
+    data?.currentPathOfLegendSeasonResult,
+    data?.lastPathOfLegendSeasonResult,
+    data?.leagueStatistics?.currentSeason,
+    data?.leagueStatistics?.previousSeason,
+    data?.leagueStatistics?.bestSeason,
+  ].filter(Boolean);
+
+  const normalizeLeagueNumber = (value) => {
+    const numberValue = Number(value);
+    if (Number.isFinite(numberValue)) return numberValue;
+    return 0;
+  };
+
+  const extractLeagueNumber = (entry) =>
+    normalizeLeagueNumber(
+      entry?.leagueNumber ||
+        entry?.league?.number ||
+        entry?.league?.id ||
+        entry?.bestLeagueNumber ||
+        0
+    );
+
+  const extractMedals = (entry) => {
+    const candidates = [
+      entry?.medals,
+      entry?.trophies,
+      entry?.leagueTrophies,
+      entry?.bestTrophies,
+      entry?.rankedTrophies,
+      entry?.value,
+    ];
+    for (const candidate of candidates) {
+      const parsed = Number(candidate);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        return Math.floor(parsed);
+      }
+    }
+    return 0;
+  };
+
+  const leagueNameByNumber = {
+    1: "Challenger I",
+    2: "Challenger II",
+    3: "Challenger III",
+    4: "Master I",
+    5: "Master II",
+    6: "Master III",
+    7: "Champion",
+    8: "Grand Champion",
+    9: "Royal Champion",
+    10: "Ultimate Champion",
+  };
+
+  let highestLeagueNumber = 0;
+  let highestLeagueName = "";
+
+  let ultimateChampionReached = false;
+  let ultimateChampionMedals = 0;
+
+  pathCandidates.forEach((entry) => {
+    const leagueNumber = extractLeagueNumber(entry);
+    const leagueNameRaw = String(entry?.league?.name || "").trim();
+    if (leagueNumber > highestLeagueNumber) {
+      highestLeagueNumber = leagueNumber;
+      highestLeagueName = leagueNameRaw || leagueNameByNumber[leagueNumber] || "";
+    } else if (
+      leagueNumber === highestLeagueNumber &&
+      !highestLeagueName &&
+      leagueNameRaw
+    ) {
+      highestLeagueName = leagueNameRaw;
+    }
+    const leagueName = String(entry?.league?.name || "").toLowerCase();
+    if (leagueNumber >= 10 || leagueName.includes("ultimate champion")) {
+      ultimateChampionReached = true;
+      ultimateChampionMedals = Math.max(
+        ultimateChampionMedals,
+        extractMedals(entry)
+      );
+    }
+  });
+
+  if (!ultimateChampionReached && Array.isArray(data?.badges)) {
+    const championBadge = data.badges.find((badge) =>
+      String(badge?.name || "")
+        .toLowerCase()
+        .includes("ultimate champion")
+    );
+    if (championBadge) {
+      ultimateChampionReached = true;
+      const badgeLevel = Number(championBadge.level);
+      if (Number.isFinite(badgeLevel) && badgeLevel > 0) {
+        ultimateChampionMedals = Math.max(
+          ultimateChampionMedals,
+          Math.floor(badgeLevel)
+        );
+      }
+    }
+  }
+
   return {
     name: data?.name || "Unknown",
     trophies: Number(data?.trophies) || 0,
     bestTrophies: Number(data?.bestTrophies) || 0,
     expLevel: Number(data?.expLevel) || 0,
     arena: data?.arena?.name || "",
+    highestLeagueNumber,
+    highestLeagueName: highestLeagueName || leagueNameByNumber[highestLeagueNumber] || "",
+    isUltimateChampion: ultimateChampionReached,
+    ultimateChampionMedals,
     updatedAt: new Date().toISOString(),
   };
 }
@@ -1627,6 +1736,9 @@ app.post("/api/queue/cancel", (req, res) => {
 });
 
 app.get("/api/matches/:matchId/track", async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
   const matchId = req.params.matchId.trim().toUpperCase();
   const match = matches.get(matchId);
   if (!match) {
@@ -1640,8 +1752,16 @@ app.get("/api/matches/:matchId/track", async (req, res) => {
   }
 
   const [playerA, playerB] = match.players;
+  const perspectivePlayer = match.players.find(
+    (player) => player.userId === user.id
+  );
+  if (!perspectivePlayer) {
+    return res.status(403).json({ error: "You are not in this match." });
+  }
+
   const tagA = normalizeTagValue(playerA.tag);
   const tagB = normalizeTagValue(playerB.tag);
+  const referenceTag = normalizeTagValue(perspectivePlayer.tag);
 
   try {
     const [battlesA, battlesB] = await Promise.all([
@@ -1652,16 +1772,13 @@ app.get("/api/matches/:matchId/track", async (req, res) => {
     const battleA = findFriendlyMatch(battlesA, tagA, tagB);
     const battleB = findFriendlyMatch(battlesB, tagA, tagB);
     const battle = selectLatestBattle(battleA, battleB);
-    let referenceTag = tagA;
-    if (battle && battleB && battle === battleB) {
-      referenceTag = tagB;
-    }
 
     if (!battle) {
       return res.json({
         matchId,
         tagA,
         tagB,
+        referenceTag,
         battle: null,
         message: "No friendly battle found yet.",
       });
