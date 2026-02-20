@@ -22,8 +22,12 @@ const profileLink = document.getElementById("profile-link");
 const profileNotice = document.getElementById("profile-notice");
 const profileHelp = document.getElementById("profile-help");
 const profileName = document.getElementById("profile-name");
-const profileArena = document.getElementById("profile-arena");
 const profileTrophies = document.getElementById("profile-trophies");
+const profileBestTrophies = document.getElementById("profile-best-trophies");
+const profileKingLevel = document.getElementById("profile-king-level");
+const profileHighestLeague = document.getElementById("profile-highest-league");
+const profileUcMedalsRow = document.getElementById("profile-uc-medals-row");
+const profileUcMedals = document.getElementById("profile-uc-medals");
 const verifyPanel = document.getElementById("verify-panel");
 const verifyStatus = document.getElementById("verify-status");
 const verifyCodeInput = document.getElementById("verify-code");
@@ -104,6 +108,13 @@ function updatePresetActive(value) {
     const isActive = Number.isFinite(numeric) && numeric === preset;
     button.classList.toggle("active", isActive);
   });
+}
+
+function formatProfileStat(value) {
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "number" && !Number.isFinite(value)) return "—";
+  const text = String(value).trim();
+  return text ? text : "—";
 }
 
 function setCurrency(currency) {
@@ -229,8 +240,12 @@ function setAuthState(user) {
     statLosses.textContent = "0";
     statDraws.textContent = "0";
     if (profileName) profileName.textContent = "—";
-    if (profileArena) profileArena.textContent = "No profile loaded";
-    if (profileTrophies) profileTrophies.textContent = "0";
+    if (profileTrophies) profileTrophies.textContent = "—";
+    if (profileBestTrophies) profileBestTrophies.textContent = "—";
+    if (profileKingLevel) profileKingLevel.textContent = "—";
+    if (profileHighestLeague) profileHighestLeague.textContent = "—";
+    if (profileUcMedals) profileUcMedals.textContent = "—";
+    if (profileUcMedalsRow) profileUcMedalsRow.classList.add("hidden");
     if (verifyStatus) {
       verifyStatus.textContent = "Unverified";
       verifyStatus.classList.remove("verified");
@@ -275,14 +290,34 @@ function updateProfileUI(user) {
   statWins.textContent = stats.wins || 0;
   statLosses.textContent = stats.losses || 0;
   statDraws.textContent = stats.draws || 0;
+  const playerProfile = user.playerProfile || null;
   if (profileName) {
-    profileName.textContent = user.playerProfile?.name || "—";
-  }
-  if (profileArena) {
-    profileArena.textContent = user.playerProfile?.arena || "No profile loaded";
+    profileName.textContent = formatProfileStat(playerProfile?.name);
   }
   if (profileTrophies) {
-    profileTrophies.textContent = user.playerProfile?.trophies ?? 0;
+    profileTrophies.textContent = formatProfileStat(playerProfile?.trophies);
+  }
+  if (profileBestTrophies) {
+    profileBestTrophies.textContent = formatProfileStat(playerProfile?.bestTrophies);
+  }
+  if (profileKingLevel) {
+    profileKingLevel.textContent = formatProfileStat(playerProfile?.expLevel);
+  }
+  if (profileHighestLeague) {
+    if (playerProfile) {
+      profileHighestLeague.textContent = formatProfileStat(
+        playerProfile.highestLeagueName || "Unranked"
+      );
+    } else {
+      profileHighestLeague.textContent = "—";
+    }
+  }
+  const medals = Number(playerProfile?.ultimateChampionMedals || 0);
+  if (profileUcMedalsRow) {
+    profileUcMedalsRow.classList.toggle("hidden", medals <= 0);
+  }
+  if (profileUcMedals) {
+    profileUcMedals.textContent = medals > 0 ? String(medals) : "—";
   }
   if (verifyStatus) {
     verifyStatus.textContent = user.isVerified ? "Verified" : "Unverified";
