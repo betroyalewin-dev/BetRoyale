@@ -157,6 +157,10 @@ function setActiveSection(section) {
   activeSection = target;
   if (target === "shop") {
     refreshShop();
+    return;
+  }
+  if (target === "results" && currentUser) {
+    loadResultsHistory();
   }
 }
 
@@ -219,6 +223,34 @@ function updateProfileHighlights(user) {
 
 function clearResults() {
   resultsEl.innerHTML = "";
+}
+
+async function loadResultsHistory() {
+  if (!currentUser) return;
+  if (!currentUser.tag) {
+    clearResults();
+    showStatus("Add your player tag in Profile to load your battle history.", true);
+    return;
+  }
+
+  clearResults();
+  showStatus("Loading battle history...");
+
+  try {
+    const data = await apiRequest("/api/results?limit=25", { method: "GET" });
+    const battles = Array.isArray(data.battles) ? data.battles : [];
+    if (!battles.length) {
+      showStatus("No battles found in your battle log yet.");
+      return;
+    }
+
+    battles.forEach((battle) => {
+      resultsEl.appendChild(renderBattle(battle, data.referenceTag || currentUser.tag));
+    });
+    showStatus(`Loaded ${battles.length} recent matches.`);
+  } catch (err) {
+    showStatus(err.message || "Unable to load battle history.", true);
+  }
 }
 
 function setAuthState(user) {
@@ -1201,9 +1233,9 @@ async function trackFriendlyBattle() {
       return;
     }
 
-    showStatus("Friendly battle found.");
-    resultsEl.appendChild(renderBattle(data.battle, data.referenceTag));
+    showStatus("Friendly battle found. Loading full history...");
     setActiveSection("results");
+    await loadResultsHistory();
     refreshProfile();
   } catch (err) {
     showStatus(err.message, true);

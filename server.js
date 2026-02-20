@@ -1497,6 +1497,35 @@ app.get("/api/battlelog", async (req, res) => {
   }
 });
 
+app.get("/api/results", async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  const tag = sanitizeTag(user.tag);
+  if (!tag) {
+    return res.status(400).json({ error: "Add your player tag first." });
+  }
+
+  const requestedLimit = Number.parseInt(String(req.query.limit || "25"), 10);
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.max(1, Math.min(requestedLimit, 50))
+    : 25;
+
+  try {
+    const battles = await fetchBattlelog(tag);
+    return res.json({
+      tag,
+      referenceTag: normalizeTagValue(tag),
+      battles: Array.isArray(battles) ? battles.slice(0, limit) : [],
+    });
+  } catch (err) {
+    return res.status(err.status || 500).json({
+      error: err.message || "Unexpected server error.",
+      reason: err.reason,
+    });
+  }
+});
+
 app.post("/api/queue/join", (req, res) => {
   cleanupQueues();
 
