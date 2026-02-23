@@ -2,6 +2,7 @@ const path = require("path");
 const fs = require("fs/promises");
 const express = require("express");
 const fetch = require("node-fetch");
+const { HttpsProxyAgent } = require("https-proxy-agent");
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const session = require("express-session");
@@ -26,6 +27,8 @@ const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
 const EMAIL_FROM = process.env.EMAIL_FROM || EMAIL_USER || "no-reply@betroyale.win";
+const CR_API_PROXY_URL =
+  process.env.CR_API_PROXY_URL || process.env.QUOTAGUARDSTATIC_URL || "";
 
 const STORE_PATH =
   process.env.STORE_PATH || path.join(__dirname, "data", "store.json");
@@ -52,6 +55,7 @@ const mailTransport =
 const stripe = STRIPE_SECRET_KEY
   ? new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2023-10-16" })
   : null;
+const crApiAgent = CR_API_PROXY_URL ? new HttpsProxyAgent(CR_API_PROXY_URL) : null;
 const QUEUE_TTL_MS = 1000 * 60 * 30;
 const MATCH_TTL_MS = 1000 * 60 * 60 * 6;
 const MATCH_LOCK_MS = 1000 * 60 * 2;
@@ -141,6 +145,9 @@ async function ensureDatabaseSchema() {
 
 if (!API_TOKEN) {
   console.warn("Missing CR_API_TOKEN in .env");
+}
+if (CR_API_PROXY_URL) {
+  console.log("Using CR_API_PROXY_URL for Clash Royale API requests.");
 }
 if (!mailTransport) {
   console.warn("Missing EMAIL_USER/EMAIL_PASS; verification emails disabled.");
@@ -899,6 +906,7 @@ async function fetchBattlelog(tag) {
       Authorization: `Bearer ${API_TOKEN}`,
       Accept: "application/json",
     },
+    agent: crApiAgent || undefined,
   });
 
   const data = await response.json();
@@ -923,6 +931,7 @@ async function fetchPlayerProfile(tag) {
       Authorization: `Bearer ${API_TOKEN}`,
       Accept: "application/json",
     },
+    agent: crApiAgent || undefined,
   });
 
   const data = await response.json();
