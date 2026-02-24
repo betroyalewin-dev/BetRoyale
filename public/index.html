@@ -2,7 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
     <title>BetRoyale</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -71,6 +74,21 @@
             </span>
             Profile
           </button>
+          <button
+            type="button"
+            class="menu-button shop-button"
+            data-section="shop"
+          >
+            <span class="icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M6 7l2-3h8l2 3"></path>
+                <path d="M4 7h16"></path>
+                <path d="M6 7v11h12V7"></path>
+                <path d="M9 11h6"></path>
+              </svg>
+            </span>
+            Shop
+          </button>
         </div>
         <div class="menu-balance">
           <div class="balance-item">
@@ -93,17 +111,6 @@
             <span class="balance-label">Gems</span>
             <span id="balance-gems" class="balance-value">0</span>
           </div>
-          <button type="button" class="menu-button shop-button" data-section="shop">
-            <span class="icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24">
-                <path d="M6 7l2-3h8l2 3"></path>
-                <path d="M4 7h16"></path>
-                <path d="M6 7v11h12V7"></path>
-                <path d="M9 11h6"></path>
-              </svg>
-            </span>
-            Shop
-          </button>
         </div>
       </nav>
       <header class="hero">
@@ -417,10 +424,8 @@
         <div class="shop-header">
           <div>
             <p class="eyebrow">Shop</p>
-            <h2>Buy Gems</h2>
-            <p class="subhead">
-              Choose your USD amount. Each cent equals one gem.
-            </p>
+            <h2>Wallet</h2>
+            <p class="subhead">Deposit USD to buy gems, then cash out gems to USD.</p>
           </div>
           <div class="shop-balance">
             <p class="shop-balance-label">Your Balance</p>
@@ -430,32 +435,87 @@
             </p>
           </div>
         </div>
-        <div class="shop-purchase">
-          <div class="field">
-            <label for="shop-amount">Amount (USD)</label>
-            <input
-              id="shop-amount"
-              name="shop-amount"
-              type="number"
-              min="0.50"
-              step="0.01"
-              placeholder="5.00"
-              inputmode="decimal"
-            />
-            <p class="field-hint">1¢ = 1 gem. $1.00 = 100 gems.</p>
-          </div>
-          <div class="shop-preview">
-            <p class="shop-preview-label">You get</p>
-            <p class="shop-preview-value">
-              <span id="shop-gems-preview">0</span> gems
+
+        <div class="shop-grid">
+          <section class="shop-section">
+            <p class="label">Deposit</p>
+            <h3>Buy Gems</h3>
+            <div class="shop-purchase">
+              <div class="field">
+                <label for="shop-amount">Amount (USD)</label>
+                <input
+                  id="shop-amount"
+                  name="shop-amount"
+                  type="number"
+                  min="10.00"
+                  step="0.01"
+                  placeholder="10.00"
+                  inputmode="decimal"
+                />
+                <p class="field-hint">
+                  1¢ = 1 gem. $1.00 = 100 gems. Minimum deposit: $10.00.
+                </p>
+              </div>
+              <div class="shop-preview">
+                <p class="shop-preview-label">You get</p>
+                <p class="shop-preview-value">
+                  <span id="shop-gems-preview">0</span> gems
+                </p>
+              </div>
+            </div>
+            <div class="shop-actions">
+              <button type="button" id="shop-checkout">Continue to payment</button>
+              <p class="shop-legal">Payments are processed securely by Stripe.</p>
+            </div>
+            <p id="shop-message" class="shop-message"></p>
+          </section>
+
+          <section class="shop-section">
+            <p class="label">Cash Out</p>
+            <h3>Trade Gems for USD</h3>
+            <div class="shop-purchase">
+              <div class="field">
+                <label for="cashout-amount">Cash out amount (USD)</label>
+                <input
+                  id="cashout-amount"
+                  name="cashout-amount"
+                  type="number"
+                  min="10.00"
+                  step="0.01"
+                  placeholder="10.00"
+                  inputmode="decimal"
+                />
+                <p class="field-hint">
+                  1¢ = 1 gem. Minimum cash out: $10.00.
+                </p>
+              </div>
+              <div class="shop-preview">
+                <p class="shop-preview-label">You trade</p>
+                <p class="shop-preview-value">
+                  <span id="cashout-gems-preview">0</span> gems
+                </p>
+                <p class="shop-preview-subtext">
+                  You receive: $<span id="cashout-usd-preview">0.00</span>
+                </p>
+              </div>
+            </div>
+            <p id="cashout-status" class="shop-status">
+              Connect your Stripe payout account to enable cash outs.
             </p>
-          </div>
+            <div class="shop-actions">
+              <button type="button" class="secondary" id="cashout-connect">
+                Connect payout account
+              </button>
+              <button type="button" id="cashout-submit">Cash out now</button>
+            </div>
+            <p class="shop-legal">
+              Cash outs are sent to your Stripe payout account and may take
+              1-2 business days to arrive.
+            </p>
+            <p id="cashout-message" class="shop-message"></p>
+            <div id="cashout-history" class="cashout-history hidden"></div>
+          </section>
         </div>
-        <div class="shop-actions">
-          <button type="button" id="shop-checkout">Continue to payment</button>
-          <p class="shop-legal">Payments are processed securely by Stripe.</p>
-        </div>
-        <p id="shop-message" class="shop-message"></p>
       </section>
 
       <section id="queue-panel" class="panel queue hidden">
