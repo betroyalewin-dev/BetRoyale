@@ -49,6 +49,14 @@ const shopGemsEl = document.getElementById("shop-gems");
 const shopAmountInput = document.getElementById("shop-amount");
 const shopCheckoutBtn = document.getElementById("shop-checkout");
 const shopGemsPreview = document.getElementById("shop-gems-preview");
+const cashoutAmountInput = document.getElementById("cashout-amount");
+const cashoutGemsPreview = document.getElementById("cashout-gems-preview");
+const cashoutUsdPreview = document.getElementById("cashout-usd-preview");
+const cashoutStatusEl = document.getElementById("cashout-status");
+const cashoutMessageEl = document.getElementById("cashout-message");
+const cashoutConnectBtn = document.getElementById("cashout-connect");
+const cashoutSubmitBtn = document.getElementById("cashout-submit");
+const cashoutHistoryEl = document.getElementById("cashout-history");
 const joinQueueBtn = document.getElementById("join-queue");
 const wagerInput = document.getElementById("wager-amount");
 const wagerLabel = document.getElementById("wager-label");
@@ -100,6 +108,10 @@ let matchLockCountdownTimer = null;
 let queueTimer = null;
 let activeSection = "auth";
 let selectedCurrency = "coins";
+const MIN_SHOP_CENTS = 1000;
+const MIN_CASHOUT_CENTS = 1000;
+const MAX_CASHOUT_CENTS = 100000;
+let cashoutReady = false;
 
 function updatePresetActive(value) {
   const numeric = Number(value);
@@ -296,6 +308,19 @@ function setAuthState(user) {
     if (shopMessageEl) shopMessageEl.textContent = "";
     if (shopAmountInput) shopAmountInput.value = "";
     if (shopGemsPreview) shopGemsPreview.textContent = "0";
+    if (cashoutAmountInput) cashoutAmountInput.value = "";
+    if (cashoutGemsPreview) cashoutGemsPreview.textContent = "0";
+    if (cashoutUsdPreview) cashoutUsdPreview.textContent = "0.00";
+    if (cashoutStatusEl) {
+      cashoutStatusEl.textContent = "Connect your Stripe payout account to enable cash outs.";
+      cashoutStatusEl.classList.remove("ready");
+    }
+    if (cashoutMessageEl) cashoutMessageEl.textContent = "";
+    if (cashoutHistoryEl) {
+      cashoutHistoryEl.innerHTML = "";
+      cashoutHistoryEl.classList.add("hidden");
+    }
+    cashoutReady = false;
     if (shopPanel) shopPanel.classList.add("hidden");
     stopQueuePolling();
   }
@@ -376,9 +401,102 @@ function updateShopPreview() {
   shopGemsPreview.textContent = cents ? String(cents) : "0";
 }
 
+function updateCashoutPreview() {
+  const cents = parseAmountToCents(cashoutAmountInput?.value);
+  const safeCents = cents && cents > 0 ? cents : 0;
+  if (cashoutGemsPreview) cashoutGemsPreview.textContent = String(safeCents);
+  if (cashoutUsdPreview) cashoutUsdPreview.textContent = (safeCents / 100).toFixed(2);
+}
+
+function formatUsd(amountCents) {
+  const numeric = Number(amountCents) || 0;
+  return `$${(numeric / 100).toFixed(2)}`;
+}
+
+function renderCashoutHistory(entries) {
+  if (!cashoutHistoryEl) return;
+  cashoutHistoryEl.innerHTML = "";
+  if (!Array.isArray(entries) || entries.length === 0) {
+    cashoutHistoryEl.classList.add("hidden");
+    return;
+  }
+  cashoutHistoryEl.classList.remove("hidden");
+  const title = document.createElement("p");
+  title.className = "cashout-history-title";
+  title.textContent = "Recent cash outs";
+  cashoutHistoryEl.appendChild(title);
+
+  entries.forEach((entry) => {
+    const row = document.createElement("div");
+    row.className = "cashout-history-item";
+    const amount = document.createElement("span");
+    amount.textContent = `${formatUsd(entry.amountCents)} (${entry.gems} gems)`;
+    const status = document.createElement("span");
+    status.textContent = (entry.status || "pending").toUpperCase();
+    row.appendChild(amount);
+    row.appendChild(status);
+    cashoutHistoryEl.appendChild(row);
+
+    const meta = document.createElement("p");
+    meta.className = "cashout-history-meta";
+    const date = entry.createdAt ? new Date(entry.createdAt).toLocaleString() : "Unknown time";
+    meta.textContent = `${date}${entry.error ? ` - ${entry.error}` : ""}`;
+    cashoutHistoryEl.appendChild(meta);
+  });
+}
+
+async function refreshCashoutStatus() {
+  if (!currentUser) return;
+  if (cashoutMessageEl) cashoutMessageEl.textContent = "";
+  if (!cashoutStatusEl) return;
+
+  try {
+    const data = await apiRequest("/api/shop/cashout/status", { method: "GET" });
+    cashoutReady = Boolean(data.ready);
+    const enabled = Boolean(data.enabled);
+    if (!enabled) {
+      cashoutStatusEl.textContent =
+        "Cash out is unavailable because Stripe is not configured.";
+      cashoutStatusEl.classList.remove("ready");
+      if (cashoutConnectBtn) cashoutConnectBtn.disabled = true;
+      if (cashoutSubmitBtn) cashoutSubmitBtn.disabled = true;
+      renderCashoutHistory([]);
+      return;
+    }
+
+    if (!data.connected) {
+      cashoutStatusEl.textContent = "Connect your Stripe payout account to enable cash outs.";
+      cashoutStatusEl.classList.remove("ready");
+      if (cashoutConnectBtn) cashoutConnectBtn.disabled = false;
+      if (cashoutSubmitBtn) cashoutSubmitBtn.disabled = true;
+    } else if (!data.ready) {
+      cashoutStatusEl.textContent =
+        "Finish Stripe onboarding to enable cash outs.";
+      cashoutStatusEl.classList.remove("ready");
+      if (cashoutConnectBtn) cashoutConnectBtn.disabled = false;
+      if (cashoutSubmitBtn) cashoutSubmitBtn.disabled = true;
+    } else {
+      cashoutStatusEl.textContent = "Payout account connected. You can cash out now.";
+      cashoutStatusEl.classList.add("ready");
+      if (cashoutConnectBtn) cashoutConnectBtn.disabled = false;
+      if (cashoutSubmitBtn) cashoutSubmitBtn.disabled = false;
+    }
+
+    renderCashoutHistory(data.recentCashouts || []);
+  } catch (err) {
+    cashoutStatusEl.textContent = err.message || "Unable to load cash out status.";
+    cashoutStatusEl.classList.remove("ready");
+    if (cashoutConnectBtn) cashoutConnectBtn.disabled = true;
+    if (cashoutSubmitBtn) cashoutSubmitBtn.disabled = true;
+    renderCashoutHistory([]);
+  }
+}
+
 function refreshShop() {
   if (!currentUser) return;
   updateShopPreview();
+  updateCashoutPreview();
+  refreshCashoutStatus();
   if (shopMessageEl) shopMessageEl.textContent = "";
 }
 
@@ -390,6 +508,12 @@ async function startCheckout() {
   const cents = parseAmountToCents(shopAmountInput?.value);
   if (!cents) {
     if (shopMessageEl) shopMessageEl.textContent = "Enter a valid USD amount.";
+    return;
+  }
+  if (cents < MIN_SHOP_CENTS) {
+    if (shopMessageEl) {
+      shopMessageEl.textContent = "Minimum deposit is $10.00.";
+    }
     return;
   }
   if (shopMessageEl) shopMessageEl.textContent = "Opening secure checkout...";
@@ -410,6 +534,88 @@ async function startCheckout() {
     if (shopMessageEl) shopMessageEl.textContent = err.message;
   } finally {
     if (shopCheckoutBtn) shopCheckoutBtn.disabled = false;
+  }
+}
+
+async function startCashoutConnect() {
+  if (!currentUser) {
+    showStatus("Log in to cash out gems.", true);
+    return;
+  }
+  if (cashoutMessageEl) {
+    cashoutMessageEl.textContent = "Opening Stripe onboarding...";
+  }
+  if (cashoutConnectBtn) cashoutConnectBtn.disabled = true;
+  try {
+    const data = await apiRequest("/api/shop/cashout/connect", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    if (data?.url) {
+      window.location.href = data.url;
+      return;
+    }
+    if (cashoutMessageEl) {
+      cashoutMessageEl.textContent = "Unable to open onboarding right now.";
+    }
+  } catch (err) {
+    if (cashoutMessageEl) cashoutMessageEl.textContent = err.message;
+  } finally {
+    if (cashoutConnectBtn) cashoutConnectBtn.disabled = false;
+  }
+}
+
+async function startCashout() {
+  if (!currentUser) {
+    showStatus("Log in to cash out gems.", true);
+    return;
+  }
+  const cents = parseAmountToCents(cashoutAmountInput?.value);
+  if (!cents) {
+    if (cashoutMessageEl) cashoutMessageEl.textContent = "Enter a valid USD amount.";
+    return;
+  }
+  if (cents < MIN_CASHOUT_CENTS || cents > MAX_CASHOUT_CENTS) {
+    if (cashoutMessageEl) {
+      cashoutMessageEl.textContent = `Cash out must be between ${formatUsd(
+        MIN_CASHOUT_CENTS
+      )} and ${formatUsd(MAX_CASHOUT_CENTS)}.`;
+    }
+    return;
+  }
+  if ((currentUser?.gems || 0) < cents) {
+    if (cashoutMessageEl) cashoutMessageEl.textContent = "Not enough gems for that cash out.";
+    return;
+  }
+  if (!cashoutReady) {
+    if (cashoutMessageEl) {
+      cashoutMessageEl.textContent = "Connect and finish Stripe payout onboarding first.";
+    }
+    return;
+  }
+
+  if (cashoutMessageEl) cashoutMessageEl.textContent = "Processing cash out...";
+  if (cashoutSubmitBtn) cashoutSubmitBtn.disabled = true;
+  try {
+    const data = await apiRequest("/api/shop/cashout", {
+      method: "POST",
+      body: JSON.stringify({ amountCents: cents }),
+    });
+    if (data?.user) {
+      currentUser = data.user;
+      updateProfileUI(currentUser);
+    }
+    if (cashoutMessageEl) {
+      cashoutMessageEl.textContent =
+        data.message || "Cash out submitted. Check your payout account.";
+    }
+    if (cashoutAmountInput) cashoutAmountInput.value = "";
+    updateCashoutPreview();
+    await refreshCashoutStatus();
+  } catch (err) {
+    if (cashoutMessageEl) cashoutMessageEl.textContent = err.message;
+  } finally {
+    if (cashoutSubmitBtn) cashoutSubmitBtn.disabled = false;
   }
 }
 
@@ -1269,6 +1475,15 @@ if (shopAmountInput) {
 }
 if (shopCheckoutBtn) {
   shopCheckoutBtn.addEventListener("click", startCheckout);
+}
+if (cashoutAmountInput) {
+  cashoutAmountInput.addEventListener("input", updateCashoutPreview);
+}
+if (cashoutConnectBtn) {
+  cashoutConnectBtn.addEventListener("click", startCashoutConnect);
+}
+if (cashoutSubmitBtn) {
+  cashoutSubmitBtn.addEventListener("click", startCashout);
 }
 if (wagerInput) {
   wagerInput.addEventListener("input", (event) => {

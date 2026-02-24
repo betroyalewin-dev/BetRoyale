@@ -24,6 +24,11 @@ const SESSION_SECRET = process.env.SESSION_SECRET || "dev-secret";
 const DATABASE_URL = process.env.DATABASE_URL;
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+const STRIPE_CONNECT_REFRESH_URL =
+  process.env.STRIPE_CONNECT_REFRESH_URL ||
+  `${PUBLIC_URL}/?shop=cashout-refresh`;
+const STRIPE_CONNECT_RETURN_URL =
+  process.env.STRIPE_CONNECT_RETURN_URL || `${PUBLIC_URL}/?shop=cashout-return`;
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
 const EMAIL_FROM = process.env.EMAIL_FROM || EMAIL_USER || "no-reply@betroyale.win";
@@ -61,8 +66,10 @@ const MATCH_TTL_MS = 1000 * 60 * 60 * 6;
 const MATCH_LOCK_MS = 1000 * 60 * 2;
 const STARTING_CREDITS = 1000;
 const VERIFICATION_TTL_MS = 1000 * 60 * 30;
-const MIN_GEM_PURCHASE_CENTS = 50;
+const MIN_GEM_PURCHASE_CENTS = 1000;
 const MAX_GEM_PURCHASE_CENTS = 100000;
+const MIN_CASHOUT_CENTS = 1000;
+const MAX_CASHOUT_CENTS = 100000;
 const waitingQueue = [];
 const tickets = new Map();
 const matches = new Map();
@@ -72,6 +79,7 @@ let store = {
   recordedMatches: {},
   migrations: {},
   purchases: {},
+  cashouts: {},
 };
 
 let writeChain = Promise.resolve();
@@ -110,6 +118,14 @@ async function ensureDatabaseSchema() {
       updated_at BIGINT
     )
   `);
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS stripe_connect_account_id TEXT
+  `);
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS stripe_connect_ready BOOLEAN DEFAULT FALSE
+  `);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS recorded_matches (
@@ -139,6 +155,21 @@ async function ensureDatabaseSchema() {
       amount_cents INTEGER,
       gems INTEGER,
       created_at BIGINT
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS cashouts (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      stripe_transfer_id TEXT,
+      stripe_account_id TEXT,
+      gems INTEGER NOT NULL,
+      amount_cents INTEGER NOT NULL,
+      status TEXT NOT NULL,
+      error TEXT,
+      created_at BIGINT,
+      updated_at BIGINT
     )
   `);
 }
@@ -230,10 +261,12 @@ async function loadStore() {
   try {
     if (pool) {
       await ensureDatabaseSchema();
-      const [userResult, matchResult, metaResult] = await Promise.all([
+      const [userResult, matchResult, metaResult, cashoutResult] =
+        await Promise.all([
         pool.query("SELECT * FROM users"),
         pool.query("SELECT * FROM recorded_matches"),
         pool.query("SELECT value FROM app_meta WHERE key = $1", ["migrations"]),
+        pool.query("SELECT * FROM cashouts"),
       ]);
 
       store = {
@@ -255,12 +288,15 @@ async function loadStore() {
             typeof row.is_verified === "boolean" ? row.is_verified : true,
           verificationCode: row.verification_code,
           verificationExpiresAt: row.verification_expires_at,
+          stripeConnectAccountId: row.stripe_connect_account_id || null,
+          stripeConnectReady: Boolean(row.stripe_connect_ready),
           createdAt: row.created_at,
           updatedAt: row.updated_at,
         })),
         recordedMatches: {},
         migrations: parseJsonValue(metaResult.rows?.[0]?.value, {}) || {},
         purchases: {},
+        cashouts: {},
       };
 
       matchResult.rows.forEach((row) => {
@@ -273,6 +309,21 @@ async function loadStore() {
           currencyA: row.currency_a,
           currencyB: row.currency_b,
           recordedAt: row.recorded_at,
+        };
+      });
+
+      cashoutResult.rows.forEach((row) => {
+        store.cashouts[row.id] = {
+          id: row.id,
+          userId: row.user_id,
+          stripeTransferId: row.stripe_transfer_id,
+          stripeAccountId: row.stripe_account_id,
+          gems: row.gems,
+          amountCents: row.amount_cents,
+          status: row.status,
+          error: row.error,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
         };
       });
     } else {
@@ -291,6 +342,10 @@ async function loadStore() {
         purchases:
           parsed.purchases && typeof parsed.purchases === "object"
             ? parsed.purchases
+            : {},
+        cashouts:
+          parsed.cashouts && typeof parsed.cashouts === "object"
+            ? parsed.cashouts
             : {},
       };
     }
@@ -368,12 +423,14 @@ function saveStore() {
             is_verified,
             verification_code,
             verification_expires_at,
+            stripe_connect_account_id,
+            stripe_connect_ready,
             created_at,
             updated_at
           )
           VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9,
-            $10, $11, $12, $13, $14, $15, $16, $17
+            $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
           )
           ON CONFLICT (id) DO UPDATE SET
             email = EXCLUDED.email,
@@ -390,6 +447,8 @@ function saveStore() {
             is_verified = EXCLUDED.is_verified,
             verification_code = EXCLUDED.verification_code,
             verification_expires_at = EXCLUDED.verification_expires_at,
+            stripe_connect_account_id = EXCLUDED.stripe_connect_account_id,
+            stripe_connect_ready = EXCLUDED.stripe_connect_ready,
             created_at = EXCLUDED.created_at,
             updated_at = EXCLUDED.updated_at
           `,
@@ -409,6 +468,8 @@ function saveStore() {
             Boolean(user.isVerified),
             user.verificationCode || null,
             user.verificationExpiresAt || null,
+            user.stripeConnectAccountId || null,
+            Boolean(user.stripeConnectReady),
             user.createdAt || null,
             user.updatedAt || null,
           ]
@@ -494,6 +555,90 @@ async function recordPurchase(sessionId, userId, amountCents, gems) {
   };
   await saveStore();
   return true;
+}
+
+async function recordCashout(cashout) {
+  if (!cashout?.id) return;
+  if (pool) {
+    await pool.query(
+      `
+      INSERT INTO cashouts (
+        id,
+        user_id,
+        stripe_transfer_id,
+        stripe_account_id,
+        gems,
+        amount_cents,
+        status,
+        error,
+        created_at,
+        updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      ON CONFLICT (id) DO UPDATE SET
+        stripe_transfer_id = EXCLUDED.stripe_transfer_id,
+        stripe_account_id = EXCLUDED.stripe_account_id,
+        gems = EXCLUDED.gems,
+        amount_cents = EXCLUDED.amount_cents,
+        status = EXCLUDED.status,
+        error = EXCLUDED.error,
+        updated_at = EXCLUDED.updated_at
+      `,
+      [
+        cashout.id,
+        cashout.userId,
+        cashout.stripeTransferId || null,
+        cashout.stripeAccountId || null,
+        Number.isFinite(cashout.gems) ? cashout.gems : 0,
+        Number.isFinite(cashout.amountCents) ? cashout.amountCents : 0,
+        cashout.status || "pending",
+        cashout.error || null,
+        cashout.createdAt || Date.now(),
+        cashout.updatedAt || Date.now(),
+      ]
+    );
+    return;
+  }
+
+  if (!store.cashouts || typeof store.cashouts !== "object") {
+    store.cashouts = {};
+  }
+  store.cashouts[cashout.id] = cashout;
+  await saveStore();
+}
+
+async function listCashoutsForUser(userId, limit = 10) {
+  if (!userId) return [];
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 10, 50));
+  if (pool) {
+    const result = await pool.query(
+      `
+      SELECT id, user_id, stripe_transfer_id, stripe_account_id, gems, amount_cents, status, error, created_at, updated_at
+      FROM cashouts
+      WHERE user_id = $1
+      ORDER BY created_at DESC
+      LIMIT $2
+      `,
+      [userId, safeLimit]
+    );
+    return result.rows.map((row) => ({
+      id: row.id,
+      userId: row.user_id,
+      stripeTransferId: row.stripe_transfer_id,
+      stripeAccountId: row.stripe_account_id,
+      gems: row.gems,
+      amountCents: row.amount_cents,
+      status: row.status,
+      error: row.error,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  }
+
+  return Object.values(store.cashouts || {})
+    .filter((entry) => entry.userId === userId)
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+    .slice(0, safeLimit);
 }
 
 async function sendVerificationEmail({ email, username, code }) {
@@ -679,6 +824,14 @@ function ensureUserDefaults(user) {
     user.verificationExpiresAt = null;
     changed = true;
   }
+  if (!("stripeConnectAccountId" in user)) {
+    user.stripeConnectAccountId = null;
+    changed = true;
+  }
+  if (typeof user.stripeConnectReady !== "boolean") {
+    user.stripeConnectReady = false;
+    changed = true;
+  }
   return changed;
 }
 
@@ -708,6 +861,8 @@ function createUser(email, passwordHash) {
     isVerified: false,
     verificationCode,
     verificationExpiresAt: now + VERIFICATION_TTL_MS,
+    stripeConnectAccountId: null,
+    stripeConnectReady: false,
     createdAt: now,
     updatedAt: now,
   };
@@ -734,6 +889,8 @@ function publicUser(user) {
     stats: user.stats,
     playerProfile: user.playerProfile,
     isVerified: user.isVerified,
+    stripeConnectAccountId: user.stripeConnectAccountId || null,
+    stripeConnectReady: Boolean(user.stripeConnectReady),
   };
 }
 
@@ -749,6 +906,40 @@ function requireAuth(req, res) {
     return null;
   }
   return user;
+}
+
+async function getCashoutStatus(user) {
+  if (!stripe) {
+    return {
+      enabled: false,
+      connected: false,
+      ready: false,
+      accountId: null,
+    };
+  }
+
+  if (!user?.stripeConnectAccountId) {
+    return {
+      enabled: true,
+      connected: false,
+      ready: false,
+      accountId: null,
+    };
+  }
+
+  const account = await stripe.accounts.retrieve(user.stripeConnectAccountId);
+  const ready = Boolean(account?.details_submitted && account?.payouts_enabled);
+  const connected = true;
+  const accountId = user.stripeConnectAccountId;
+  return {
+    enabled: true,
+    connected,
+    ready,
+    accountId,
+    payoutsEnabled: Boolean(account?.payouts_enabled),
+    detailsSubmitted: Boolean(account?.details_submitted),
+    chargesEnabled: Boolean(account?.charges_enabled),
+  };
 }
 
 function isTicketExpired(ticket) {
@@ -1485,6 +1676,161 @@ app.post("/api/shop/checkout", async (req, res) => {
   });
 
   return res.json({ url: session.url });
+});
+
+app.get("/api/shop/cashout/status", async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  try {
+    const status = await getCashoutStatus(user);
+    if (typeof status.ready === "boolean" && user.stripeConnectReady !== status.ready) {
+      user.stripeConnectReady = status.ready;
+      user.updatedAt = Date.now();
+      await saveStore();
+    }
+    const recentCashouts = await listCashoutsForUser(user.id, 6);
+    return res.json({
+      ...status,
+      minimumUsd: MIN_CASHOUT_CENTS / 100,
+      maximumUsd: MAX_CASHOUT_CENTS / 100,
+      recentCashouts,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      error: "Unable to load cash out status.",
+      reason: err.message,
+    });
+  }
+});
+
+app.post("/api/shop/cashout/connect", async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  if (!stripe) {
+    return res.status(400).json({ error: "Stripe is not configured." });
+  }
+
+  try {
+    let accountId = user.stripeConnectAccountId;
+    if (!accountId) {
+      const account = await stripe.accounts.create({
+        type: "express",
+        country: "US",
+        email: user.email,
+        business_type: "individual",
+        capabilities: {
+          transfers: { requested: true },
+        },
+        metadata: {
+          userId: user.id,
+        },
+      });
+      accountId = account.id;
+      user.stripeConnectAccountId = accountId;
+      user.stripeConnectReady = false;
+      user.updatedAt = Date.now();
+      await saveStore();
+    }
+
+    const link = await stripe.accountLinks.create({
+      account: accountId,
+      type: "account_onboarding",
+      refresh_url: STRIPE_CONNECT_REFRESH_URL,
+      return_url: STRIPE_CONNECT_RETURN_URL,
+    });
+
+    return res.json({ url: link.url });
+  } catch (err) {
+    return res.status(500).json({
+      error: "Unable to start payout setup.",
+      reason: err.message,
+    });
+  }
+});
+
+app.post("/api/shop/cashout", async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  if (!stripe) {
+    return res.status(400).json({ error: "Stripe is not configured." });
+  }
+
+  const amountCents = Number(req.body?.amountCents);
+  if (!Number.isFinite(amountCents) || amountCents % 1 !== 0) {
+    return res.status(400).json({ error: "Enter a valid USD amount." });
+  }
+  if (amountCents < MIN_CASHOUT_CENTS || amountCents > MAX_CASHOUT_CENTS) {
+    return res.status(400).json({
+      error: `Cash out must be between $${(MIN_CASHOUT_CENTS / 100).toFixed(
+        2
+      )} and $${(MAX_CASHOUT_CENTS / 100).toFixed(2)}.`,
+    });
+  }
+
+  const gemsRequired = amountCents;
+  if ((user.gems || 0) < gemsRequired) {
+    return res.status(400).json({
+      error: "Not enough gems for that cash out amount.",
+    });
+  }
+  if (!user.stripeConnectAccountId) {
+    return res.status(400).json({
+      error: "Connect your payout account before cashing out.",
+    });
+  }
+
+  try {
+    const status = await getCashoutStatus(user);
+    if (!status.ready) {
+      return res.status(400).json({
+        error: "Finish Stripe payout onboarding before cashing out.",
+      });
+    }
+
+    const transfer = await stripe.transfers.create({
+      amount: amountCents,
+      currency: "usd",
+      destination: user.stripeConnectAccountId,
+      description: `BetRoyale cash out (${gemsRequired} gems)`,
+      metadata: {
+        userId: user.id,
+        gems: String(gemsRequired),
+      },
+    });
+
+    user.gems = Math.max(0, (user.gems || 0) - gemsRequired);
+    user.updatedAt = Date.now();
+    await saveStore();
+
+    const now = Date.now();
+    const cashoutRecord = {
+      id: createId(8),
+      userId: user.id,
+      stripeTransferId: transfer.id,
+      stripeAccountId: user.stripeConnectAccountId,
+      gems: gemsRequired,
+      amountCents,
+      status: "sent",
+      error: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await recordCashout(cashoutRecord);
+
+    return res.json({
+      ok: true,
+      user: publicUser(user),
+      cashout: cashoutRecord,
+      message: "Cash out sent to your Stripe payout account.",
+    });
+  } catch (err) {
+    return res.status(400).json({
+      error: err?.raw?.message || err.message || "Unable to process cash out.",
+    });
+  }
 });
 
 app.get("/api/battlelog", async (req, res) => {
