@@ -1177,112 +1177,161 @@ button:disabled {
 
 @media (max-width: 900px) {
   .page {
-    padding: calc(14px + var(--safe-top)) 12px calc(104px + var(--safe-bottom));
+    width: 100%;
+    max-width: none;
+    padding: calc(12px + var(--safe-top)) max(12px, var(--safe-right))
+      calc(118px + var(--safe-bottom)) max(12px, var(--safe-left));
   }
 
   .hero {
     gap: 10px;
-    margin-bottom: 18px;
+    margin-bottom: 14px;
+    padding: 16px 14px;
+    border-radius: 18px;
+    border: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), #f8fafd);
+    box-shadow: 0 12px 26px var(--shadow);
   }
 
   h1 {
-    font-size: clamp(1.8rem, 8.5vw, 2.8rem);
+    font-size: clamp(1.9rem, 8.3vw, 2.7rem);
     line-height: 1.08;
   }
 
   .subhead {
     max-width: 100%;
-    font-size: 0.96rem;
+    font-size: 0.95rem;
+    line-height: 1.5;
   }
 
   .hero-steps {
-    grid-template-columns: 1fr;
-    margin-top: 10px;
+    display: none;
   }
 
   .menu {
     position: sticky;
-    top: calc(6px + var(--safe-top));
+    top: calc(4px + var(--safe-top));
     z-index: 100;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
     padding: 10px 12px;
-    border-radius: 14px;
+    border-radius: 16px;
+    border-color: #d9dee7;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(12px);
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 8px;
+    gap: 10px;
     align-items: center;
   }
 
   .menu-brand {
-    font-size: 0.74rem;
+    font-size: 0.72rem;
     letter-spacing: 0.14em;
   }
 
   .menu-balance {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr;
     align-items: flex-end;
-    gap: 4px;
+    gap: 6px;
   }
 
   .balance-item {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: #ffffff;
+    padding: 3px 8px;
   }
 
   .balance-label {
-    font-size: 0.62rem;
+    font-size: 0.58rem;
   }
 
   .balance-value {
-    font-size: 0.88rem;
+    font-size: 0.84rem;
   }
 
   .menu-links {
     position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 110;
+    left: max(8px, var(--safe-left));
+    right: max(8px, var(--safe-right));
+    bottom: calc(8px + var(--safe-bottom));
+    z-index: 120;
     margin: 0;
-    padding: 10px max(10px, var(--safe-right)) calc(10px + var(--safe-bottom))
-      max(10px, var(--safe-left));
-    border-top: 1px solid var(--border);
-    background: rgba(244, 247, 251, 0.94);
-    backdrop-filter: blur(10px);
+    padding: 8px;
+    border: 1px solid #d7dde4;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(14px);
+    box-shadow: 0 18px 36px rgba(11, 15, 19, 0.16);
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 8px;
+    gap: 6px;
   }
 
   .menu-links .menu-button {
-    min-height: 46px;
-    padding: 8px 6px;
-    font-size: 0.72rem;
+    min-height: 50px;
+    padding: 6px 4px;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
     border-radius: 12px;
+    border-color: transparent;
+    background: transparent;
+    color: #5f6b79;
     width: 100%;
     justify-content: center;
     flex-direction: column;
     gap: 4px;
+    box-shadow: none;
+  }
+
+  .menu-links .menu-button.active {
+    background: linear-gradient(180deg, #20a76f 0%, #0f8f5f 100%);
+    color: #ffffff;
+    border-color: transparent;
+    box-shadow: 0 10px 18px rgba(15, 143, 95, 0.34);
   }
 
   .menu-links .menu-button .icon {
-    width: 16px;
-    height: 16px;
+    width: 17px;
+    height: 17px;
   }
 
   .menu-links .menu-button .icon svg {
-    width: 16px;
-    height: 16px;
+    width: 17px;
+    height: 17px;
   }
 
   .menu-links .menu-button.profile-button {
     margin-left: 0;
   }
 
+  .menu-links .menu-button[data-section="match"] {
+    order: 1;
+  }
+
+  .menu-links .menu-button[data-section="results"] {
+    order: 2;
+  }
+
+  .menu-links .menu-button[data-section="queue"] {
+    order: 3;
+  }
+
+  .menu-links .menu-button[data-section="shop"] {
+    order: 4;
+  }
+
+  .menu-links .menu-button[data-section="profile"] {
+    order: 5;
+  }
+
   .panel {
-    border-radius: 14px;
-    padding: 14px 12px;
-    box-shadow: 0 10px 20px var(--shadow);
+    border-radius: 18px;
+    padding: 16px 14px;
+    box-shadow: 0 12px 24px var(--shadow);
   }
 
   .field {
@@ -1304,7 +1353,11 @@ button:disabled {
 
   .auth-grid {
     grid-template-columns: 1fr;
-    gap: 14px;
+    gap: 12px;
+  }
+
+  .auth-form {
+    gap: 12px;
   }
 
   .profile-header,
@@ -1313,6 +1366,7 @@ button:disabled {
   .match-header {
     flex-direction: column;
     align-items: flex-start;
+    gap: 10px;
   }
 
   .queue-actions {
@@ -1345,11 +1399,15 @@ button:disabled {
   .queue-card {
     flex-direction: column;
     align-items: flex-start;
+    gap: 10px;
   }
 
   .queue-actions-inline {
     width: 100%;
-    justify-items: start;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
   }
 
   .shop-grid {
@@ -1371,8 +1429,8 @@ button:disabled {
   }
 
   .card {
-    padding: 14px 12px;
-    border-radius: 14px;
+    padding: 14px;
+    border-radius: 16px;
   }
 
   .card-header {
@@ -1387,20 +1445,61 @@ button:disabled {
 }
 
 @media (max-width: 640px) {
+  .page {
+    padding: calc(10px + var(--safe-top)) max(10px, var(--safe-right))
+      calc(112px + var(--safe-bottom)) max(10px, var(--safe-left));
+  }
+
   .menu {
-    border-radius: 12px;
+    border-radius: 14px;
+    grid-template-columns: 1fr;
+    align-items: flex-start;
+    gap: 8px;
   }
 
   .menu-brand {
     font-size: 0.7rem;
   }
 
+  .menu-balance {
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-items: stretch;
+  }
+
   .balance-item {
-    font-size: 0.74rem;
+    width: 100%;
+    justify-content: center;
+    font-size: 0.73rem;
+  }
+
+  .menu-links {
+    gap: 4px;
+    padding: 6px;
+  }
+
+  .menu-links .menu-button {
+    min-height: 48px;
+    font-size: 0.62rem;
+  }
+
+  .menu-links .menu-button .icon,
+  .menu-links .menu-button .icon svg {
+    width: 15px;
+    height: 15px;
   }
 
   .queue-actions {
     grid-template-columns: 1fr;
+  }
+
+  .queue-actions-inline {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .wager-presets {
+    flex-wrap: wrap;
   }
 
   .results {
