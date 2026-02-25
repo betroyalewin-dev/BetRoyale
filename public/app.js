@@ -500,6 +500,81 @@ function refreshShop() {
   if (shopMessageEl) shopMessageEl.textContent = "";
 }
 
+function clearShopQueryParams() {
+  const params = new URLSearchParams(window.location.search);
+  if (!params.has("shop") && !params.has("session_id")) return;
+  params.delete("shop");
+  params.delete("session_id");
+  const query = params.toString();
+  const nextUrl = `${window.location.pathname}${query ? `?${query}` : ""}${
+    window.location.hash || ""
+  }`;
+  window.history.replaceState({}, "", nextUrl);
+}
+
+async function handleShopRedirectState() {
+  const params = new URLSearchParams(window.location.search);
+  const shopState = params.get("shop");
+  if (!shopState) return;
+
+  if (shopState === "cancel") {
+    if (currentUser) {
+      setActiveSection("shop");
+      if (shopMessageEl) shopMessageEl.textContent = "Payment canceled.";
+    }
+    clearShopQueryParams();
+    return;
+  }
+
+  if (shopState === "cashout-return" || shopState === "cashout-refresh") {
+    if (currentUser) {
+      setActiveSection("shop");
+      await refreshCashoutStatus();
+      if (cashoutMessageEl) {
+        cashoutMessageEl.textContent =
+          shopState === "cashout-return"
+            ? "Payout account sync complete."
+            : "Resume Stripe onboarding to enable payouts.";
+      }
+    }
+    clearShopQueryParams();
+    return;
+  }
+
+  if (shopState === "success") {
+    const sessionId = String(params.get("session_id") || "").trim();
+    if (!currentUser) {
+      showStatus("Payment completed. Log in to sync your gems.", true);
+      clearShopQueryParams();
+      return;
+    }
+    setActiveSection("shop");
+    if (!sessionId) {
+      if (shopMessageEl) shopMessageEl.textContent = "Missing checkout session id.";
+      clearShopQueryParams();
+      return;
+    }
+    if (shopMessageEl) shopMessageEl.textContent = "Confirming payment...";
+    try {
+      const data = await apiRequest("/api/shop/confirm", {
+        method: "POST",
+        body: JSON.stringify({ sessionId }),
+      });
+      if (data?.user) {
+        currentUser = data.user;
+        updateProfileUI(currentUser);
+      }
+      if (shopMessageEl) {
+        shopMessageEl.textContent =
+          data?.message || "Payment confirmed and gems were updated.";
+      }
+    } catch (err) {
+      if (shopMessageEl) shopMessageEl.textContent = err.message;
+    }
+    clearShopQueryParams();
+  }
+}
+
 async function startCheckout() {
   if (!currentUser) {
     showStatus("Log in to purchase gems.", true);
@@ -652,6 +727,7 @@ async function loadSession() {
   } catch (err) {
     setAuthState(null);
   }
+  await handleShopRedirectState();
 }
 
 async function refreshProfile() {

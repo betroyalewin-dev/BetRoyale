@@ -195,6 +195,7 @@ app.post(
   express.raw({ type: "application/json" }),
   async (req, res) => {
     if (!stripe || !STRIPE_WEBHOOK_SECRET) {
+      console.warn("Stripe webhook received but Stripe is not fully configured.");
       return res.status(400).send("Stripe not configured.");
     }
     const signature = req.headers["stripe-signature"];
@@ -206,6 +207,7 @@ app.post(
         STRIPE_WEBHOOK_SECRET
       );
     } catch (err) {
+      console.error("Stripe webhook signature verification failed:", err.message);
       return res.status(400).send("Invalid signature.");
     }
 
@@ -1676,6 +1678,69 @@ app.post("/api/shop/checkout", async (req, res) => {
   });
 
   return res.json({ url: session.url });
+});
+
+app.post("/api/shop/confirm", async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  if (!stripe) {
+    return res.status(400).json({ error: "Stripe is not configured." });
+  }
+
+  const sessionId = String(req.body?.sessionId || "").trim();
+  if (!sessionId) {
+    return res.status(400).json({ error: "Missing checkout session id." });
+  }
+
+  try {
+    const checkoutSession = await stripe.checkout.sessions.retrieve(sessionId);
+    if (!checkoutSession || checkoutSession.mode !== "payment") {
+      return res.status(400).json({ error: "Invalid checkout session." });
+    }
+    if (checkoutSession.payment_status !== "paid") {
+      return res.status(400).json({ error: "Payment has not completed yet." });
+    }
+
+    const metadataUserId = String(checkoutSession.metadata?.userId || "").trim();
+    const sessionEmail = normalizeEmail(checkoutSession.customer_email || "");
+    if (metadataUserId && metadataUserId !== user.id) {
+      return res.status(403).json({ error: "Checkout session does not belong to this user." });
+    }
+    if (!metadataUserId && sessionEmail && sessionEmail !== user.email) {
+      return res.status(403).json({ error: "Checkout session does not belong to this email." });
+    }
+
+    const amountCents = Number(checkoutSession.amount_total) || 0;
+    const gems = Number(checkoutSession.metadata?.gems) || amountCents;
+    if (!Number.isFinite(gems) || gems <= 0) {
+      return res.status(400).json({ error: "This checkout session has no gem amount." });
+    }
+
+    const inserted = await recordPurchase(sessionId, user.id, amountCents, gems);
+    if (!inserted) {
+      return res.json({
+        ok: true,
+        credited: false,
+        user: publicUser(user),
+        message: "Purchase already synced.",
+      });
+    }
+
+    user.gems = Math.max(0, (user.gems || 0) + gems);
+    user.updatedAt = Date.now();
+    await saveStore();
+    return res.json({
+      ok: true,
+      credited: true,
+      user: publicUser(user),
+      message: `${gems} gems were added to your account.`,
+    });
+  } catch (err) {
+    return res.status(400).json({
+      error: err?.raw?.message || err.message || "Unable to confirm checkout session.",
+    });
+  }
 });
 
 app.get("/api/shop/cashout/status", async (req, res) => {
