@@ -49,6 +49,20 @@ const shopGemsEl = document.getElementById("shop-gems");
 const shopAmountInput = document.getElementById("shop-amount");
 const shopCheckoutBtn = document.getElementById("shop-checkout");
 const shopGemsPreview = document.getElementById("shop-gems-preview");
+const shopAmountChips = Array.from(document.querySelectorAll(".shop-amount-chip"));
+const shopMobileAmount = document.getElementById("shop-mobile-amount");
+const shopMobileGemsPreview = document.getElementById("shop-mobile-gems-preview");
+const shopOpenKeypadBtn = document.getElementById("shop-open-keypad");
+const mobileDepositSheet = document.getElementById("mobile-deposit-sheet");
+const mobileDepositCloseBtn = document.getElementById("mobile-deposit-close");
+const mobileDepositAmountEl = document.getElementById("mobile-deposit-amount");
+const mobileDepositGemsEl = document.getElementById("mobile-deposit-gems");
+const mobileWalletCoinsEl = document.getElementById("mobile-wallet-coins");
+const mobileWalletGemsEl = document.getElementById("mobile-wallet-gems");
+const mobileDepositPayBtn = document.getElementById("mobile-deposit-pay");
+const mobileKeypadMessageEl = document.getElementById("mobile-keypad-message");
+const mobileKeypadKeys = Array.from(document.querySelectorAll(".keypad-key"));
+const mobileAmountChips = Array.from(document.querySelectorAll(".mobile-chip"));
 const cashoutAmountInput = document.getElementById("cashout-amount");
 const cashoutGemsPreview = document.getElementById("cashout-gems-preview");
 const cashoutUsdPreview = document.getElementById("cashout-usd-preview");
@@ -112,6 +126,7 @@ const MIN_SHOP_CENTS = 1000;
 const MIN_CASHOUT_CENTS = 1000;
 const MAX_CASHOUT_CENTS = 100000;
 let cashoutReady = false;
+let mobileDepositValue = (MIN_SHOP_CENTS / 100).toFixed(2);
 
 function updatePresetActive(value) {
   const numeric = Number(value);
@@ -127,6 +142,111 @@ function formatProfileStat(value) {
   if (typeof value === "number" && !Number.isFinite(value)) return "—";
   const text = String(value).trim();
   return text ? text : "—";
+}
+
+function isMobileViewport() {
+  return window.matchMedia("(max-width: 900px)").matches;
+}
+
+function centsToAmountString(cents) {
+  const safe = Math.max(0, Math.floor(Number(cents) || 0));
+  return (safe / 100).toFixed(2);
+}
+
+function sanitizeAmountString(raw) {
+  let value = String(raw || "").replace(/[^\d.]/g, "");
+  const dotIndex = value.indexOf(".");
+  if (dotIndex >= 0) {
+    const before = value.slice(0, dotIndex + 1);
+    const after = value.slice(dotIndex + 1).replace(/\./g, "");
+    value = `${before}${after}`;
+  }
+  if (value.startsWith(".")) value = `0${value}`;
+  if (!value) return "0";
+
+  let [whole, decimals = ""] = value.split(".");
+  whole = whole.replace(/^0+(?=\d)/, "");
+  if (!whole) whole = "0";
+  if (whole.length > 5) {
+    whole = whole.slice(0, 5);
+  }
+  if (decimals.length > 2) {
+    decimals = decimals.slice(0, 2);
+  }
+  return value.includes(".") ? `${whole}.${decimals}` : whole;
+}
+
+function updateMobileChipActive(cents) {
+  if (!mobileAmountChips.length) return;
+  mobileAmountChips.forEach((chip) => {
+    chip.classList.toggle("active", Number(chip.dataset.cents) === cents);
+  });
+}
+
+function syncDepositDisplays(cents) {
+  const safeCents = Math.max(0, Math.floor(Number(cents) || 0));
+  const amountText = centsToAmountString(safeCents);
+  if (shopGemsPreview) shopGemsPreview.textContent = String(safeCents);
+  if (shopMobileAmount) shopMobileAmount.textContent = amountText;
+  if (shopMobileGemsPreview) shopMobileGemsPreview.textContent = String(safeCents);
+  if (mobileDepositAmountEl) mobileDepositAmountEl.textContent = amountText;
+  if (mobileDepositGemsEl) mobileDepositGemsEl.textContent = String(safeCents);
+  updateMobileChipActive(safeCents);
+}
+
+function updateMobileKeypadValidation(cents) {
+  if (!mobileKeypadMessageEl) return;
+  if (cents < MIN_SHOP_CENTS) {
+    mobileKeypadMessageEl.textContent = "Minimum deposit is $10.00.";
+    mobileKeypadMessageEl.classList.add("error");
+  } else {
+    mobileKeypadMessageEl.textContent = "1¢ = 1 gem. Continue to secure checkout.";
+    mobileKeypadMessageEl.classList.remove("error");
+  }
+  if (mobileDepositPayBtn) {
+    mobileDepositPayBtn.disabled = cents < MIN_SHOP_CENTS;
+  }
+}
+
+function setMobileDepositValue(nextValue) {
+  mobileDepositValue = sanitizeAmountString(nextValue);
+  const cents = parseAmountToCents(mobileDepositValue) || 0;
+  if (shopAmountInput) {
+    shopAmountInput.value = cents > 0 ? centsToAmountString(cents) : "";
+  }
+  syncDepositDisplays(cents);
+  updateMobileKeypadValidation(cents);
+}
+
+function openMobileDepositSheet() {
+  if (!mobileDepositSheet || !isMobileViewport()) return;
+  if (shopMessageEl) shopMessageEl.textContent = "";
+  const initialCents = parseAmountToCents(shopAmountInput?.value) || MIN_SHOP_CENTS;
+  mobileDepositValue = centsToAmountString(initialCents);
+  setMobileDepositValue(mobileDepositValue);
+  mobileDepositSheet.classList.add("active");
+  mobileDepositSheet.setAttribute("aria-hidden", "false");
+  document.body.classList.add("mobile-sheet-open");
+}
+
+function closeMobileDepositSheet() {
+  if (!mobileDepositSheet) return;
+  mobileDepositSheet.classList.remove("active");
+  mobileDepositSheet.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("mobile-sheet-open");
+}
+
+function handleMobileKeyInput(key) {
+  let nextValue = mobileDepositValue;
+  if (key === "back") {
+    nextValue = nextValue.slice(0, -1);
+  } else if (key === ".") {
+    if (!nextValue.includes(".")) nextValue = `${nextValue}.`;
+  } else {
+    nextValue = nextValue === "0" ? String(key) : `${nextValue}${key}`;
+  }
+  if (!nextValue) nextValue = "0";
+  setMobileDepositValue(nextValue);
 }
 
 function setCurrency(currency) {
@@ -305,9 +425,20 @@ function setAuthState(user) {
     if (balanceGems) balanceGems.textContent = "0";
     if (shopCoinsEl) shopCoinsEl.textContent = "0";
     if (shopGemsEl) shopGemsEl.textContent = "0";
+    if (mobileWalletCoinsEl) mobileWalletCoinsEl.textContent = "0";
+    if (mobileWalletGemsEl) mobileWalletGemsEl.textContent = "0";
     if (shopMessageEl) shopMessageEl.textContent = "";
     if (shopAmountInput) shopAmountInput.value = "";
     if (shopGemsPreview) shopGemsPreview.textContent = "0";
+    if (shopMobileAmount) shopMobileAmount.textContent = "10.00";
+    if (shopMobileGemsPreview) shopMobileGemsPreview.textContent = "1000";
+    if (mobileDepositAmountEl) mobileDepositAmountEl.textContent = "10.00";
+    if (mobileDepositGemsEl) mobileDepositGemsEl.textContent = "1000";
+    if (mobileKeypadMessageEl) {
+      mobileKeypadMessageEl.textContent = "Minimum deposit: $10.00.";
+      mobileKeypadMessageEl.classList.remove("error");
+    }
+    closeMobileDepositSheet();
     if (cashoutAmountInput) cashoutAmountInput.value = "";
     if (cashoutGemsPreview) cashoutGemsPreview.textContent = "0";
     if (cashoutUsdPreview) cashoutUsdPreview.textContent = "0.00";
@@ -344,6 +475,8 @@ function updateProfileUI(user) {
   if (balanceGems) balanceGems.textContent = user.gems ?? 0;
   if (shopCoinsEl) shopCoinsEl.textContent = coins;
   if (shopGemsEl) shopGemsEl.textContent = user.gems ?? 0;
+  if (mobileWalletCoinsEl) mobileWalletCoinsEl.textContent = coins;
+  if (mobileWalletGemsEl) mobileWalletGemsEl.textContent = user.gems ?? 0;
   statWins.textContent = stats.wins || 0;
   statLosses.textContent = stats.losses || 0;
   statDraws.textContent = stats.draws || 0;
@@ -383,6 +516,7 @@ function updateProfileUI(user) {
   if (verifyPanel) {
     verifyPanel.classList.toggle("hidden", user.isVerified);
   }
+  updateShopPreview();
   updateProfileHighlights(user);
   updateProfileHelp(user);
 }
@@ -396,9 +530,13 @@ function parseAmountToCents(value) {
 }
 
 function updateShopPreview() {
-  if (!shopGemsPreview) return;
   const cents = parseAmountToCents(shopAmountInput?.value);
-  shopGemsPreview.textContent = cents ? String(cents) : "0";
+  const safeCents = cents && cents > 0 ? cents : 0;
+  syncDepositDisplays(safeCents);
+  if (safeCents > 0) {
+    mobileDepositValue = centsToAmountString(safeCents);
+  }
+  updateMobileKeypadValidation(safeCents);
 }
 
 function updateCashoutPreview() {
@@ -494,6 +632,9 @@ async function refreshCashoutStatus() {
 
 function refreshShop() {
   if (!currentUser) return;
+  if (shopAmountInput && !String(shopAmountInput.value || "").trim()) {
+    shopAmountInput.value = centsToAmountString(MIN_SHOP_CENTS);
+  }
   updateShopPreview();
   updateCashoutPreview();
   refreshCashoutStatus();
@@ -575,30 +716,37 @@ async function handleShopRedirectState() {
   }
 }
 
-async function startCheckout() {
+async function startCheckoutWithCents(cents) {
   if (!currentUser) {
     showStatus("Log in to purchase gems.", true);
     return;
   }
-  const cents = parseAmountToCents(shopAmountInput?.value);
   if (!cents) {
     if (shopMessageEl) shopMessageEl.textContent = "Enter a valid USD amount.";
+    updateMobileKeypadValidation(0);
     return;
   }
   if (cents < MIN_SHOP_CENTS) {
     if (shopMessageEl) {
       shopMessageEl.textContent = "Minimum deposit is $10.00.";
     }
+    updateMobileKeypadValidation(cents);
     return;
+  }
+  if (mobileKeypadMessageEl) {
+    mobileKeypadMessageEl.textContent = "Opening secure checkout...";
+    mobileKeypadMessageEl.classList.remove("error");
   }
   if (shopMessageEl) shopMessageEl.textContent = "Opening secure checkout...";
   if (shopCheckoutBtn) shopCheckoutBtn.disabled = true;
+  if (mobileDepositPayBtn) mobileDepositPayBtn.disabled = true;
   try {
     const data = await apiRequest("/api/shop/checkout", {
       method: "POST",
       body: JSON.stringify({ amountCents: cents }),
     });
     if (data?.url) {
+      closeMobileDepositSheet();
       window.location.href = data.url;
       return;
     }
@@ -607,9 +755,27 @@ async function startCheckout() {
     }
   } catch (err) {
     if (shopMessageEl) shopMessageEl.textContent = err.message;
+    if (mobileKeypadMessageEl) {
+      mobileKeypadMessageEl.textContent = err.message;
+      mobileKeypadMessageEl.classList.add("error");
+    }
   } finally {
     if (shopCheckoutBtn) shopCheckoutBtn.disabled = false;
+    if (mobileDepositPayBtn) mobileDepositPayBtn.disabled = false;
   }
+}
+
+async function startCheckout() {
+  if (!currentUser) {
+    showStatus("Log in to purchase gems.", true);
+    return;
+  }
+  if (isMobileViewport()) {
+    openMobileDepositSheet();
+    return;
+  }
+  const cents = parseAmountToCents(shopAmountInput?.value);
+  await startCheckoutWithCents(cents);
 }
 
 async function startCashoutConnect() {
@@ -1549,8 +1715,57 @@ if (verifyResendButton) {
 if (shopAmountInput) {
   shopAmountInput.addEventListener("input", updateShopPreview);
 }
+if (shopAmountChips.length) {
+  shopAmountChips.forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const cents = Number(chip.dataset.cents);
+      if (!Number.isFinite(cents) || cents <= 0) return;
+      if (shopAmountInput) shopAmountInput.value = centsToAmountString(cents);
+      updateShopPreview();
+    });
+  });
+}
 if (shopCheckoutBtn) {
   shopCheckoutBtn.addEventListener("click", startCheckout);
+}
+if (shopOpenKeypadBtn) {
+  shopOpenKeypadBtn.addEventListener("click", () => {
+    openMobileDepositSheet();
+  });
+}
+if (mobileDepositCloseBtn) {
+  mobileDepositCloseBtn.addEventListener("click", closeMobileDepositSheet);
+}
+if (mobileDepositSheet) {
+  mobileDepositSheet.addEventListener("click", (event) => {
+    if (event.target === mobileDepositSheet) {
+      closeMobileDepositSheet();
+    }
+  });
+}
+if (mobileAmountChips.length) {
+  mobileAmountChips.forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const cents = Number(chip.dataset.cents);
+      if (!Number.isFinite(cents) || cents <= 0) return;
+      setMobileDepositValue(centsToAmountString(cents));
+    });
+  });
+}
+if (mobileKeypadKeys.length) {
+  mobileKeypadKeys.forEach((keyButton) => {
+    keyButton.addEventListener("click", () => {
+      const key = keyButton.dataset.key;
+      if (!key) return;
+      handleMobileKeyInput(key);
+    });
+  });
+}
+if (mobileDepositPayBtn) {
+  mobileDepositPayBtn.addEventListener("click", async () => {
+    const cents = parseAmountToCents(mobileDepositValue);
+    await startCheckoutWithCents(cents);
+  });
 }
 if (cashoutAmountInput) {
   cashoutAmountInput.addEventListener("input", updateCashoutPreview);
@@ -1586,6 +1801,22 @@ if (currencyButtons.length) {
   });
 }
 
+window.addEventListener("resize", () => {
+  if (!isMobileViewport()) {
+    closeMobileDepositSheet();
+  }
+});
+
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && mobileDepositSheet?.classList.contains("active")) {
+    closeMobileDepositSheet();
+  }
+});
+
 setActiveSection("auth");
 setCurrency(selectedCurrency);
+if (shopAmountInput && !String(shopAmountInput.value || "").trim()) {
+  shopAmountInput.value = centsToAmountString(MIN_SHOP_CENTS);
+}
+updateShopPreview();
 loadSession();

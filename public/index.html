@@ -440,7 +440,7 @@
           <section class="shop-section">
             <p class="label">Deposit</p>
             <h3>Buy Gems</h3>
-            <div class="shop-purchase">
+            <div class="shop-purchase shop-deposit-desktop">
               <div class="field">
                 <label for="shop-amount">Amount (USD)</label>
                 <input
@@ -455,6 +455,12 @@
                 <p class="field-hint">
                   1¢ = 1 gem. $1.00 = 100 gems. Minimum deposit: $10.00.
                 </p>
+                <div class="shop-shortcuts" role="group" aria-label="Quick amounts">
+                  <button type="button" class="secondary shop-amount-chip" data-cents="1000">$10</button>
+                  <button type="button" class="secondary shop-amount-chip" data-cents="2500">$25</button>
+                  <button type="button" class="secondary shop-amount-chip" data-cents="5000">$50</button>
+                  <button type="button" class="secondary shop-amount-chip" data-cents="10000">$100</button>
+                </div>
               </div>
               <div class="shop-preview">
                 <p class="shop-preview-label">You get</p>
@@ -462,6 +468,18 @@
                   <span id="shop-gems-preview">0</span> gems
                 </p>
               </div>
+            </div>
+            <div class="shop-deposit-mobile">
+              <div class="shop-preview">
+                <p class="shop-preview-label">Deposit amount</p>
+                <p class="shop-preview-value">$<span id="shop-mobile-amount">10.00</span></p>
+                <p class="shop-preview-subtext">
+                  You get <span id="shop-mobile-gems-preview">1000</span> gems
+                </p>
+              </div>
+              <button type="button" class="secondary" id="shop-open-keypad">
+                Enter amount with keypad
+              </button>
             </div>
             <div class="shop-actions">
               <button type="button" id="shop-checkout">Continue to payment</button>
@@ -695,6 +713,119 @@
         <p id="match-transition-subtitle" class="match-transition-subtitle">
           Taking you to your 1v1...
         </p>
+      </div>
+    </div>
+    <div
+      id="onboarding-modal"
+      class="onboarding-modal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="onboarding-title"
+      aria-describedby="onboarding-description"
+    >
+      <div class="onboarding-card">
+        <p class="eyebrow">Welcome</p>
+        <h2 id="onboarding-title">How BetRoyale works</h2>
+        <p id="onboarding-description" class="onboarding-description">
+          Learn the flow in under 20 seconds.
+        </p>
+        <div class="onboarding-progress-wrap">
+          <span id="onboarding-progress-label" class="onboarding-progress-label"
+            >Step 1 of 4</span
+          >
+          <div class="onboarding-progress-track">
+            <div id="onboarding-progress-fill" class="onboarding-progress-fill"></div>
+          </div>
+        </div>
+        <div class="onboarding-step">
+          <p id="onboarding-step-title" class="onboarding-step-title">Deposit USD</p>
+          <p id="onboarding-step-body" class="onboarding-step-body"></p>
+        </div>
+        <div class="onboarding-actions">
+          <button
+            type="button"
+            id="onboarding-back"
+            class="secondary"
+            disabled
+          >
+            Back
+          </button>
+          <button type="button" id="onboarding-next">Next</button>
+        </div>
+        <button type="button" id="onboarding-skip" class="onboarding-skip">
+          Skip walkthrough
+        </button>
+      </div>
+    </div>
+    <div
+      id="mobile-deposit-sheet"
+      class="mobile-deposit-sheet"
+      aria-hidden="true"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="mobile-deposit-title"
+    >
+      <div class="mobile-deposit-card">
+        <div class="mobile-deposit-top">
+          <div>
+            <p class="eyebrow">Deposit</p>
+            <p id="mobile-deposit-title" class="mobile-deposit-title">Add Funds</p>
+            <p class="mobile-deposit-subtitle">Set your USD amount, then continue to Stripe checkout.</p>
+          </div>
+          <button
+            type="button"
+            id="mobile-deposit-close"
+            class="secondary mobile-close-button"
+            aria-label="Close keypad"
+          >
+            X
+          </button>
+        </div>
+        <div class="mobile-deposit-balance">
+          <p class="mobile-balance-label">Wallet</p>
+          <p class="mobile-balance-value">
+            <span id="mobile-wallet-coins">0</span> coins ·
+            <span id="mobile-wallet-gems">0</span> gems
+          </p>
+        </div>
+        <div class="mobile-amount-display">
+          <p class="mobile-amount-label">Amount</p>
+          <p class="mobile-amount-value">$<span id="mobile-deposit-amount">10.00</span></p>
+          <p class="mobile-amount-conversion">
+            You get <span id="mobile-deposit-gems">1000</span> gems
+          </p>
+        </div>
+        <div>
+          <div class="mobile-keypad-chips" role="group" aria-label="Quick amounts">
+            <button type="button" class="mobile-chip" data-cents="1000">$10</button>
+            <button type="button" class="mobile-chip" data-cents="2500">$25</button>
+            <button type="button" class="mobile-chip" data-cents="5000">$50</button>
+            <button type="button" class="mobile-chip" data-cents="10000">$100</button>
+          </div>
+          <div class="mobile-keypad" role="group" aria-label="Numeric keypad">
+            <button type="button" class="keypad-key" data-key="1">1</button>
+            <button type="button" class="keypad-key" data-key="2">2</button>
+            <button type="button" class="keypad-key" data-key="3">3</button>
+            <button type="button" class="keypad-key" data-key="4">4</button>
+            <button type="button" class="keypad-key" data-key="5">5</button>
+            <button type="button" class="keypad-key" data-key="6">6</button>
+            <button type="button" class="keypad-key" data-key="7">7</button>
+            <button type="button" class="keypad-key" data-key="8">8</button>
+            <button type="button" class="keypad-key" data-key="9">9</button>
+            <button type="button" class="keypad-key action" data-key=".">.</button>
+            <button type="button" class="keypad-key" data-key="0">0</button>
+            <button type="button" class="keypad-key action" data-key="back">DEL</button>
+          </div>
+        </div>
+        <div class="mobile-keypad-footer">
+          <p id="mobile-keypad-message" class="mobile-keypad-message">
+            Minimum deposit: $10.00.
+          </p>
+          <div class="mobile-keypad-actions">
+            <button type="button" id="mobile-deposit-pay">Continue to payment</button>
+            <p class="mobile-secure-text">Secure checkout powered by Stripe.</p>
+          </div>
+        </div>
       </div>
     </div>
 
