@@ -46,6 +46,10 @@ body.mobile-sheet-open {
   overflow: hidden;
 }
 
+body.modal-open {
+  overflow: hidden;
+}
+
 body::before {
   content: "";
   position: fixed;
@@ -1305,6 +1309,106 @@ button:disabled {
   font-size: 0.85rem;
 }
 
+.onboarding-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1450;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(4, 10, 20, 0.72);
+  backdrop-filter: blur(7px);
+}
+
+.onboarding-card {
+  width: min(540px, 100%);
+  border-radius: 20px;
+  border: 1px solid #2a4062;
+  background: linear-gradient(180deg, #101a2e 0%, #0c1526 100%);
+  box-shadow: 0 28px 58px rgba(0, 0, 0, 0.45);
+  padding: 22px;
+  display: grid;
+  gap: 14px;
+}
+
+.onboarding-description {
+  margin: 0;
+  color: var(--muted);
+}
+
+.onboarding-progress-wrap {
+  display: grid;
+  gap: 6px;
+}
+
+.onboarding-progress-label {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.onboarding-progress-track {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: #1a2740;
+  overflow: hidden;
+}
+
+.onboarding-progress-fill {
+  height: 100%;
+  width: 25%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #37db9f 0%, #5c8cff 100%);
+  transition: width 220ms ease;
+}
+
+.onboarding-step {
+  border: 1px solid #2a3f62;
+  border-radius: 14px;
+  background: rgba(16, 29, 50, 0.82);
+  padding: 14px;
+  display: grid;
+  gap: 6px;
+}
+
+.onboarding-step-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.onboarding-step-body {
+  margin: 0;
+  color: #d6e1f3;
+  line-height: 1.45;
+}
+
+.onboarding-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.onboarding-actions button {
+  width: 100%;
+  justify-content: center;
+}
+
+.onboarding-skip {
+  width: fit-content;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 0;
+  font-size: 0.88rem;
+  box-shadow: none;
+}
+
+.onboarding-skip:hover {
+  transform: none;
+  color: #d9e5f5;
+}
+
 .match-transition {
   position: fixed;
   inset: 0;
@@ -1677,6 +1781,23 @@ button:disabled {
   .card-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .onboarding-modal {
+    padding: calc(14px + var(--safe-top)) max(10px, var(--safe-right))
+      calc(14px + var(--safe-bottom)) max(10px, var(--safe-left));
+    align-items: end;
+  }
+
+  .onboarding-card {
+    width: 100%;
+    max-height: 100%;
+    border-radius: 20px;
+    padding: 16px;
+  }
+
+  .onboarding-actions {
+    grid-template-columns: 1fr;
   }
 
   .footer {

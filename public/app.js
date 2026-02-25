@@ -63,6 +63,14 @@ const mobileDepositPayBtn = document.getElementById("mobile-deposit-pay");
 const mobileKeypadMessageEl = document.getElementById("mobile-keypad-message");
 const mobileKeypadKeys = Array.from(document.querySelectorAll(".keypad-key"));
 const mobileAmountChips = Array.from(document.querySelectorAll(".mobile-chip"));
+const onboardingModal = document.getElementById("onboarding-modal");
+const onboardingStepTitleEl = document.getElementById("onboarding-step-title");
+const onboardingStepBodyEl = document.getElementById("onboarding-step-body");
+const onboardingProgressLabelEl = document.getElementById("onboarding-progress-label");
+const onboardingProgressFillEl = document.getElementById("onboarding-progress-fill");
+const onboardingBackBtn = document.getElementById("onboarding-back");
+const onboardingNextBtn = document.getElementById("onboarding-next");
+const onboardingSkipBtn = document.getElementById("onboarding-skip");
 const cashoutAmountInput = document.getElementById("cashout-amount");
 const cashoutGemsPreview = document.getElementById("cashout-gems-preview");
 const cashoutUsdPreview = document.getElementById("cashout-usd-preview");
@@ -127,6 +135,27 @@ const MIN_CASHOUT_CENTS = 1000;
 const MAX_CASHOUT_CENTS = 100000;
 let cashoutReady = false;
 let mobileDepositValue = (MIN_SHOP_CENTS / 100).toFixed(2);
+let onboardingStepIndex = 0;
+let onboardingUserId = null;
+
+const ONBOARDING_STEPS = [
+  {
+    title: "Deposit money for gems",
+    body: "Go to Shop, enter your USD amount, then complete secure Stripe checkout. Every cent becomes one gem.",
+  },
+  {
+    title: "Choose your wager type",
+    body: "In Queue, pick whether you want to wager coins or gems, then set your amount.",
+  },
+  {
+    title: "Win Clash Royale duels",
+    body: "Play the friendly battle and report/track results. Winners take the wager from the opponent.",
+  },
+  {
+    title: "Cash out your winnings",
+    body: "Use Shop to convert gems back into USD and cash out through your connected Stripe payout account.",
+  },
+];
 
 function updatePresetActive(value) {
   const numeric = Number(value);
@@ -142,6 +171,71 @@ function formatProfileStat(value) {
   if (typeof value === "number" && !Number.isFinite(value)) return "—";
   const text = String(value).trim();
   return text ? text : "—";
+}
+
+function getOnboardingStorageKey(userId) {
+  return `betroyale_onboarding_seen_${userId}`;
+}
+
+function hasSeenOnboarding(userId) {
+  if (!userId) return false;
+  try {
+    return localStorage.getItem(getOnboardingStorageKey(userId)) === "1";
+  } catch (err) {
+    return false;
+  }
+}
+
+function markOnboardingSeen(userId) {
+  if (!userId) return;
+  try {
+    localStorage.setItem(getOnboardingStorageKey(userId), "1");
+  } catch (err) {
+    // Ignore storage limitations.
+  }
+}
+
+function renderOnboardingStep() {
+  const step = ONBOARDING_STEPS[onboardingStepIndex];
+  if (!step) return;
+  if (onboardingStepTitleEl) onboardingStepTitleEl.textContent = step.title;
+  if (onboardingStepBodyEl) onboardingStepBodyEl.textContent = step.body;
+  if (onboardingProgressLabelEl) {
+    onboardingProgressLabelEl.textContent = `Step ${
+      onboardingStepIndex + 1
+    } of ${ONBOARDING_STEPS.length}`;
+  }
+  if (onboardingProgressFillEl) {
+    const progress = ((onboardingStepIndex + 1) / ONBOARDING_STEPS.length) * 100;
+    onboardingProgressFillEl.style.width = `${progress}%`;
+  }
+  if (onboardingBackBtn) {
+    onboardingBackBtn.disabled = onboardingStepIndex === 0;
+  }
+  if (onboardingNextBtn) {
+    onboardingNextBtn.textContent =
+      onboardingStepIndex === ONBOARDING_STEPS.length - 1 ? "Finish" : "Next";
+  }
+}
+
+function openOnboarding(userId) {
+  if (!onboardingModal || !userId) return;
+  if (hasSeenOnboarding(userId)) return;
+  onboardingUserId = userId;
+  onboardingStepIndex = 0;
+  renderOnboardingStep();
+  onboardingModal.classList.remove("hidden");
+  document.body.classList.add("modal-open");
+}
+
+function closeOnboarding(markSeen = true) {
+  if (!onboardingModal) return;
+  onboardingModal.classList.add("hidden");
+  document.body.classList.remove("modal-open");
+  if (markSeen) {
+    markOnboardingSeen(onboardingUserId);
+  }
+  onboardingUserId = null;
 }
 
 function isMobileViewport() {
@@ -454,6 +548,7 @@ function setAuthState(user) {
     cashoutReady = false;
     if (shopPanel) shopPanel.classList.add("hidden");
     stopQueuePolling();
+    closeOnboarding(false);
   }
 
   updateMenuState(user);
@@ -921,6 +1016,7 @@ registerForm.addEventListener("submit", async (event) => {
     setAuthState(data.user);
     setFormMessage(registerMessage, "");
     showStatus("Account created. Verify your account below.");
+    openOnboarding(data.user?.id);
     if (verifyDisplay && data.verificationCode) {
       verifyDisplay.textContent = `Verification code: ${data.verificationCode}`;
       verifyDisplay.classList.remove("hidden");
@@ -1704,6 +1800,38 @@ menuButtons.forEach((button) => {
   });
 });
 
+if (onboardingBackBtn) {
+  onboardingBackBtn.addEventListener("click", () => {
+    onboardingStepIndex = Math.max(0, onboardingStepIndex - 1);
+    renderOnboardingStep();
+  });
+}
+
+if (onboardingNextBtn) {
+  onboardingNextBtn.addEventListener("click", () => {
+    if (onboardingStepIndex >= ONBOARDING_STEPS.length - 1) {
+      closeOnboarding(true);
+      return;
+    }
+    onboardingStepIndex += 1;
+    renderOnboardingStep();
+  });
+}
+
+if (onboardingSkipBtn) {
+  onboardingSkipBtn.addEventListener("click", () => {
+    closeOnboarding(true);
+  });
+}
+
+if (onboardingModal) {
+  onboardingModal.addEventListener("click", (event) => {
+    if (event.target === onboardingModal) {
+      closeOnboarding(true);
+    }
+  });
+}
+
 joinQueueBtn.addEventListener("click", joinQueue);
 trackBattleBtn.addEventListener("click", trackFriendlyBattle);
 if (refreshQueueBtn) refreshQueueBtn.addEventListener("click", manualRefreshQueue);
@@ -1808,8 +1936,12 @@ window.addEventListener("resize", () => {
 });
 
 window.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && mobileDepositSheet?.classList.contains("active")) {
+  if (event.key !== "Escape") return;
+  if (mobileDepositSheet?.classList.contains("active")) {
     closeMobileDepositSheet();
+  }
+  if (onboardingModal && !onboardingModal.classList.contains("hidden")) {
+    closeOnboarding(true);
   }
 });
 
