@@ -145,20 +145,24 @@ let onboardingUserId = null;
 
 const ONBOARDING_STEPS = [
   {
-    title: "Deposit money for gems",
-    body: "Go to Shop, enter your USD amount, then complete secure Stripe checkout. Every cent becomes one gem.",
+    title: "Verify your email",
+    body: "Check your inbox for a verification code and enter it on the Profile page. This keeps your account secure.",
   },
   {
-    title: "Choose your wager type",
-    body: "In Queue, pick whether you want to wager coins or gems, then set your amount.",
+    title: "Set up your profile",
+    body: "Go to Profile and enter your Clash Royale player tag and friend link. Opponents need your friend link to send you a friendly battle.",
+  },
+  {
+    title: "Deposit money for gems",
+    body: "Head to the Shop and deposit USD. Every cent becomes one gem you can wager in real matches.",
   },
   {
     title: "Win Clash Royale duels",
-    body: "Play the friendly battle and report/track results. Winners take the wager from the opponent.",
+    body: "Join the Queue, set your wager, and get matched. Play a friendly battle in Clash Royale — the winner takes the pot.",
   },
   {
     title: "Cash out your winnings",
-    body: "Use Shop to convert gems back into USD and cash out through your connected Stripe payout account.",
+    body: "Back in the Shop, convert your gems to USD and cash out through your connected Stripe payout account.",
   },
 ];
 
