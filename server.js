@@ -304,6 +304,10 @@ function collectAllowedOrigins() {
 }
 
 const allowedOrigins = collectAllowedOrigins();
+const corsOriginsConfigured = String(process.env.CORS_ORIGINS || "")
+  .split(",")
+  .map((value) => value.trim())
+  .filter(Boolean).length > 0;
 const authRateLimiter = rateLimit({
   windowMs: 1000 * 60 * 15,
   limit: 40,
@@ -393,12 +397,16 @@ app.use(
         callback(null, true);
         return;
       }
+      if (!corsOriginsConfigured) {
+        callback(null, true);
+        return;
+      }
       const normalized = normalizeOrigin(origin);
       if (normalized && allowedOrigins.has(normalized)) {
         callback(null, true);
         return;
       }
-      callback(new Error("Not allowed by CORS"));
+      callback(new Error(`Not allowed by CORS: ${origin}`));
     },
     credentials: true,
   })
@@ -422,6 +430,12 @@ app.use(
   session(sessionConfig)
 );
 app.use(express.static(path.join(__dirname, "public")));
+app.use((err, req, res, next) => {
+  if (err && String(err.message || "").startsWith("Not allowed by CORS")) {
+    return res.status(403).json({ error: "Origin not allowed." });
+  }
+  return next(err);
+});
 
 async function loadStore() {
   try {
