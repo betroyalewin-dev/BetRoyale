@@ -98,6 +98,8 @@ const matchLockEl = document.getElementById("match-lock");
 const matchPotEl = document.getElementById("match-pot");
 const matchYourWagerEl = document.getElementById("match-your-wager");
 const matchOpponentWagerEl = document.getElementById("match-opponent-wager");
+const matchEmptyEl = document.getElementById("match-empty");
+const matchGoQueueBtn = document.getElementById("match-go-queue");
 const matchTransitionEl = document.getElementById("match-transition");
 const matchTransitionTitleEl = document.getElementById("match-transition-title");
 const matchTransitionSubtitleEl = document.getElementById(
@@ -381,6 +383,9 @@ function setActiveSection(section) {
     button.classList.toggle("active", button.dataset.section === target);
   });
   activeSection = target;
+  if (target === "match" && !currentMatchId) {
+    resetMatch();
+  }
   if (target === "shop") {
     refreshShop();
     return;
@@ -455,27 +460,27 @@ async function loadResultsHistory() {
   if (!currentUser) return;
   if (!currentUser.tag) {
     clearResults();
-    showStatus("Add your player tag in Profile to load your battle history.", true);
+    showStatus("Add your player tag in Profile to load your match history.", true);
     return;
   }
 
   clearResults();
-  showStatus("Loading battle history...");
+  showStatus("Loading BetRoyale match history...");
 
   try {
-    const data = await apiRequest("/api/results?limit=25", { method: "GET" });
+    const data = await apiRequest("/api/results?limit=250", { method: "GET" });
     const battles = Array.isArray(data.battles) ? data.battles : [];
     if (!battles.length) {
-      showStatus("No battles found in your battle log yet.");
+      showStatus("No completed BetRoyale matches yet.");
       return;
     }
 
     battles.forEach((battle) => {
       resultsEl.appendChild(renderBattle(battle, data.referenceTag || currentUser.tag));
     });
-    showStatus(`Loaded ${battles.length} recent matches.`);
+    showStatus(`Loaded ${battles.length} BetRoyale matches.`);
   } catch (err) {
-    showStatus(err.message || "Unable to load battle history.", true);
+    showStatus(err.message || "Unable to load match history.", true);
   }
 }
 
@@ -1132,11 +1137,56 @@ async function resendVerificationCode() {
   }
 }
 
+function parseBattleDate(battleTime) {
+  if (!battleTime) return null;
+  const native = new Date(battleTime);
+  if (!Number.isNaN(native.getTime())) return native;
+
+  const match = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(?:\.(\d+))?Z?$/.exec(
+    String(battleTime)
+  );
+  if (!match) return null;
+  const [, year, month, day, hour, minute, second, ms = "0"] = match;
+  const time = Date.UTC(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second),
+    Number(ms.slice(0, 3))
+  );
+  return new Date(time);
+}
+
 function formatBattleTime(battleTime) {
-  if (!battleTime) return "Unknown time";
-  const parsed = new Date(battleTime);
-  if (Number.isNaN(parsed.getTime())) return battleTime;
-  return parsed.toLocaleString();
+  const parsed = parseBattleDate(battleTime);
+  if (!parsed) return "Unknown time";
+  return parsed.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function formatModeName(battle) {
+  const raw = String(battle?.gameMode?.name || battle?.type || "Match");
+  const trimmed = raw.trim();
+  if (!trimmed) return "Match";
+  const known = {
+    friendly: "Friendly Battle",
+    ranked1v1_newarena: "Ranked 1v1",
+    ranked: "Ranked",
+    ladder: "Ladder",
+  };
+  const normalized = trimmed.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (known[normalized]) return known[normalized];
+  return trimmed
+    .replace(/_/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\s+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function sumCrowns(players) {
@@ -1186,12 +1236,21 @@ function renderBattle(battle, perspectiveTag) {
     }
   }
 
-  const teamCrowns = sumCrowns(team);
-  const opponentCrowns = sumCrowns(opponent);
+  const teamCrowns =
+    typeof battle.teamCrowns === "number" ? battle.teamCrowns : sumCrowns(team);
+  const opponentCrowns =
+    typeof battle.opponentCrowns === "number"
+      ? battle.opponentCrowns
+      : sumCrowns(opponent);
 
+  const normalizedResult = String(battle.result || "").toLowerCase();
   let outcome = "Draw";
-  if (teamCrowns > opponentCrowns) outcome = "Win";
-  if (teamCrowns < opponentCrowns) outcome = "Loss";
+  if (normalizedResult === "win" || normalizedResult === "loss") {
+    outcome = normalizedResult === "win" ? "Win" : "Loss";
+  } else {
+    if (teamCrowns > opponentCrowns) outcome = "Win";
+    if (teamCrowns < opponentCrowns) outcome = "Loss";
+  }
 
   const card = document.createElement("article");
   card.className = "card";
@@ -1201,13 +1260,18 @@ function renderBattle(battle, perspectiveTag) {
 
   const badge = document.createElement("span");
   badge.className = `badge${outcome === "Loss" ? " loss" : ""}`;
-  badge.textContent = `${outcome} - ${teamCrowns}-${opponentCrowns}`;
+  const hasScore =
+    Number.isFinite(teamCrowns) &&
+    Number.isFinite(opponentCrowns) &&
+    !(teamCrowns === 0 && opponentCrowns === 0 && !battle.battleTime);
+  badge.textContent = hasScore
+    ? `${outcome} - ${teamCrowns}-${opponentCrowns}`
+    : outcome;
 
   const meta = document.createElement("div");
   meta.className = "meta";
-  const mode = battle.gameMode?.name || battle.type || "Match";
-  const perspective = perspectiveTag ? ` - Perspective: ${perspectiveTag}` : "";
-  meta.textContent = `${mode} - ${formatBattleTime(battle.battleTime)}${perspective}`;
+  const mode = formatModeName(battle);
+  meta.textContent = `${mode} - ${formatBattleTime(battle.battleTime)}`;
 
   header.appendChild(badge);
   header.appendChild(meta);
@@ -1236,6 +1300,13 @@ function renderBattle(battle, perspectiveTag) {
   lineup.appendChild(teamLine);
   lineup.appendChild(oppLine);
 
+  if (battle.matchId) {
+    const matchLine = document.createElement("div");
+    matchLine.className = "meta";
+    matchLine.textContent = `Match ID: ${battle.matchId}`;
+    lineup.appendChild(matchLine);
+  }
+
   const cardsWrap = document.createElement("div");
   cardsWrap.className = "cards";
   const deck = getCardNames(team[0]?.cards);
@@ -1263,10 +1334,10 @@ function setWaitingState(isWaiting) {
 
 function resetMatch() {
   currentMatchId = null;
-  matchSection.classList.add("hidden");
-  matchIdEl.textContent = "N/A";
-  matchPlayersEl.innerHTML = "";
-  trackBattleBtn.disabled = true;
+  if (matchIdEl) matchIdEl.textContent = "No active match";
+  if (matchPlayersEl) matchPlayersEl.innerHTML = "";
+  if (trackBattleBtn) trackBattleBtn.disabled = true;
+  if (matchEmptyEl) matchEmptyEl.classList.remove("hidden");
   if (matchPotEl) matchPotEl.textContent = "0";
   if (matchYourWagerEl) matchYourWagerEl.textContent = "0";
   if (matchOpponentWagerEl) matchOpponentWagerEl.textContent = "0";
@@ -1326,7 +1397,8 @@ function startLockCountdown(lockUntil) {
 
 function renderMatch(match) {
   currentMatchId = match.id;
-  matchSection.classList.remove("hidden");
+  if (matchSection) matchSection.classList.remove("hidden");
+  if (matchEmptyEl) matchEmptyEl.classList.add("hidden");
   matchIdEl.textContent = match.id;
   matchPlayersEl.innerHTML = "";
 
@@ -1510,10 +1582,11 @@ function renderQueueList(entries) {
     const losses = Number(entry.stats?.losses || 0);
     const draws = Number(entry.stats?.draws || 0);
     const record = `${wins}W-${losses}L-${draws}D`;
+    const league = entry.profile?.highestLeagueName || "Unranked";
     if (entry.profile) {
       meta.textContent = `${entry.tag} · ${
         entry.profile.trophies ?? 0
-      } trophies · ${record}`;
+      } trophies · ${league} · ${record}`;
     } else {
       meta.textContent = `${entry.tag} · Profile loading... · ${record}`;
     }
@@ -1572,9 +1645,10 @@ function renderQueueList(entries) {
       const wins = Number(currentUser?.stats?.wins || 0);
       const losses = Number(currentUser?.stats?.losses || 0);
       const draws = Number(currentUser?.stats?.draws || 0);
+      const league = currentUser.playerProfile?.highestLeagueName || "Unranked";
       meta.textContent = `${currentUser.tag || "No tag"} · ${
         currentUser.playerProfile.trophies ?? 0
-      } trophies · ${wins}W-${losses}L-${draws}D`;
+      } trophies · ${league} · ${wins}W-${losses}L-${draws}D`;
     } else {
       meta.textContent = `${currentUser?.tag || "No tag"} · Profile loading...`;
     }
@@ -1832,6 +1906,12 @@ if (onboardingModal) {
   });
 }
 
+if (matchGoQueueBtn) {
+  matchGoQueueBtn.addEventListener("click", () => {
+    setActiveSection("queue");
+  });
+}
+
 joinQueueBtn.addEventListener("click", joinQueue);
 trackBattleBtn.addEventListener("click", trackFriendlyBattle);
 if (refreshQueueBtn) refreshQueueBtn.addEventListener("click", manualRefreshQueue);
@@ -1945,6 +2025,7 @@ window.addEventListener("keydown", (event) => {
   }
 });
 
+resetMatch();
 setActiveSection("auth");
 setCurrency(selectedCurrency);
 if (shopAmountInput && !String(shopAmountInput.value || "").trim()) {

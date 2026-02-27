@@ -383,6 +383,13 @@ button:disabled {
   transform: none;
 }
 
+button:focus-visible,
+input:focus-visible,
+.menu-button:focus-visible {
+  outline: 2px solid #5c8cff;
+  outline-offset: 2px;
+}
+
 .secondary {
   background: #131f33;
   color: #dce5f3;
@@ -1162,6 +1169,22 @@ button:disabled {
   font-size: 0.9rem;
 }
 
+.match-empty {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px dashed #2f4668;
+  background: rgba(12, 21, 36, 0.8);
+  display: grid;
+  gap: 8px;
+}
+
+.match-empty-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
 .match-summary {
   margin-top: 16px;
   display: grid;
@@ -1497,6 +1520,17 @@ button:disabled {
   to {
     transform: translateY(0) scale(1);
     opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

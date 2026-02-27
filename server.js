@@ -9,6 +9,10 @@ const session = require("express-session");
 const { Pool } = require("pg");
 const nodemailer = require("nodemailer");
 const Stripe = require("stripe");
+const helmet = require("helmet");
+const cors = require("cors");
+const rateLimit = require("express-rate-limit");
+const pgSessionFactory = require("connect-pg-simple");
 require("dotenv").config();
 
 const app = express();
@@ -32,21 +36,105 @@ const STRIPE_CONNECT_RETURN_URL =
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
 const EMAIL_FROM = process.env.EMAIL_FROM || EMAIL_USER || "no-reply@betroyale.win";
-const CR_API_PROXY_URL =
+const CR_API_PROXY_URL_RAW =
   process.env.CR_API_PROXY_URL || process.env.QUOTAGUARDSTATIC_URL || "";
+
+function resolveProxyConfig(rawProxyValue) {
+  const trimmed = String(rawProxyValue || "").trim();
+  if (!trimmed) {
+    return { url: "", agent: null };
+  }
+
+  const candidate = /^https?:\/\//i.test(trimmed)
+    ? trimmed
+    : `http://${trimmed}`;
+
+  try {
+    const parsed = new URL(candidate);
+    if (!parsed.hostname) {
+      throw new Error("missing hostname");
+    }
+    return {
+      url: candidate,
+      agent: new HttpsProxyAgent(candidate),
+    };
+  } catch (err) {
+    console.warn(
+      `Ignoring invalid CR API proxy value. Check CR_API_PROXY_URL/QUOTAGUARDSTATIC_URL. Value: "${trimmed}"`
+    );
+    return { url: "", agent: null };
+  }
+}
+
+const { url: CR_API_PROXY_URL, agent: crApiAgent } = resolveProxyConfig(
+  CR_API_PROXY_URL_RAW
+);
 
 const STORE_PATH =
   process.env.STORE_PATH || path.join(__dirname, "data", "store.json");
-const DB_SSL =
-  DATABASE_URL &&
-  !DATABASE_URL.includes("localhost") &&
-  !DATABASE_URL.includes("127.0.0.1");
-const pool = DATABASE_URL
+function resolveDatabaseSslOption(databaseUrl) {
+  if (!databaseUrl) return false;
+  const explicitSsl = String(
+    process.env.DATABASE_SSL || process.env.DB_SSL || process.env.PGSSLMODE || ""
+  )
+    .trim()
+    .toLowerCase();
+
+  if (explicitSsl) {
+    if (
+      explicitSsl === "disable" ||
+      explicitSsl === "false" ||
+      explicitSsl === "0" ||
+      explicitSsl === "off" ||
+      explicitSsl === "no"
+    ) {
+      return false;
+    }
+    return { rejectUnauthorized: false };
+  }
+
+  try {
+    const hostname = new URL(databaseUrl).hostname || "";
+    const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1";
+    const isRenderInternalHost =
+      hostname.startsWith("dpg-") && !hostname.includes(".");
+    if (isLocalHost || isRenderInternalHost) {
+      return false;
+    }
+  } catch (err) {
+    // Fall back to SSL enabled for non-parseable URLs.
+  }
+  return { rejectUnauthorized: false };
+}
+
+const DATABASE_SSL_OPTION = resolveDatabaseSslOption(DATABASE_URL);
+let pool = DATABASE_URL
   ? new Pool({
       connectionString: DATABASE_URL,
-      ssl: DB_SSL ? { rejectUnauthorized: false } : undefined,
+      ssl: DATABASE_SSL_OPTION,
     })
   : null;
+if (pool) {
+  console.log(
+    `Database configured (${DATABASE_SSL_OPTION ? "SSL enabled" : "SSL disabled"})`
+  );
+}
+const PgSession = pgSessionFactory(session);
+const sessionStore = pool
+  ? new PgSession({
+      pool,
+      tableName: "user_sessions",
+      createTableIfMissing: true,
+    })
+  : null;
+
+function disablePool(err) {
+  console.warn(
+    "Database unreachable — falling back to file storage.",
+    err?.message || ""
+  );
+  pool = null;
+}
 const mailTransport =
   EMAIL_USER && EMAIL_PASS
     ? nodemailer.createTransport({
@@ -60,7 +148,6 @@ const mailTransport =
 const stripe = STRIPE_SECRET_KEY
   ? new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2023-10-16" })
   : null;
-const crApiAgent = CR_API_PROXY_URL ? new HttpsProxyAgent(CR_API_PROXY_URL) : null;
 const QUEUE_TTL_MS = 1000 * 60 * 30;
 const MATCH_TTL_MS = 1000 * 60 * 60 * 6;
 const MATCH_LOCK_MS = 1000 * 60 * 2;
@@ -70,6 +157,7 @@ const MIN_GEM_PURCHASE_CENTS = 1000;
 const MAX_GEM_PURCHASE_CENTS = 100000;
 const MIN_CASHOUT_CENTS = 1000;
 const MAX_CASHOUT_CENTS = 100000;
+const SESSION_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 7;
 const waitingQueue = [];
 const tickets = new Map();
 const matches = new Map();
@@ -140,6 +228,10 @@ async function ensureDatabaseSchema() {
       recorded_at TEXT
     )
   `);
+  await pool.query(`
+    ALTER TABLE recorded_matches
+    ADD COLUMN IF NOT EXISTS details JSONB
+  `);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS app_meta (
@@ -189,6 +281,50 @@ if (!stripe) {
 if (!STRIPE_WEBHOOK_SECRET) {
   console.warn("Missing STRIPE_WEBHOOK_SECRET; Stripe webhooks disabled.");
 }
+
+function normalizeOrigin(origin) {
+  try {
+    const parsed = new URL(origin);
+    return parsed.origin;
+  } catch (err) {
+    return null;
+  }
+}
+
+function collectAllowedOrigins() {
+  const envOrigins = String(process.env.CORS_ORIGINS || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const defaults = [PUBLIC_URL, "http://localhost:3000", "http://127.0.0.1:3000"];
+  const origins = [...defaults, ...envOrigins]
+    .map(normalizeOrigin)
+    .filter(Boolean);
+  return new Set(origins);
+}
+
+const allowedOrigins = collectAllowedOrigins();
+const authRateLimiter = rateLimit({
+  windowMs: 1000 * 60 * 15,
+  limit: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many auth attempts. Please try again soon." },
+});
+const queueRateLimiter = rateLimit({
+  windowMs: 1000 * 60,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many queue requests. Please slow down." },
+});
+const financeRateLimiter = rateLimit({
+  windowMs: 1000 * 60 * 5,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many payment requests. Please try again shortly." },
+});
 
 app.post(
   "/api/stripe/webhook",
@@ -243,19 +379,47 @@ app.post(
   }
 );
 
-app.use(express.json());
 app.set("trust proxy", 1);
 app.use(
-  session({
-    secret: SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      sameSite: isProduction ? "none" : "lax",
-      secure: isProduction,
-    },
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: false,
   })
+);
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      const normalized = normalizeOrigin(origin);
+      if (normalized && allowedOrigins.has(normalized)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+  })
+);
+app.use(express.json({ limit: "1mb" }));
+const sessionConfig = {
+  secret: SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    sameSite: isProduction ? "none" : "lax",
+    secure: isProduction,
+    maxAge: SESSION_MAX_AGE_MS,
+  },
+};
+if (sessionStore) {
+  sessionConfig.store = sessionStore;
+}
+app.use(
+  session(sessionConfig)
 );
 app.use(express.static(path.join(__dirname, "public")));
 
@@ -302,6 +466,7 @@ async function loadStore() {
       };
 
       matchResult.rows.forEach((row) => {
+        const details = parseJsonValue(row.details, {});
         store.recordedMatches[row.match_key] = {
           matchId: row.match_id,
           tagA: row.tag_a,
@@ -311,6 +476,23 @@ async function loadStore() {
           currencyA: row.currency_a,
           currencyB: row.currency_b,
           recordedAt: row.recorded_at,
+          battleTime: details?.battleTime || null,
+          battleType: details?.battleType || "",
+          gameModeName: details?.gameModeName || "",
+          teamCrowns:
+            typeof details?.teamCrowns === "number" ? details.teamCrowns : null,
+          opponentCrowns:
+            typeof details?.opponentCrowns === "number"
+              ? details.opponentCrowns
+              : null,
+          resultByTag:
+            details?.resultByTag && typeof details.resultByTag === "object"
+              ? details.resultByTag
+              : {},
+          battleSummary:
+            details?.battleSummary && typeof details.battleSummary === "object"
+              ? details.battleSummary
+              : null,
         };
       });
 
@@ -377,7 +559,9 @@ async function loadStore() {
     }
   } catch (err) {
     if (pool) {
-      throw err;
+      // Database connection failed — disable pool and retry with file storage
+      disablePool(err);
+      return loadStore();
     }
     if (err.code !== "ENOENT") {
       throw err;
@@ -393,8 +577,15 @@ function saveStore() {
       await fs.writeFile(STORE_PATH, JSON.stringify(store, null, 2));
       return;
     }
-    await ensureDatabaseSchema();
-    const client = await pool.connect();
+    let client;
+    try {
+      await ensureDatabaseSchema();
+      client = await pool.connect();
+    } catch (err) {
+      disablePool(err);
+      await fs.writeFile(STORE_PATH, JSON.stringify(store, null, 2));
+      return;
+    }
     try {
       await client.query("BEGIN");
       await client.query(
@@ -492,9 +683,10 @@ function saveStore() {
             wager_b,
             currency_a,
             currency_b,
-            recorded_at
+            recorded_at,
+            details
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
           ON CONFLICT (match_key) DO UPDATE SET
             match_id = EXCLUDED.match_id,
             tag_a = EXCLUDED.tag_a,
@@ -503,7 +695,8 @@ function saveStore() {
             wager_b = EXCLUDED.wager_b,
             currency_a = EXCLUDED.currency_a,
             currency_b = EXCLUDED.currency_b,
-            recorded_at = EXCLUDED.recorded_at
+            recorded_at = EXCLUDED.recorded_at,
+            details = EXCLUDED.details
           `,
           [
             matchKey,
@@ -515,6 +708,25 @@ function saveStore() {
             record.currencyA || null,
             record.currencyB || null,
             record.recordedAt || null,
+            {
+              battleTime: record.battleTime || null,
+              battleType: record.battleType || "",
+              gameModeName: record.gameModeName || "",
+              teamCrowns:
+                typeof record.teamCrowns === "number" ? record.teamCrowns : null,
+              opponentCrowns:
+                typeof record.opponentCrowns === "number"
+                  ? record.opponentCrowns
+                  : null,
+              resultByTag:
+                record.resultByTag && typeof record.resultByTag === "object"
+                  ? record.resultByTag
+                  : {},
+              battleSummary:
+                record.battleSummary && typeof record.battleSummary === "object"
+                  ? record.battleSummary
+                  : null,
+            },
           ]
         );
       }
@@ -533,15 +745,19 @@ function saveStore() {
 async function recordPurchase(sessionId, userId, amountCents, gems) {
   if (!sessionId) return false;
   if (pool) {
-    const result = await pool.query(
-      `
-      INSERT INTO purchases (session_id, user_id, amount_cents, gems, created_at)
-      VALUES ($1, $2, $3, $4, $5)
-      ON CONFLICT (session_id) DO NOTHING
-      `,
-      [sessionId, userId || null, amountCents || 0, gems || 0, Date.now()]
-    );
-    return result.rowCount > 0;
+    try {
+      const result = await pool.query(
+        `
+        INSERT INTO purchases (session_id, user_id, amount_cents, gems, created_at)
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (session_id) DO NOTHING
+        `,
+        [sessionId, userId || null, amountCents || 0, gems || 0, Date.now()]
+      );
+      return result.rowCount > 0;
+    } catch (err) {
+      disablePool(err);
+    }
   }
 
   if (store.purchases?.[sessionId]) {
@@ -562,44 +778,48 @@ async function recordPurchase(sessionId, userId, amountCents, gems) {
 async function recordCashout(cashout) {
   if (!cashout?.id) return;
   if (pool) {
-    await pool.query(
-      `
-      INSERT INTO cashouts (
-        id,
-        user_id,
-        stripe_transfer_id,
-        stripe_account_id,
-        gems,
-        amount_cents,
-        status,
-        error,
-        created_at,
-        updated_at
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      ON CONFLICT (id) DO UPDATE SET
-        stripe_transfer_id = EXCLUDED.stripe_transfer_id,
-        stripe_account_id = EXCLUDED.stripe_account_id,
-        gems = EXCLUDED.gems,
-        amount_cents = EXCLUDED.amount_cents,
-        status = EXCLUDED.status,
-        error = EXCLUDED.error,
-        updated_at = EXCLUDED.updated_at
-      `,
-      [
-        cashout.id,
-        cashout.userId,
-        cashout.stripeTransferId || null,
-        cashout.stripeAccountId || null,
-        Number.isFinite(cashout.gems) ? cashout.gems : 0,
-        Number.isFinite(cashout.amountCents) ? cashout.amountCents : 0,
-        cashout.status || "pending",
-        cashout.error || null,
-        cashout.createdAt || Date.now(),
-        cashout.updatedAt || Date.now(),
-      ]
-    );
-    return;
+    try {
+      await pool.query(
+        `
+        INSERT INTO cashouts (
+          id,
+          user_id,
+          stripe_transfer_id,
+          stripe_account_id,
+          gems,
+          amount_cents,
+          status,
+          error,
+          created_at,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        ON CONFLICT (id) DO UPDATE SET
+          stripe_transfer_id = EXCLUDED.stripe_transfer_id,
+          stripe_account_id = EXCLUDED.stripe_account_id,
+          gems = EXCLUDED.gems,
+          amount_cents = EXCLUDED.amount_cents,
+          status = EXCLUDED.status,
+          error = EXCLUDED.error,
+          updated_at = EXCLUDED.updated_at
+        `,
+        [
+          cashout.id,
+          cashout.userId,
+          cashout.stripeTransferId || null,
+          cashout.stripeAccountId || null,
+          Number.isFinite(cashout.gems) ? cashout.gems : 0,
+          Number.isFinite(cashout.amountCents) ? cashout.amountCents : 0,
+          cashout.status || "pending",
+          cashout.error || null,
+          cashout.createdAt || Date.now(),
+          cashout.updatedAt || Date.now(),
+        ]
+      );
+      return;
+    } catch (err) {
+      disablePool(err);
+    }
   }
 
   if (!store.cashouts || typeof store.cashouts !== "object") {
@@ -613,28 +833,32 @@ async function listCashoutsForUser(userId, limit = 10) {
   if (!userId) return [];
   const safeLimit = Math.max(1, Math.min(Number(limit) || 10, 50));
   if (pool) {
-    const result = await pool.query(
-      `
-      SELECT id, user_id, stripe_transfer_id, stripe_account_id, gems, amount_cents, status, error, created_at, updated_at
-      FROM cashouts
-      WHERE user_id = $1
-      ORDER BY created_at DESC
-      LIMIT $2
-      `,
-      [userId, safeLimit]
-    );
-    return result.rows.map((row) => ({
-      id: row.id,
-      userId: row.user_id,
-      stripeTransferId: row.stripe_transfer_id,
-      stripeAccountId: row.stripe_account_id,
-      gems: row.gems,
-      amountCents: row.amount_cents,
-      status: row.status,
-      error: row.error,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    }));
+    try {
+      const result = await pool.query(
+        `
+        SELECT id, user_id, stripe_transfer_id, stripe_account_id, gems, amount_cents, status, error, created_at, updated_at
+        FROM cashouts
+        WHERE user_id = $1
+        ORDER BY created_at DESC
+        LIMIT $2
+        `,
+        [userId, safeLimit]
+      );
+      return result.rows.map((row) => ({
+        id: row.id,
+        userId: row.user_id,
+        stripeTransferId: row.stripe_transfer_id,
+        stripeAccountId: row.stripe_account_id,
+        gems: row.gems,
+        amountCents: row.amount_cents,
+        status: row.status,
+        error: row.error,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }));
+    } catch (err) {
+      disablePool(err);
+    }
   }
 
   return Object.values(store.cashouts || {})
@@ -929,7 +1153,22 @@ async function getCashoutStatus(user) {
     };
   }
 
-  const account = await stripe.accounts.retrieve(user.stripeConnectAccountId);
+  let account;
+  try {
+    account = await stripe.accounts.retrieve(user.stripeConnectAccountId);
+  } catch (err) {
+    // If the connected account was deleted/invalid, reset local linkage.
+    if (err?.type === "StripeInvalidRequestError") {
+      return {
+        enabled: true,
+        connected: false,
+        ready: false,
+        accountId: null,
+        resetAccount: true,
+      };
+    }
+    throw err;
+  }
   const ready = Boolean(account?.details_submitted && account?.payouts_enabled);
   const connected = true;
   const accountId = user.stripeConnectAccountId;
@@ -1256,6 +1495,102 @@ function sumCrowns(players) {
   return players.reduce((sum, player) => sum + (player.crowns || 0), 0);
 }
 
+function summarizeBattlePlayers(players) {
+  if (!Array.isArray(players)) return [];
+  return players.map((player) => ({
+    tag: normalizeTagValue(player?.tag),
+    name: player?.name || "",
+    crowns: Number(player?.crowns) || 0,
+    cards: Array.isArray(player?.cards)
+      ? player.cards.map((card) => ({ name: card?.name || "" }))
+      : [],
+  }));
+}
+
+function getRecordTimestamp(record) {
+  if (!record) return 0;
+  if (record.battleTime) {
+    const fromBattle = getBattleTimestamp({ battleTime: record.battleTime });
+    if (fromBattle) return fromBattle;
+  }
+  const parsed = Date.parse(record.recordedAt || "");
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getSimplePlayerFromTag(tag) {
+  const normalized = normalizeTagValue(tag);
+  return {
+    tag: normalized,
+    name: normalized || "Unknown",
+    crowns: 0,
+    cards: [],
+  };
+}
+
+function buildBattleFromRecord(record, referenceTag) {
+  const reference = normalizeTagValue(referenceTag);
+  const tagA = normalizeTagValue(record?.tagA);
+  const tagB = normalizeTagValue(record?.tagB);
+  const summaryTeam = Array.isArray(record?.battleSummary?.team)
+    ? record.battleSummary.team
+    : null;
+  const summaryOpponent = Array.isArray(record?.battleSummary?.opponent)
+    ? record.battleSummary.opponent
+    : null;
+  const resultByTag =
+    record?.resultByTag && typeof record.resultByTag === "object"
+      ? record.resultByTag
+      : {};
+  const teamCrowns =
+    typeof record?.teamCrowns === "number" ? record.teamCrowns : null;
+  const opponentCrowns =
+    typeof record?.opponentCrowns === "number" ? record.opponentCrowns : null;
+
+  let team =
+    summaryTeam && summaryTeam.length
+      ? summaryTeam
+      : [getSimplePlayerFromTag(tagA || reference)];
+  let opponent =
+    summaryOpponent && summaryOpponent.length
+      ? summaryOpponent
+      : [getSimplePlayerFromTag(tagB)];
+  let localTeamCrowns = teamCrowns;
+  let localOpponentCrowns = opponentCrowns;
+
+  const teamHasReference = team.some(
+    (player) => normalizeTagValue(player?.tag) === reference
+  );
+  const opponentHasReference = opponent.some(
+    (player) => normalizeTagValue(player?.tag) === reference
+  );
+  if (!teamHasReference && opponentHasReference) {
+    [team, opponent] = [opponent, team];
+    [localTeamCrowns, localOpponentCrowns] = [
+      localOpponentCrowns,
+      localTeamCrowns,
+    ];
+  }
+
+  return {
+    type: record?.battleType || "Friendly",
+    gameMode: {
+      name: record?.gameModeName || "Friendly Battle",
+    },
+    battleTime: record?.battleTime || record?.recordedAt || null,
+    team,
+    opponent,
+    teamCrowns: localTeamCrowns,
+    opponentCrowns: localOpponentCrowns,
+    result: resultByTag[reference] || null,
+    isBetRoyaleMatch: true,
+    matchId: record?.matchId || null,
+    wagerA: Number.isFinite(record?.wagerA) ? record.wagerA : 0,
+    wagerB: Number.isFinite(record?.wagerB) ? record.wagerB : 0,
+    currencyA: record?.currencyA || "coins",
+    currencyB: record?.currencyB || "coins",
+  };
+}
+
 function battleHasTags(battle, tagA, tagB) {
   const tags = new Set();
   const allPlayers = []
@@ -1390,9 +1725,9 @@ function createMatchKey(battle, tagA, tagB) {
   return `${timeKey}:${tags}`;
 }
 
-function getGemBundle(bundleId) {
-  return GEM_BUNDLES.find((bundle) => bundle.id === bundleId) || null;
-}
+app.use("/api/auth", authRateLimiter);
+app.use("/api/queue", queueRateLimiter);
+app.use("/api/shop", financeRateLimiter);
 
 app.get("/api/auth/session", (req, res) => {
   const userId = req.session.userId;
@@ -1652,32 +1987,45 @@ app.post("/api/shop/checkout", async (req, res) => {
   }
 
   const gems = amountCents;
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    payment_method_types: ["card"],
-    customer_email: user.email,
-    metadata: {
-      userId: user.id,
-      gems: String(gems),
-    },
-    line_items: [
+  const idempotencyKey = `checkout:${user.id}:${amountCents}:${Math.floor(
+    Date.now() / 30000
+  )}`;
+  try {
+    const session = await stripe.checkout.sessions.create(
       {
-        quantity: 1,
-        price_data: {
-          currency: "usd",
-          unit_amount: amountCents,
-          product_data: {
-            name: `${gems} Gems`,
-            description: "BetRoyale gem purchase",
-          },
+        mode: "payment",
+        payment_method_types: ["card"],
+        customer_email: user.email,
+        metadata: {
+          userId: user.id,
+          gems: String(gems),
         },
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency: "usd",
+              unit_amount: amountCents,
+              product_data: {
+                name: `${gems} Gems`,
+                description: "BetRoyale gem purchase",
+              },
+            },
+          },
+        ],
+        success_url: `${PUBLIC_URL}/?shop=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${PUBLIC_URL}/?shop=cancel`,
       },
-    ],
-    success_url: `${PUBLIC_URL}/?shop=success&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${PUBLIC_URL}/?shop=cancel`,
-  });
+      { idempotencyKey }
+    );
 
-  return res.json({ url: session.url });
+    return res.json({ url: session.url });
+  } catch (err) {
+    return res.status(400).json({
+      error:
+        err?.raw?.message || err.message || "Unable to start checkout session.",
+    });
+  }
 });
 
 app.post("/api/shop/confirm", async (req, res) => {
@@ -1749,6 +2097,12 @@ app.get("/api/shop/cashout/status", async (req, res) => {
 
   try {
     const status = await getCashoutStatus(user);
+    if (status.resetAccount) {
+      user.stripeConnectAccountId = null;
+      user.stripeConnectReady = false;
+      user.updatedAt = Date.now();
+      await saveStore();
+    }
     if (typeof status.ready === "boolean" && user.stripeConnectReady !== status.ready) {
       user.stripeConnectReady = status.ready;
       user.updatedAt = Date.now();
@@ -1779,6 +2133,19 @@ app.post("/api/shop/cashout/connect", async (req, res) => {
 
   try {
     let accountId = user.stripeConnectAccountId;
+    if (accountId) {
+      try {
+        await stripe.accounts.retrieve(accountId);
+      } catch (err) {
+        if (err?.type === "StripeInvalidRequestError") {
+          accountId = null;
+          user.stripeConnectAccountId = null;
+          user.stripeConnectReady = false;
+        } else {
+          throw err;
+        }
+      }
+    }
     if (!accountId) {
       const account = await stripe.accounts.create({
         type: "express",
@@ -1855,16 +2222,22 @@ app.post("/api/shop/cashout", async (req, res) => {
       });
     }
 
-    const transfer = await stripe.transfers.create({
-      amount: amountCents,
-      currency: "usd",
-      destination: user.stripeConnectAccountId,
-      description: `BetRoyale cash out (${gemsRequired} gems)`,
-      metadata: {
-        userId: user.id,
-        gems: String(gemsRequired),
+    const idempotencyKey = `cashout:${user.id}:${amountCents}:${Math.floor(
+      Date.now() / 30000
+    )}`;
+    const transfer = await stripe.transfers.create(
+      {
+        amount: amountCents,
+        currency: "usd",
+        destination: user.stripeConnectAccountId,
+        description: `BetRoyale cash out (${gemsRequired} gems)`,
+        metadata: {
+          userId: user.id,
+          gems: String(gemsRequired),
+        },
       },
-    });
+      { idempotencyKey }
+    );
 
     user.gems = Math.max(0, (user.gems || 0) - gemsRequired);
     user.updatedAt = Date.now();
@@ -1899,6 +2272,8 @@ app.post("/api/shop/cashout", async (req, res) => {
 });
 
 app.get("/api/battlelog", async (req, res) => {
+  if (!requireAuth(req, res)) return;
+
   const tagInput = req.query.tag;
   const tag = sanitizeTag(tagInput);
 
@@ -1921,29 +2296,32 @@ app.get("/api/results", async (req, res) => {
   const user = requireAuth(req, res);
   if (!user) return;
 
-  const tag = sanitizeTag(user.tag);
-  if (!tag) {
+  const referenceTag = sanitizeTag(user.tag);
+  if (!referenceTag) {
     return res.status(400).json({ error: "Add your player tag first." });
   }
 
   const requestedLimit = Number.parseInt(String(req.query.limit || "25"), 10);
   const limit = Number.isFinite(requestedLimit)
-    ? Math.max(1, Math.min(requestedLimit, 50))
-    : 25;
+    ? Math.max(1, Math.min(requestedLimit, 500))
+    : 250;
 
-  try {
-    const battles = await fetchBattlelog(tag);
-    return res.json({
-      tag,
-      referenceTag: normalizeTagValue(tag),
-      battles: Array.isArray(battles) ? battles.slice(0, limit) : [],
-    });
-  } catch (err) {
-    return res.status(err.status || 500).json({
-      error: err.message || "Unexpected server error.",
-      reason: err.reason,
-    });
-  }
+  const normalizedTag = normalizeTagValue(referenceTag);
+  const battles = Object.values(store.recordedMatches || {})
+    .filter((record) => {
+      const tagA = normalizeTagValue(record?.tagA);
+      const tagB = normalizeTagValue(record?.tagB);
+      return tagA === normalizedTag || tagB === normalizedTag;
+    })
+    .sort((a, b) => getRecordTimestamp(b) - getRecordTimestamp(a))
+    .slice(0, limit)
+    .map((record) => buildBattleFromRecord(record, normalizedTag));
+
+  return res.json({
+    tag: referenceTag,
+    referenceTag: normalizedTag,
+    battles,
+  });
 });
 
 app.post("/api/queue/join", (req, res) => {
@@ -2244,43 +2622,39 @@ app.get("/api/matches/:matchId/track", async (req, res) => {
       const wagerB = Math.max(0, Math.floor(playerB.wager || 0));
       const currencyA = playerA.wagerCurrency || "coins";
       const currencyB = playerB.wagerCurrency || "coins";
+      const resultA = getResultForTag(battle, playerA.tag);
+      const resultB = getResultForTag(battle, playerB.tag);
 
-      if (userA) {
-        const resultA = getResultForTag(battle, userA.tag);
-        if (resultA) {
-          updateStatsForUser(userA, resultA, battle.battleTime);
-          if (resultA === "win") {
-            if (currencyB === "gems") {
-              userA.gems += wagerB;
-            } else {
-              userA.credits += wagerB;
-            }
-          } else if (resultA === "loss") {
-            if (currencyA === "gems") {
-              userA.gems = Math.max(0, userA.gems - wagerA);
-            } else {
-              userA.credits = Math.max(0, userA.credits - wagerA);
-            }
+      if (userA && resultA) {
+        updateStatsForUser(userA, resultA, battle.battleTime);
+        if (resultA === "win") {
+          if (currencyB === "gems") {
+            userA.gems += wagerB;
+          } else {
+            userA.credits += wagerB;
+          }
+        } else if (resultA === "loss") {
+          if (currencyA === "gems") {
+            userA.gems = Math.max(0, userA.gems - wagerA);
+          } else {
+            userA.credits = Math.max(0, userA.credits - wagerA);
           }
         }
       }
 
-      if (userB) {
-        const resultB = getResultForTag(battle, userB.tag);
-        if (resultB) {
-          updateStatsForUser(userB, resultB, battle.battleTime);
-          if (resultB === "win") {
-            if (currencyA === "gems") {
-              userB.gems += wagerA;
-            } else {
-              userB.credits += wagerA;
-            }
-          } else if (resultB === "loss") {
-            if (currencyB === "gems") {
-              userB.gems = Math.max(0, userB.gems - wagerB);
-            } else {
-              userB.credits = Math.max(0, userB.credits - wagerB);
-            }
+      if (userB && resultB) {
+        updateStatsForUser(userB, resultB, battle.battleTime);
+        if (resultB === "win") {
+          if (currencyA === "gems") {
+            userB.gems += wagerA;
+          } else {
+            userB.credits += wagerA;
+          }
+        } else if (resultB === "loss") {
+          if (currencyB === "gems") {
+            userB.gems = Math.max(0, userB.gems - wagerB);
+          } else {
+            userB.credits = Math.max(0, userB.credits - wagerB);
           }
         }
       }
@@ -2293,6 +2667,19 @@ app.get("/api/matches/:matchId/track", async (req, res) => {
         wagerB,
         currencyA,
         currencyB,
+        battleTime: battle.battleTime || null,
+        battleType: battle.type || "",
+        gameModeName: battle.gameMode?.name || "",
+        teamCrowns,
+        opponentCrowns,
+        resultByTag: {
+          [tagA]: resultA || null,
+          [tagB]: resultB || null,
+        },
+        battleSummary: {
+          team: summarizeBattlePlayers(battle.team),
+          opponent: summarizeBattlePlayers(battle.opponent),
+        },
         recordedAt: new Date().toISOString(),
       };
       await saveStore();
