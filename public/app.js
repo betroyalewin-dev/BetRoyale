@@ -107,6 +107,9 @@ const matchTransitionSubtitleEl = document.getElementById(
 );
 const menuButtons = Array.from(document.querySelectorAll(".menu-button"));
 const heroSection = document.querySelector(".hero");
+const helpButton = document.getElementById("help-button");
+const profileDisplayName = document.getElementById("profile-display-name");
+const queueEmptyJoinBtn = document.getElementById("queue-empty-join");
 const wagerPresetButtons = Array.from(
   document.querySelectorAll(".preset-button")
 );
@@ -220,9 +223,9 @@ function renderOnboardingStep() {
   }
 }
 
-function openOnboarding(userId) {
+function openOnboarding(userId, force = false) {
   if (!onboardingModal || !userId) return;
-  if (hasSeenOnboarding(userId)) return;
+  if (!force && hasSeenOnboarding(userId)) return;
   onboardingUserId = userId;
   onboardingStepIndex = 0;
   renderOnboardingStep();
@@ -428,6 +431,13 @@ function showStatus(message, isError = false) {
   statusEl.textContent = message;
   statusEl.classList.toggle("hidden", !message);
   statusEl.classList.toggle("error", isError);
+  statusEl.classList.remove("auto-dismiss");
+
+  if (message && !isError) {
+    // Force reflow so the animation restarts if called rapidly
+    void statusEl.offsetWidth;
+    statusEl.classList.add("auto-dismiss");
+  }
 }
 
 function setFormMessage(target, message, isError = false) {
@@ -492,6 +502,7 @@ function setAuthState(user) {
     startQueuePolling();
     refreshShop();
   } else {
+    if (profileDisplayName) profileDisplayName.textContent = "—";
     profileEmail.textContent = "—";
     if (profileUsername) profileUsername.value = "";
     profileTag.value = "";
@@ -560,6 +571,9 @@ function setAuthState(user) {
 }
 
 function updateProfileUI(user) {
+  if (profileDisplayName) {
+    profileDisplayName.textContent = user.username || user.email || "—";
+  }
   profileEmail.textContent = user.email || "—";
   if (profileUsername) {
     profileUsername.value = user.username || "";
@@ -1307,16 +1321,17 @@ function renderBattle(battle, perspectiveTag) {
     lineup.appendChild(matchLine);
   }
 
-  const cardsWrap = document.createElement("div");
-  cardsWrap.className = "cards";
   const deck = getCardNames(team[0]?.cards);
-  cardsWrap.textContent = deck.length
-    ? `Deck: ${deck.join(", ")}`
-    : "Deck info not available.";
 
   card.appendChild(header);
   card.appendChild(lineup);
-  card.appendChild(cardsWrap);
+
+  if (deck.length) {
+    const cardsWrap = document.createElement("div");
+    cardsWrap.className = "cards";
+    cardsWrap.textContent = `Deck: ${deck.join(", ")}`;
+    card.appendChild(cardsWrap);
+  }
 
   return card;
 }
@@ -1903,6 +1918,22 @@ if (onboardingModal) {
     if (event.target === onboardingModal) {
       closeOnboarding(true);
     }
+  });
+}
+
+if (helpButton) {
+  helpButton.addEventListener("click", () => {
+    if (!currentUser) {
+      showStatus("Log in to view the walkthrough.", true);
+      return;
+    }
+    openOnboarding(currentUser.id, true);
+  });
+}
+
+if (queueEmptyJoinBtn) {
+  queueEmptyJoinBtn.addEventListener("click", () => {
+    joinQueue();
   });
 }
 

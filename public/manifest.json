@@ -1,0 +1,17 @@
+{
+  "name": "BetRoyale",
+  "short_name": "BetRoyale",
+  "description": "Wager on Clash Royale duels. Deposit, queue up, play friendly battles, and cash out.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090f1c",
+  "theme_color": "#090f1c",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

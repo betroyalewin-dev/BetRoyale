@@ -7,6 +7,22 @@
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
     <title>BetRoyale</title>
+    <meta name="description" content="Wager on Clash Royale friendly duels. Create an account, deposit USD for gems, queue up for 1v1 matches, and cash out your winnings." />
+    <meta name="theme-color" content="#090f1c" />
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="BetRoyale — Win Duels, Win Cash" />
+    <meta property="og:description" content="Wager on Clash Royale friendly duels. Deposit, queue up, play 1v1 matches, and cash out." />
+    <meta property="og:image" content="/favicon.svg" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="BetRoyale — Win Duels, Win Cash" />
+    <meta name="twitter:description" content="Wager on Clash Royale friendly duels. Deposit, queue up, play 1v1 matches, and cash out." />
+    <meta name="twitter:image" content="/favicon.svg" />
+
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -23,6 +39,21 @@
     <div class="page">
       <nav class="menu">
         <div class="menu-brand">BetRoyale</div>
+        <button
+          type="button"
+          class="help-trigger"
+          id="help-button"
+          aria-label="Reopen walkthrough"
+          title="Help"
+        >
+          <span class="icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+              <circle cx="12" cy="17" r="0.5"></circle>
+            </svg>
+          </span>
+        </button>
         <div class="menu-links">
           <button type="button" class="menu-button" data-section="queue">
             <span class="icon" aria-hidden="true">
@@ -259,7 +290,8 @@
         <div class="profile-header">
           <div>
             <p class="eyebrow">Account</p>
-            <h2 id="profile-email">—</h2>
+            <h2 id="profile-display-name">—</h2>
+            <p id="profile-email" class="profile-email-sub">—</p>
           </div>
           <button type="button" id="logout" class="secondary">
             <span class="icon" aria-hidden="true">
@@ -278,7 +310,7 @@
             <p class="stat-label">Matches</p>
             <p id="stat-matches" class="stat-value">0</p>
           </div>
-          <div class="stat-card">
+          <div class="stat-card stat-card--featured">
             <p class="stat-label">
               <span class="icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24">
@@ -302,7 +334,7 @@
             </p>
             <p id="stat-gems" class="stat-value">0</p>
           </div>
-          <div class="stat-card">
+          <div class="stat-card stat-card--featured">
             <p class="stat-label">Wins</p>
             <p id="stat-wins" class="stat-value">0</p>
           </div>
@@ -426,6 +458,10 @@
             <p class="eyebrow">Shop</p>
             <h2>Wallet</h2>
             <p class="subhead">Deposit USD to buy gems, then cash out gems to USD.</p>
+            <p class="shop-currency-info hint">
+              <strong>Coins</strong> are free starter currency for practice wagers.
+              <strong>Gems</strong> are purchased with real USD and can be cashed out.
+            </p>
           </div>
           <div class="shop-balance">
             <p class="shop-balance-label">Your Balance</p>
@@ -636,7 +672,18 @@
             <span id="queue-count" class="queue-count">0 waiting</span>
           </div>
           <div id="queue-list" class="queue-cards"></div>
-          <p id="queue-empty" class="hint">No one is waiting yet.</p>
+          <div id="queue-empty" class="queue-empty-state">
+            <p class="queue-empty-title">No one is waiting yet</p>
+            <p class="hint">Post a wager and be the first in the arena.</p>
+            <button type="button" id="queue-empty-join" class="secondary">
+              <span class="icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M8 5l9 7-9 7V5z"></path>
+                </svg>
+              </span>
+              Be the first!
+            </button>
+          </div>
         </div>
         <p class="hint">
           Make sure your profile has a player tag and friend link before joining
@@ -708,7 +755,12 @@
         <section id="results" class="results"></section>
       </section>
       <footer class="footer">
-        Unofficial fan-made tool. Not affiliated with Supercell.
+        <p>Unofficial fan-made tool. Not affiliated with Supercell.</p>
+        <p class="footer-links">
+          <a href="/terms" class="footer-link">Terms of Service</a>
+          <span class="footer-sep">&middot;</span>
+          <a href="/privacy" class="footer-link">Privacy Policy</a>
+        </p>
       </footer>
     </div>
     <div id="match-transition" class="match-transition hidden" aria-live="polite">
