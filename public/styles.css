@@ -1538,8 +1538,11 @@ input:focus-visible,
   .page {
     width: 100%;
     max-width: none;
-    padding: calc(12px + var(--safe-top)) max(12px, var(--safe-right))
-      calc(118px + var(--safe-bottom)) max(12px, var(--safe-left));
+    margin: 0;
+    padding-top: calc(12px + var(--safe-top));
+    padding-right: 12px;
+    padding-bottom: calc(126px + var(--safe-bottom));
+    padding-left: 12px;
   }
 
   .hero {
@@ -1581,6 +1584,7 @@ input:focus-visible,
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 10px;
     align-items: center;
+    width: 100%;
   }
 
   .menu-brand {
@@ -1613,8 +1617,9 @@ input:focus-visible,
 
   .menu-links {
     position: fixed;
-    left: max(8px, var(--safe-left));
-    right: max(8px, var(--safe-right));
+    top: auto !important;
+    left: 8px;
+    right: 8px;
     bottom: calc(8px + var(--safe-bottom));
     z-index: 120;
     margin: 0;
@@ -1627,6 +1632,7 @@ input:focus-visible,
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 6px;
+    transform: translateZ(0);
   }
 
   .menu-links .menu-button {
@@ -1677,6 +1683,9 @@ input:focus-visible,
 
   .menu-links .menu-button[data-section="queue"] {
     order: 3;
+    border: 1px solid rgba(53, 216, 155, 0.5);
+    box-shadow: 0 0 0 1px rgba(53, 216, 155, 0.28) inset,
+      0 0 16px rgba(53, 216, 155, 0.28);
   }
 
   .menu-links .menu-button[data-section="shop"] {
@@ -1691,6 +1700,9 @@ input:focus-visible,
     border-radius: 18px;
     padding: 16px 14px;
     box-shadow: 0 12px 24px var(--shadow);
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
   }
 
   .field {
@@ -1837,13 +1849,16 @@ input:focus-visible,
   .footer {
     margin-top: 20px;
     padding-bottom: calc(8px + var(--safe-bottom));
+    width: 100%;
   }
 }
 
 @media (max-width: 640px) {
   .page {
-    padding: calc(10px + var(--safe-top)) max(10px, var(--safe-right))
-      calc(112px + var(--safe-bottom)) max(10px, var(--safe-left));
+    padding-top: calc(10px + var(--safe-top));
+    padding-right: 10px;
+    padding-bottom: calc(120px + var(--safe-bottom));
+    padding-left: 10px;
   }
 
   .menu {
@@ -1870,6 +1885,7 @@ input:focus-visible,
   }
 
   .menu-links {
+    top: auto !important;
     gap: 4px;
     padding: 6px;
   }
