@@ -2189,9 +2189,9 @@ app.post("/api/shop/cashout/connect", async (req, res) => {
 
     return res.json({ url: link.url });
   } catch (err) {
+    console.error("Payout connect error:", err.message);
     return res.status(500).json({
-      error: "Unable to start payout setup.",
-      reason: err.message,
+      error: err?.raw?.message || err.message || "Unable to start payout setup.",
     });
   }
 });
