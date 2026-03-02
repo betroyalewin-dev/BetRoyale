@@ -1443,6 +1443,22 @@ async function fetchPlayerProfile(tag) {
     10: "Ultimate Champion",
   };
 
+  const normalizeLeagueName = (leagueName, leagueNumber = 0) => {
+    const raw = String(leagueName || "").trim();
+    if (!raw) {
+      return leagueNameByNumber[leagueNumber] || "";
+    }
+    const lower = raw.toLowerCase();
+    if (
+      lower === "chamption" ||
+      lower.includes("ultimate chamption") ||
+      (leagueNumber >= 10 && lower.includes("champ"))
+    ) {
+      return "Ultimate Champion";
+    }
+    return raw;
+  };
+
   let highestLeagueNumber = 0;
   let highestLeagueName = "";
 
@@ -1451,7 +1467,7 @@ async function fetchPlayerProfile(tag) {
 
   pathCandidates.forEach((entry) => {
     const leagueNumber = extractLeagueNumber(entry);
-    const leagueNameRaw = String(entry?.league?.name || "").trim();
+    const leagueNameRaw = normalizeLeagueName(entry?.league?.name, leagueNumber);
     if (leagueNumber > highestLeagueNumber) {
       highestLeagueNumber = leagueNumber;
       highestLeagueName = leagueNameRaw || leagueNameByNumber[leagueNumber] || "";
@@ -1462,7 +1478,7 @@ async function fetchPlayerProfile(tag) {
     ) {
       highestLeagueName = leagueNameRaw;
     }
-    const leagueName = String(entry?.league?.name || "").toLowerCase();
+    const leagueName = normalizeLeagueName(entry?.league?.name, leagueNumber).toLowerCase();
     if (leagueNumber >= 10 || leagueName.includes("ultimate champion")) {
       ultimateChampionReached = true;
       ultimateChampionMedals = Math.max(
@@ -1497,7 +1513,10 @@ async function fetchPlayerProfile(tag) {
     expLevel: Number(data?.expLevel) || 0,
     arena: data?.arena?.name || "",
     highestLeagueNumber,
-    highestLeagueName: highestLeagueName || leagueNameByNumber[highestLeagueNumber] || "",
+    highestLeagueName:
+      normalizeLeagueName(highestLeagueName, highestLeagueNumber) ||
+      leagueNameByNumber[highestLeagueNumber] ||
+      "",
     isUltimateChampion: ultimateChampionReached,
     ultimateChampionMedals,
     updatedAt: new Date().toISOString(),

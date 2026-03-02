@@ -182,6 +182,76 @@ function formatProfileStat(value) {
   return text ? text : "—";
 }
 
+const LEAGUE_STYLES = {
+  "Challenger I":       { color: "#f59e0b" },
+  "Challenger II":      { color: "#f59e0b" },
+  "Challenger III":     { color: "#f59e0b" },
+  "Master I":           { color: "#c084fc" },
+  "Master II":          { color: "#c084fc" },
+  "Master III":         { color: "#c084fc" },
+  "Champion":           { color: "#60a5fa" },
+  "Grand Champion":     { color: "#fbbf24" },
+  "Royal Champion":     { color: "#f87171" },
+  "Ultimate Champion":  { color: null, prestige: true },
+};
+
+function normalizeLeagueName(leagueName) {
+  const raw = String(leagueName || "").trim();
+  if (!raw) return "Unranked";
+  const lower = raw.toLowerCase();
+  if (
+    lower === "chamption" ||
+    lower.includes("ultimate chamption") ||
+    lower.includes("ultimate champion")
+  ) {
+    return "Ultimate Champion";
+  }
+  return raw;
+}
+
+function getLeagueIcon(leagueName) {
+  switch (leagueName) {
+    case "Challenger I":
+    case "Challenger II":
+    case "Challenger III":
+      return "▲";
+    case "Master I":
+    case "Master II":
+    case "Master III":
+      return "◆";
+    case "Champion":
+      return "⬢";
+    case "Grand Champion":
+      return "♛";
+    case "Royal Champion":
+      return "✦";
+    case "Ultimate Champion":
+      return "✹";
+    default:
+      return "•";
+  }
+}
+
+function createLeagueBadge(leagueName) {
+  const span = document.createElement("span");
+  span.className = "league-badge";
+  const normalizedLeagueName = normalizeLeagueName(leagueName);
+  const style = LEAGUE_STYLES[normalizedLeagueName];
+  if (style?.prestige) {
+    span.classList.add("league-prestige");
+  } else if (style?.color) {
+    span.style.color = style.color;
+  }
+  const icon = document.createElement("span");
+  icon.className = "league-badge-icon";
+  icon.textContent = getLeagueIcon(normalizedLeagueName);
+  const label = document.createElement("span");
+  label.className = "league-badge-label";
+  label.textContent = normalizedLeagueName;
+  span.append(icon, label);
+  return span;
+}
+
 function getOnboardingStorageKey(userId) {
   return `betroyale_onboarding_seen_${userId}`;
 }
@@ -613,8 +683,8 @@ function updateProfileUI(user) {
   }
   if (profileHighestLeague) {
     if (playerProfile) {
-      profileHighestLeague.textContent = formatProfileStat(
-        playerProfile.highestLeagueName || "Unranked"
+      profileHighestLeague.replaceChildren(
+        createLeagueBadge(playerProfile.highestLeagueName || "Unranked")
       );
     } else {
       profileHighestLeague.textContent = "—";
@@ -1349,6 +1419,7 @@ function setWaitingState(isWaiting) {
   if (wagerInput) {
     wagerInput.disabled = isWaiting;
   }
+  document.body.classList.toggle("in-queue", isWaiting);
 }
 
 function resetMatch() {
@@ -1601,11 +1672,15 @@ function renderQueueList(entries) {
     const losses = Number(entry.stats?.losses || 0);
     const draws = Number(entry.stats?.draws || 0);
     const record = `${wins}W-${losses}L-${draws}D`;
-    const league = entry.profile?.highestLeagueName || "Unranked";
+    const league = normalizeLeagueName(
+      entry.profile?.highestLeagueName || "Unranked"
+    );
     if (entry.profile) {
-      meta.textContent = `${entry.tag} · ${
-        entry.profile.trophies ?? 0
-      } trophies · ${league} · ${record}`;
+      meta.append(
+        `${entry.tag} · ${entry.profile.trophies ?? 0} trophies · `,
+        createLeagueBadge(league),
+        ` · ${record}`
+      );
     } else {
       meta.textContent = `${entry.tag} · Profile loading... · ${record}`;
     }
@@ -1664,10 +1739,16 @@ function renderQueueList(entries) {
       const wins = Number(currentUser?.stats?.wins || 0);
       const losses = Number(currentUser?.stats?.losses || 0);
       const draws = Number(currentUser?.stats?.draws || 0);
-      const league = currentUser.playerProfile?.highestLeagueName || "Unranked";
-      meta.textContent = `${currentUser.tag || "No tag"} · ${
-        currentUser.playerProfile.trophies ?? 0
-      } trophies · ${league} · ${wins}W-${losses}L-${draws}D`;
+      const league = normalizeLeagueName(
+        currentUser.playerProfile?.highestLeagueName || "Unranked"
+      );
+      meta.append(
+        `${currentUser.tag || "No tag"} · ${
+          currentUser.playerProfile.trophies ?? 0
+        } trophies · `,
+        createLeagueBadge(league),
+        ` · ${wins}W-${losses}L-${draws}D`
+      );
     } else {
       meta.textContent = `${currentUser?.tag || "No tag"} · Profile loading...`;
     }
