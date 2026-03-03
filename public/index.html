@@ -148,29 +148,84 @@
         <p class="eyebrow">BetRoyale Arena</p>
         <h1>Win Duels, Win Cash.</h1>
         <p class="subhead">
-          Spin up a profile, set your wager, and enter the royal queue. Track
-          wins, coins, and the latest friendly battle results as you play.
+          Bet on verified friendly battles only. Create your account, fund your
+          wallet securely, and let BetRoyale track the result straight from the
+          Clash Royale battle log.
         </p>
+        <div class="hero-actions">
+          <a class="hero-action-primary" href="#register-username">Create account</a>
+          <a class="hero-action-secondary" href="#auth-panel">See how it works</a>
+        </div>
+        <div class="hero-trust-strip" aria-label="Why players trust BetRoyale">
+          <article class="trust-card">
+            <p class="trust-card-label">Friendly battles only</p>
+            <p class="trust-card-copy">
+              Wagers settle on private 1v1 friendly matches, not random ladder games.
+            </p>
+          </article>
+          <article class="trust-card">
+            <p class="trust-card-label">Secure money movement</p>
+            <p class="trust-card-copy">
+              Deposits and payouts run through Stripe instead of being handled manually.
+            </p>
+          </article>
+          <article class="trust-card">
+            <p class="trust-card-label">Verified player identity</p>
+            <p class="trust-card-copy">
+              Email verification and Clash Royale profile details are required before queue entry.
+            </p>
+          </article>
+        </div>
         <div class="hero-steps">
           <div class="step-card">
             <p class="step-label">Step 1</p>
-            <p>Create account + save your tag.</p>
+            <p>Create your account and verify your email.</p>
           </div>
           <div class="step-card">
             <p class="step-label">Step 2</p>
-            <p>Choose a wager and enter the queue.</p>
+            <p>Add your player tag, choose a wager, and join the queue.</p>
           </div>
           <div class="step-card">
             <p class="step-label">Step 3</p>
-            <p>Play a friendly duel and cash in.</p>
+            <p>Play the duel, sync the result, and cash out when you win.</p>
           </div>
         </div>
       </header>
 
       <section id="auth-panel" class="panel auth">
+        <div class="auth-intro">
+          <div>
+            <p class="eyebrow">Start safely</p>
+            <h2 class="auth-intro-title">Set up once, then queue with confidence.</h2>
+            <p class="auth-intro-copy">
+              New players create an account, verify their email, and save their Clash
+              Royale details. Returning players can log in and rejoin immediately.
+            </p>
+          </div>
+          <div class="auth-trust-list" aria-label="Account protections">
+            <div class="auth-trust-item">
+              <span class="auth-trust-icon" aria-hidden="true">✓</span>
+              <div>
+                <p class="auth-trust-title">Verified before wagering</p>
+                <p class="auth-trust-copy">You must confirm your email and add your player tag first.</p>
+              </div>
+            </div>
+            <div class="auth-trust-item">
+              <span class="auth-trust-icon" aria-hidden="true">↗</span>
+              <div>
+                <p class="auth-trust-title">Transparent results</p>
+                <p class="auth-trust-copy">Match outcomes are pulled from the battle log after the duel ends.</p>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="auth-grid">
           <form id="register-form" class="auth-form">
+            <p class="auth-kicker">New to BetRoyale</p>
             <h2>Create Account</h2>
+            <p class="auth-form-note">
+              Use the email you want tied to payouts and verification codes.
+            </p>
             <div class="field">
               <label for="register-username">Username</label>
               <input
@@ -217,7 +272,11 @@
           </form>
 
           <form id="login-form" class="auth-form">
+            <p class="auth-kicker">Returning player</p>
             <h2>Log In</h2>
+            <p class="auth-form-note">
+              Sign in with the same username or email you used when you registered.
+            </p>
             <div class="field">
               <label for="login-email">Email or Username</label>
               <input
@@ -251,6 +310,20 @@
             </div>
             <p id="login-message" class="form-message hidden"></p>
           </form>
+        </div>
+        <div class="auth-footer">
+          <div class="auth-footer-item">
+            <p class="auth-footer-label">Secure checkout</p>
+            <p class="auth-footer-copy">Wallet deposits and payout onboarding are handled with Stripe.</p>
+          </div>
+          <div class="auth-footer-item">
+            <p class="auth-footer-label">Clear settlement</p>
+            <p class="auth-footer-copy">Friendly battle results are checked before coins or gems move.</p>
+          </div>
+          <div class="auth-footer-item">
+            <p class="auth-footer-label">No queue without setup</p>
+            <p class="auth-footer-copy">Players must verify email, save their tag, and add a friend link first.</p>
+          </div>
         </div>
       </section>
 
