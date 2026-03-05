@@ -233,11 +233,23 @@ body.menu-drawer-open .menu-links {
   padding: 0;
   color: #c7d6ee;
   box-shadow: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  line-height: 1;
 }
 
 .menu-close:hover {
   background: rgba(26, 41, 64, 0.7);
   color: #f2f7ff;
+}
+
+.menu-close .icon,
+.menu-close .icon svg {
+  width: 16px;
+  height: 16px;
+  display: block;
 }
 
 .menu-drawer-group {
@@ -322,6 +334,15 @@ body.menu-drawer-open .menu-links {
   backdrop-filter: blur(2px);
   z-index: 200;
   cursor: pointer;
+}
+
+.menu-scrim:hover {
+  background: rgba(4, 10, 20, 0.52);
+  transform: none;
+}
+
+.menu-scrim:focus-visible {
+  outline: none;
 }
 
 .balance-item {
