@@ -401,6 +401,55 @@ h2 {
   max-width: 100%;
 }
 
+.payout-explainer {
+  margin-bottom: 24px;
+  display: grid;
+  gap: 20px;
+}
+
+.payout-explainer-subhead {
+  margin: 8px 0 0;
+  color: var(--muted);
+  max-width: 720px;
+  line-height: 1.6;
+}
+
+.payout-ladder {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.payout-step {
+  padding: 18px 18px 20px;
+  border-radius: 8px;
+  border: 1px solid rgba(92, 140, 255, 0.16);
+  background: rgba(12, 19, 33, 0.92);
+  box-shadow: 0 2px 8px rgba(2, 8, 20, 0.2);
+}
+
+.payout-step-label {
+  margin: 0 0 8px;
+  font-size: 0.74rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8fb0ff;
+  font-weight: 800;
+}
+
+.payout-step h3,
+.faq-item h3 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+}
+
+.payout-step p,
+.faq-item p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
 .field {
   display: grid;
   gap: 8px;
@@ -662,6 +711,29 @@ input:focus-visible,
   background: rgba(12, 19, 33, 0.76);
 }
 
+.faq-panel {
+  margin-top: 24px;
+}
+
+.faq-header {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+
+.faq-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.faq-item {
+  padding: 18px;
+  border-radius: 8px;
+  border: 1px solid rgba(92, 140, 255, 0.14);
+  background: rgba(12, 19, 33, 0.8);
+}
+
 .profile {
   margin-top: 24px;
 }
@@ -773,20 +845,20 @@ input:focus-visible,
 }
 
 .league-prestige {
-  color: #f8f5ff;
+  color: #e8d5ff;
   background:
-    linear-gradient(135deg, rgba(88, 55, 195, 0.34), rgba(39, 121, 255, 0.24)),
-    linear-gradient(120deg, rgba(20, 198, 140, 0.12), rgba(255, 215, 96, 0.14));
-  border-color: rgba(204, 221, 255, 0.3);
+    linear-gradient(135deg, rgba(128, 50, 200, 0.38), rgba(170, 80, 220, 0.26)),
+    linear-gradient(120deg, rgba(90, 40, 180, 0.18), rgba(200, 140, 255, 0.12));
+  border-color: rgba(200, 170, 255, 0.35);
   box-shadow:
-    0 12px 24px rgba(47, 125, 255, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    0 12px 24px rgba(140, 60, 210, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .league-prestige .league-badge-icon {
-  background: linear-gradient(135deg, #5c8cff 0%, #7c4dff 52%, #35d89b 100%);
+  background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 50%, #c39bd3 100%);
   color: #ffffff;
-  box-shadow: 0 0 18px rgba(92, 140, 255, 0.28);
+  box-shadow: 0 0 18px rgba(155, 89, 182, 0.35);
 }
 
 .shop {
@@ -2042,6 +2114,15 @@ body.in-queue::after {
     display: none;
   }
 
+  .payout-explainer {
+    margin-bottom: 16px;
+    gap: 16px;
+  }
+
+  .payout-ladder {
+    grid-template-columns: 1fr;
+  }
+
   .menu {
     position: sticky;
     top: calc(4px + var(--safe-top));
@@ -2225,6 +2306,14 @@ body.in-queue::after {
   }
 
   .auth-footer {
+    grid-template-columns: 1fr;
+  }
+
+  .faq-panel {
+    margin-top: 16px;
+  }
+
+  .faq-grid {
     grid-template-columns: 1fr;
   }
 
