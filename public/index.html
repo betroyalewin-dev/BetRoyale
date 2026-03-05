@@ -38,23 +38,79 @@
     <div class="bg-grid"></div>
     <div class="page">
       <nav class="menu">
-        <div class="menu-brand">BetRoyale</div>
-        <button
-          type="button"
-          class="help-trigger"
-          id="help-button"
-          aria-label="Reopen walkthrough"
-          title="Help"
-        >
-          <span class="icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="10"></circle>
-              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-              <circle cx="12" cy="17" r="0.5"></circle>
-            </svg>
-          </span>
-        </button>
-        <div class="menu-links">
+        <div class="menu-left">
+          <button
+            type="button"
+            class="menu-toggle"
+            id="menu-toggle"
+            aria-label="Open menu"
+            aria-controls="menu-drawer"
+            aria-expanded="false"
+          >
+            <span class="icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M4 7h16"></path>
+                <path d="M4 12h16"></path>
+                <path d="M4 17h16"></path>
+              </svg>
+            </span>
+          </button>
+          <div class="menu-brand">BetRoyale</div>
+        </div>
+        <div class="menu-right">
+          <div class="menu-balance">
+            <div class="balance-item">
+              <span class="icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="8"></circle>
+                  <circle cx="12" cy="12" r="4"></circle>
+                </svg>
+              </span>
+              <span class="balance-label">Coins</span>
+              <span id="balance-coins" class="balance-value">0</span>
+            </div>
+            <div class="balance-item">
+              <span class="icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 3l7 9-7 9-7-9 7-9z"></path>
+                  <path d="M5 12h14"></path>
+                </svg>
+              </span>
+              <span class="balance-label">Gems</span>
+              <span id="balance-gems" class="balance-value">0</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="menu-button profile-avatar profile-button"
+            data-section="profile"
+            aria-label="Open profile"
+            title="Profile"
+          >
+            <span class="icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="8" r="3"></circle>
+                <path d="M4 20c1.6-3 4.5-5 8-5s6.4 2 8 5"></path>
+              </svg>
+            </span>
+          </button>
+        </div>
+      </nav>
+      <button type="button" id="menu-scrim" class="menu-scrim hidden" aria-label="Close menu"></button>
+      <aside id="menu-drawer" class="menu-links menu-drawer" aria-label="Main menu">
+        <div class="menu-drawer-top">
+          <p class="menu-drawer-title">Menu</p>
+          <button type="button" id="menu-close" class="menu-close" aria-label="Close menu">
+            <span class="icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M6 6l12 12"></path>
+                <path d="M18 6L6 18"></path>
+              </svg>
+            </span>
+          </button>
+        </div>
+        <div class="menu-drawer-group">
+          <p class="menu-drawer-label">Play</p>
           <button type="button" class="menu-button" data-section="queue">
             <span class="icon" aria-hidden="true">
               <svg viewBox="0 0 24 24">
@@ -92,11 +148,7 @@
             </span>
             Results
           </button>
-          <button
-            type="button"
-            class="menu-button profile-button"
-            data-section="profile"
-          >
+          <button type="button" class="menu-button menu-profile-link" data-section="profile">
             <span class="icon" aria-hidden="true">
               <svg viewBox="0 0 24 24">
                 <circle cx="12" cy="8" r="3"></circle>
@@ -121,29 +173,19 @@
             Shop
           </button>
         </div>
-        <div class="menu-balance">
-          <div class="balance-item">
-            <span class="icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="8"></circle>
-                <circle cx="12" cy="12" r="4"></circle>
-              </svg>
-            </span>
-            <span class="balance-label">Coins</span>
-            <span id="balance-coins" class="balance-value">0</span>
-          </div>
-          <div class="balance-item">
-            <span class="icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24">
-                <path d="M12 3l7 9-7 9-7-9 7-9z"></path>
-                <path d="M5 12h14"></path>
-              </svg>
-            </span>
-            <span class="balance-label">Gems</span>
-            <span id="balance-gems" class="balance-value">0</span>
-          </div>
+        <div class="menu-drawer-group menu-drawer-learn">
+          <p class="menu-drawer-label">Learn</p>
+          <button type="button" class="drawer-link" id="help-button">
+            How BetRoyale works
+          </button>
+          <button type="button" class="drawer-link drawer-anchor" data-anchor="payouts-panel">
+            How payouts work
+          </button>
+          <button type="button" class="drawer-link drawer-anchor" data-anchor="faq-panel">
+            FAQ
+          </button>
         </div>
-      </nav>
+      </aside>
       <header class="hero">
         <p class="eyebrow">BetRoyale Arena</p>
         <h1>Win Duels, Win Cash.</h1>
@@ -192,7 +234,7 @@
         </div>
       </header>
 
-      <section class="panel payout-explainer" aria-labelledby="payouts-title">
+      <section id="payouts-panel" class="panel payout-explainer auth-only" aria-labelledby="payouts-title">
         <div class="payout-explainer-copy">
           <p class="eyebrow">How payouts work</p>
           <h2 id="payouts-title">Deposits and cash outs follow a clear path.</h2>
@@ -221,7 +263,7 @@
         </div>
       </section>
 
-      <section id="auth-panel" class="panel auth">
+      <section id="auth-panel" class="panel auth auth-only">
         <div class="auth-intro">
           <div>
             <p class="eyebrow">Start safely</p>
@@ -356,7 +398,7 @@
         </div>
       </section>
 
-      <section class="panel faq-panel" aria-labelledby="faq-title">
+      <section id="faq-panel" class="panel faq-panel auth-only" aria-labelledby="faq-title">
         <div class="faq-header">
           <p class="eyebrow">Quick FAQ</p>
           <h2 id="faq-title">The questions players ask before they trust the queue.</h2>

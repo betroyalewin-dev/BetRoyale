@@ -107,7 +107,15 @@ const matchTransitionSubtitleEl = document.getElementById(
 );
 const menuButtons = Array.from(document.querySelectorAll(".menu-button"));
 const heroSection = document.querySelector(".hero");
+const authOnlySections = Array.from(document.querySelectorAll(".auth-only"));
 const helpButton = document.getElementById("help-button");
+const menuToggleButton = document.getElementById("menu-toggle");
+const menuCloseButton = document.getElementById("menu-close");
+const menuDrawer = document.getElementById("menu-drawer");
+const menuScrim = document.getElementById("menu-scrim");
+const drawerAnchorButtons = Array.from(
+  document.querySelectorAll(".drawer-anchor")
+);
 const profileDisplayName = document.getElementById("profile-display-name");
 const queueEmptyJoinBtn = document.getElementById("queue-empty-join");
 const wagerPresetButtons = Array.from(
@@ -183,13 +191,10 @@ function formatProfileStat(value) {
 }
 
 const LEAGUE_STYLES = {
-  "Challenger I":       { color: "#f59e0b" },
-  "Challenger II":      { color: "#f59e0b" },
-  "Challenger III":     { color: "#f59e0b" },
   "Master I":           { color: "#c084fc" },
   "Master II":          { color: "#c084fc" },
   "Master III":         { color: "#c084fc" },
-  "Champion":           { color: "#60a5fa" },
+  "Champion":           { color: "#22d3ee" },
   "Grand Champion":     { color: "#fbbf24" },
   "Royal Champion":     { color: "#f87171" },
   "Ultimate Champion":  { color: null, prestige: true },
@@ -206,15 +211,15 @@ function normalizeLeagueName(leagueName) {
   ) {
     return "Ultimate Champion";
   }
+  // Map old Challenger names to Master I (Challenger removed June 2025)
+  if (lower.startsWith("challenger")) {
+    return "Master I";
+  }
   return raw;
 }
 
 function getLeagueIcon(leagueName) {
   switch (leagueName) {
-    case "Challenger I":
-    case "Challenger II":
-    case "Challenger III":
-      return "▲";
     case "Master I":
     case "Master II":
     case "Master III":
@@ -435,15 +440,15 @@ function setCurrency(currency) {
   }
 }
 
-function resolveSectionTarget(section) {
-  if (section === "auth" && currentUser) {
+function resolveSectionTarget(section, options = {}) {
+  if (section === "auth" && currentUser && !options.allowAuth) {
     return "profile";
   }
   return section;
 }
 
-function setActiveSection(section) {
-  const target = resolveSectionTarget(section);
+function setActiveSection(section, options = {}) {
+  const target = resolveSectionTarget(section, options);
   if (!currentUser && target !== "auth") {
     setActiveSection("auth");
     return;
@@ -456,6 +461,9 @@ function setActiveSection(section) {
   if (heroSection) {
     heroSection.classList.toggle("hidden", target !== "auth");
   }
+  authOnlySections.forEach((panel) => {
+    panel.classList.toggle("hidden", target !== "auth");
+  });
   menuButtons.forEach((button) => {
     button.classList.toggle("active", button.dataset.section === target);
   });
@@ -469,6 +477,26 @@ function setActiveSection(section) {
   }
   if (target === "results" && currentUser) {
     loadResultsHistory();
+  }
+}
+
+function openMenuDrawer() {
+  document.body.classList.add("menu-drawer-open");
+  if (menuToggleButton) {
+    menuToggleButton.setAttribute("aria-expanded", "true");
+  }
+  if (menuScrim) {
+    menuScrim.classList.remove("hidden");
+  }
+}
+
+function closeMenuDrawer() {
+  document.body.classList.remove("menu-drawer-open");
+  if (menuToggleButton) {
+    menuToggleButton.setAttribute("aria-expanded", "false");
+  }
+  if (menuScrim) {
+    menuScrim.classList.add("hidden");
   }
 }
 
@@ -1971,6 +1999,44 @@ menuButtons.forEach((button) => {
       return;
     }
     setActiveSection(section);
+    closeMenuDrawer();
+  });
+});
+
+if (menuToggleButton) {
+  menuToggleButton.addEventListener("click", () => {
+    if (document.body.classList.contains("menu-drawer-open")) {
+      closeMenuDrawer();
+      return;
+    }
+    openMenuDrawer();
+  });
+}
+
+if (menuCloseButton) {
+  menuCloseButton.addEventListener("click", closeMenuDrawer);
+}
+
+if (menuScrim) {
+  menuScrim.addEventListener("click", closeMenuDrawer);
+}
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    closeMenuDrawer();
+  }
+});
+
+drawerAnchorButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    const anchorId = button.dataset.anchor;
+    if (!anchorId) return;
+    setActiveSection("auth", { allowAuth: true });
+    closeMenuDrawer();
+    window.requestAnimationFrame(() => {
+      const target = document.getElementById(anchorId);
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   });
 });
 
@@ -2009,9 +2075,14 @@ if (onboardingModal) {
 if (helpButton) {
   helpButton.addEventListener("click", () => {
     if (!currentUser) {
-      showStatus("Log in to view the walkthrough.", true);
+      setActiveSection("auth", { allowAuth: true });
+      closeMenuDrawer();
+      window.requestAnimationFrame(() => {
+        authPanel?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
       return;
     }
+    closeMenuDrawer();
     openOnboarding(currentUser.id, true);
   });
 }
