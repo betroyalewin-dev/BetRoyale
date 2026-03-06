@@ -137,7 +137,7 @@ body.logged-in .footer {
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: #f4f8ff;
-  font-size: 1rem;
+  font-size: 1.05rem;
 }
 
 .menu-toggle {
@@ -1092,6 +1092,10 @@ body.logged-in .profile-stat-row {
   box-shadow: 0 0 18px rgba(155, 89, 182, 0.35);
 }
 
+.league-badge-icon svg {
+  display: block;
+}
+
 .shop {
   margin-top: 24px;
   display: grid;
@@ -1609,8 +1613,8 @@ body.logged-in .helper-panel ol {
 
 body.logged-in .stats-grid {
   margin-top: 6px;
-  gap: 6px;
-  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .stat-card {
@@ -1621,19 +1625,20 @@ body.logged-in .stats-grid {
   display: grid;
   gap: 6px;
   box-shadow: 0 2px 6px var(--shadow);
+  min-width: 0;
 }
 
 body.logged-in .stat-card {
-  padding: 8px 10px;
+  padding: 6px 8px;
   gap: 2px;
 }
 
 body.logged-in .stat-value {
-  font-size: 1.2rem;
+  font-size: 1.05rem;
 }
 
 body.logged-in .stat-card.stat-card--featured .stat-value {
-  font-size: 1.4rem;
+  font-size: 1.2rem;
 }
 
 .stat-label {
@@ -1642,6 +1647,11 @@ body.logged-in .stat-card.stat-card--featured .stat-value {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+body.logged-in .stat-label {
+  font-size: 0.64rem;
+  letter-spacing: 0.1em;
 }
 
 .stat-value {
@@ -2496,6 +2506,74 @@ body.logged-in .card {
   body.logged-in .shop-header {
     flex-direction: row;
     align-items: center;
+  }
+
+  /* Mobile profile: single column, ultra-compact */
+  body.logged-in .profile-form {
+    grid-template-columns: 1fr;
+  }
+
+  body.logged-in .profile-form .profile-profile {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  body.logged-in .profile-form .button-row {
+    grid-column: 1;
+  }
+
+  body.logged-in .profile-form > .hint:last-child {
+    grid-column: 1;
+  }
+
+  body.logged-in .helper-panel {
+    display: none;
+  }
+
+  body.logged-in .profile-header h2 {
+    font-size: 1.1rem;
+  }
+
+  body.logged-in .profile-email-sub {
+    font-size: 0.78rem;
+    margin-top: 2px;
+  }
+
+  body.logged-in .profile-form input {
+    padding: 7px 9px;
+    font-size: 14px;
+  }
+
+  body.logged-in .profile-form label {
+    font-size: 0.82rem;
+  }
+
+  body.logged-in .profile-card {
+    padding: 8px 10px;
+  }
+
+  body.logged-in .profile-stat-row {
+    padding-top: 3px;
+  }
+
+  body.logged-in .profile-stat-label {
+    font-size: 0.65rem;
+  }
+
+  body.logged-in .profile-stat-value {
+    font-size: 0.88rem;
+  }
+
+  body.logged-in .profile-name {
+    font-size: 1rem;
+  }
+
+  body.logged-in .profile-form .hint {
+    font-size: 0.78rem;
+  }
+
+  body.logged-in .profile-form code {
+    font-size: 0.72rem;
   }
 
   .hero {

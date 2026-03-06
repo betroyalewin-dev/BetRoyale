@@ -231,7 +231,7 @@ function getLeagueIcon(leagueName) {
     case "Royal Champion":
       return "✦";
     case "Ultimate Champion":
-      return "✹";
+      return '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 1L13.9 7.4L17.3 6.7L16.6 10.1L23 12L16.6 13.9L17.3 17.3L13.9 16.6L12 23L10.1 16.6L6.7 17.3L7.4 13.9L1 12L7.4 10.1L6.7 6.7L10.1 7.4Z"/></svg>';
     default:
       return "•";
   }
@@ -249,7 +249,12 @@ function createLeagueBadge(leagueName) {
   }
   const icon = document.createElement("span");
   icon.className = "league-badge-icon";
-  icon.textContent = getLeagueIcon(normalizedLeagueName);
+  const iconContent = getLeagueIcon(normalizedLeagueName);
+  if (iconContent.startsWith("<")) {
+    icon.innerHTML = iconContent;
+  } else {
+    icon.textContent = iconContent;
+  }
   const label = document.createElement("span");
   label.className = "league-badge-label";
   label.textContent = normalizedLeagueName;
@@ -502,6 +507,7 @@ function closeMenuDrawer() {
 
 function updateMenuState(user) {
   const isLoggedIn = Boolean(user);
+  document.body.classList.toggle("logged-in", isLoggedIn);
   menuButtons.forEach((button) => {
     const section = button.dataset.section;
     if (!section) return;

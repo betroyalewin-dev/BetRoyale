@@ -1430,10 +1430,12 @@ async function fetchPlayerProfile(tag) {
     return 0;
   };
 
-  const leagueNameByNumber = {
-    1: "Challenger I",
-    2: "Challenger II",
-    3: "Challenger III",
+  // Post-June 2025: Challenger I-III removed, 7 leagues remain.
+  // API may return old numbering (1-10) or new numbering (1-7).
+  const leagueNameByNumberOld = {
+    1: "Master I",   // Was Challenger I, now obsolete
+    2: "Master I",   // Was Challenger II, now obsolete
+    3: "Master I",   // Was Challenger III, now obsolete
     4: "Master I",
     5: "Master II",
     6: "Master III",
@@ -1443,18 +1445,54 @@ async function fetchPlayerProfile(tag) {
     10: "Ultimate Champion",
   };
 
+  const leagueNameByNumberNew = {
+    1: "Master I",
+    2: "Master II",
+    3: "Master III",
+    4: "Champion",
+    5: "Grand Champion",
+    6: "Royal Champion",
+    7: "Ultimate Champion",
+  };
+
+  const resolveLeagueByNumber = (leagueNumber) => {
+    if (leagueNumber >= 10) return "Ultimate Champion";
+    if (leagueNumber >= 8) return leagueNameByNumberOld[leagueNumber] || "";
+    // For numbers 1-7, could be either old or new numbering.
+    // New numbering: 7 = Ultimate Champion. Old numbering: 7 = Champion.
+    // We prefer the name from the API when available; this is the fallback.
+    return leagueNameByNumberOld[leagueNumber] || "";
+  };
+
+  const VALID_LEAGUE_NAMES = new Set([
+    "Master I", "Master II", "Master III",
+    "Champion", "Grand Champion", "Royal Champion", "Ultimate Champion",
+  ]);
+
   const normalizeLeagueName = (leagueName, leagueNumber = 0) => {
     const raw = String(leagueName || "").trim();
     if (!raw) {
-      return leagueNameByNumber[leagueNumber] || "";
+      return resolveLeagueByNumber(leagueNumber);
     }
     const lower = raw.toLowerCase();
+    // Fix common API typos
     if (
       lower === "chamption" ||
       lower.includes("ultimate chamption") ||
-      (leagueNumber >= 10 && lower.includes("champ"))
+      lower.includes("ultimate champion")
     ) {
       return "Ultimate Champion";
+    }
+    if (leagueNumber >= 10 && lower.includes("champ")) {
+      return "Ultimate Champion";
+    }
+    // Map old Challenger names to Master I
+    if (lower.startsWith("challenger")) {
+      return "Master I";
+    }
+    // If the API name is a recognized league, use it directly
+    if (VALID_LEAGUE_NAMES.has(raw)) {
+      return raw;
     }
     return raw;
   };
@@ -1470,7 +1508,7 @@ async function fetchPlayerProfile(tag) {
     const leagueNameRaw = normalizeLeagueName(entry?.league?.name, leagueNumber);
     if (leagueNumber > highestLeagueNumber) {
       highestLeagueNumber = leagueNumber;
-      highestLeagueName = leagueNameRaw || leagueNameByNumber[leagueNumber] || "";
+      highestLeagueName = leagueNameRaw || resolveLeagueByNumber(leagueNumber) || "";
     } else if (
       leagueNumber === highestLeagueNumber &&
       !highestLeagueName &&
@@ -1506,6 +1544,13 @@ async function fetchPlayerProfile(tag) {
     }
   }
 
+  // If Ultimate Champion was detected (via badge or league data), force the name
+  const resolvedLeagueName = ultimateChampionReached
+    ? "Ultimate Champion"
+    : normalizeLeagueName(highestLeagueName, highestLeagueNumber) ||
+      resolveLeagueByNumber(highestLeagueNumber) ||
+      "";
+
   return {
     name: data?.name || "Unknown",
     trophies: Number(data?.trophies) || 0,
@@ -1513,10 +1558,7 @@ async function fetchPlayerProfile(tag) {
     expLevel: Number(data?.expLevel) || 0,
     arena: data?.arena?.name || "",
     highestLeagueNumber,
-    highestLeagueName:
-      normalizeLeagueName(highestLeagueName, highestLeagueNumber) ||
-      leagueNameByNumber[highestLeagueNumber] ||
-      "",
+    highestLeagueName: resolvedLeagueName,
     isUltimateChampion: ultimateChampionReached,
     ultimateChampionMedals,
     updatedAt: new Date().toISOString(),
@@ -1641,6 +1683,22 @@ function isFriendlyBattle(battle) {
   const mode = battle.gameMode?.name || "";
   const label = `${type} ${mode}`.toLowerCase();
   return label.includes("friendly");
+}
+
+function isNormal1v1Friendly(battle) {
+  if (!isFriendlyBattle(battle)) return false;
+
+  const team = battle.team || [];
+  const opponent = battle.opponent || [];
+  if (team.length !== 1 || opponent.length !== 1) return false;
+
+  const modeName = (battle.gameMode?.name || "").toLowerCase().replace(/[\s_-]/g, "");
+  if (modeName !== "friendly") return false;
+
+  const deckSelection = (battle.deckSelection || "").toLowerCase();
+  if (deckSelection && deckSelection !== "collection") return false;
+
+  return true;
 }
 
 function getBattleTimestamp(battle) {
@@ -2642,6 +2700,13 @@ app.get("/api/matches/:matchId/track", async (req, res) => {
         referenceTag,
         battle: null,
         message: "No friendly battle found yet.",
+      });
+    }
+
+    if (!isNormal1v1Friendly(battle)) {
+      return res.status(400).json({
+        error:
+          "Only standard 1v1 Friendly Battles count. Special rules (2v2, Triple Elixir, Rage, Draft, etc.) are not allowed.",
       });
     }
 
