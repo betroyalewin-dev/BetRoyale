@@ -507,7 +507,6 @@ function closeMenuDrawer() {
 
 function updateMenuState(user) {
   const isLoggedIn = Boolean(user);
-  document.body.classList.toggle("logged-in", isLoggedIn);
   menuButtons.forEach((button) => {
     const section = button.dataset.section;
     if (!section) return;
