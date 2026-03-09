@@ -1228,7 +1228,7 @@ async function refreshProfile() {
   }
 }
 
-registerForm.addEventListener("submit", async (event) => {
+registerForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   setFormMessage(registerMessage, "Creating account...");
 
