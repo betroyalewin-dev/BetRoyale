@@ -58,7 +58,11 @@
           <div class="menu-brand">BetRoyale</div>
         </div>
         <div class="menu-right">
-          <div class="menu-balance">
+          <div class="nav-auth-btns" id="nav-auth-btns">
+            <button type="button" class="nav-login-btn" id="nav-login-btn">Log In</button>
+            <button type="button" class="nav-signup-btn" id="nav-signup-btn">Sign Up</button>
+          </div>
+          <div class="menu-balance" id="menu-balance">
             <div class="balance-item">
               <span class="icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24">
@@ -82,7 +86,8 @@
           </div>
           <button
             type="button"
-            class="menu-button profile-avatar profile-button"
+            class="menu-button profile-avatar profile-button hidden"
+            id="nav-profile-btn"
             data-section="profile"
             aria-label="Open profile"
             title="Profile"

@@ -685,8 +685,26 @@ async function loadResultsHistory() {
   }
 }
 
+const navAuthBtns   = document.getElementById("nav-auth-btns");
+const navProfileBtn = document.getElementById("nav-profile-btn");
+const navMenuBalance = document.getElementById("menu-balance");
+
+function updateNavAuthState(user) {
+  const loggedIn = Boolean(user);
+  if (navAuthBtns)   navAuthBtns.classList.toggle("hidden", loggedIn);
+  if (navProfileBtn) navProfileBtn.classList.toggle("hidden", !loggedIn);
+  if (navMenuBalance) navMenuBalance.classList.toggle("hidden", !loggedIn);
+}
+
+document.getElementById("nav-login-btn")?.addEventListener("click", () => {
+  setActiveSection("auth", { allowAuth: true });
+  document.getElementById("auth-panel")?.scrollIntoView({ behavior: "smooth" });
+});
+document.getElementById("nav-signup-btn")?.addEventListener("click", () => openWizard("basic"));
+
 function setAuthState(user) {
   currentUser = user;
+  updateNavAuthState(user);
 
   if (user) {
     updateProfileUI(user);

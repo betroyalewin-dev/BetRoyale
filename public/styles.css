@@ -91,6 +91,41 @@ body::before {
   gap: 10px;
 }
 
+.nav-auth-btns {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.nav-auth-btns.hidden { display: none; }
+
+.nav-login-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 7px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  font-family: inherit;
+}
+.nav-login-btn:hover { border-color: var(--ink-muted); color: #fff; }
+
+.nav-signup-btn {
+  background: var(--accent);
+  border: none;
+  color: #05110a;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 7px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  font-family: inherit;
+}
+.nav-signup-btn:hover { opacity: 0.88; }
+
 .menu-brand {
   font-family: "IBM Plex Mono", monospace;
   font-weight: 600;
@@ -301,6 +336,7 @@ body.menu-drawer-open .menu-links {
   text-align: right;
   min-width: 0;
 }
+.menu-balance.hidden { display: none; }
 
 .menu-button.shop-button {
   padding: 8px 14px;
@@ -2292,6 +2328,12 @@ body.in-queue::after {
     grid-template-columns: auto auto;
     justify-items: end;
     gap: 4px;
+  }
+
+  .nav-login-btn,
+  .nav-signup-btn {
+    font-size: 0.78rem;
+    padding: 6px 10px;
   }
 
   .balance-item {
