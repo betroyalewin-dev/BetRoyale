@@ -1103,6 +1103,13 @@ function createUser(email, passwordHash) {
     verificationExpiresAt: now + VERIFICATION_TTL_MS,
     stripeConnectAccountId: null,
     stripeConnectReady: false,
+    // KYC / compliance fields
+    kycStatus: "none",            // none | submitted | verified | failed
+    kycData: null,                // { firstName, lastName, dob, address, city, state, zip, phone }
+    idVerificationStatus: "none", // none | pending | verified | failed
+    taxData: null,                // { ssn4 } — stored hashed
+    consentData: null,            // { tos, privacy, rwp, stateConfirm, depositLimit, timestamp }
+    depositLimitWeekly: null,     // USD cents; null = no limit
     createdAt: now,
     updatedAt: now,
   };
@@ -1129,6 +1136,9 @@ function publicUser(user) {
     stats: user.stats,
     playerProfile: user.playerProfile,
     isVerified: user.isVerified,
+    kycStatus: user.kycStatus || "none",
+    idVerificationStatus: user.idVerificationStatus || "none",
+    depositLimitWeekly: user.depositLimitWeekly ?? null,
     stripeConnectAccountId: user.stripeConnectAccountId || null,
     stripeConnectReady: Boolean(user.stripeConnectReady),
   };
@@ -2002,6 +2012,55 @@ app.post("/api/auth/resend", async (req, res) => {
     verificationCode: mailTransport ? null : user.verificationCode,
     verificationExpiresAt: user.verificationExpiresAt,
   });
+});
+
+// ── KYC: personal identity ────────────────────────────────────────────────
+app.post("/api/auth/kyc", async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+  const { firstName, lastName, dob, address, city, state, zip, phone } = req.body || {};
+  if (!firstName || !lastName || !dob || !address || !city || !state || !zip || !phone) {
+    return res.status(400).json({ error: "All identity fields are required." });
+  }
+  const age = (Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+  if (age < 18) return res.status(400).json({ error: "You must be 18 or older." });
+  user.kycData = { firstName, lastName, dob, address, city, state, zip, phone };
+  user.kycStatus = "submitted";
+  user.updatedAt = Date.now();
+  await saveStore();
+  return res.json({ user: publicUser(user) });
+});
+
+// ── Tax: SSN last 4 ───────────────────────────────────────────────────────
+app.post("/api/auth/tax", async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+  const { ssn4 } = req.body || {};
+  if (!/^\d{4}$/.test(ssn4 || "")) {
+    return res.status(400).json({ error: "Provide the last 4 digits of your SSN." });
+  }
+  const hash = await bcrypt.hash(ssn4, 10);
+  user.taxData = { ssn4Hash: hash, submittedAt: Date.now() };
+  user.updatedAt = Date.now();
+  await saveStore();
+  return res.json({ ok: true });
+});
+
+// ── Consent + responsible gaming + CR profile ─────────────────────────────
+app.post("/api/auth/consent", async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+  const { tos, privacy, rwp, stateConfirm, depositLimit, tag, friendLink } = req.body || {};
+  if (!tos || !privacy || !rwp || !stateConfirm) {
+    return res.status(400).json({ error: "All consent fields are required." });
+  }
+  user.consentData = { tos, privacy, rwp, stateConfirm, depositLimit, timestamp: Date.now() };
+  user.depositLimitWeekly = depositLimit > 0 ? Math.round(depositLimit * 100) : null;
+  if (tag) user.tag = sanitizeTag(tag);
+  if (friendLink) user.friendLink = friendLink.trim();
+  user.updatedAt = Date.now();
+  await saveStore();
+  return res.json({ user: publicUser(user) });
 });
 
 app.post("/api/auth/logout", (req, res) => {

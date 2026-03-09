@@ -2309,3 +2309,352 @@ if (shopAmountInput && !String(shopAmountInput.value || "").trim()) {
 }
 updateShopPreview();
 loadSession();
+
+// ══════════════════════════════════════════════════════════════════════════
+// 7-STEP SIGNUP WIZARD
+// ══════════════════════════════════════════════════════════════════════════
+
+const BLOCKED_STATES = new Set([
+  "AZ","AR","HI","ID","IL","IA","LA","MT","ND","NV","NY","PA","TN","TX","WA",
+]);
+
+const wizardEl        = document.getElementById("signup-wizard");
+const wizardCard      = wizardEl?.querySelector(".signup-wizard-card");
+const wizardCloseBtn  = document.getElementById("wizard-close");
+const wizardBackBtn   = document.getElementById("wizard-back");
+const wizardNextBtn   = document.getElementById("wizard-next");
+const wizardCounter   = document.getElementById("wizard-step-counter");
+const wizardProgressbar = document.getElementById("wizard-progressbar");
+const wizardFill      = document.getElementById("wizard-progress-fill");
+
+let wizardStep = 1;
+let wizardIdSkipped = false;
+const WIZARD_TOTAL = 7;
+
+// Collected data across steps
+const wData = {
+  state: "", ageConfirmed: false,
+  username: "", email: "", password: "", referral: "",
+  firstName: "", lastName: "", dob: "", address: "", city: "", zip: "", phone: "",
+  ssn4: "", w9Confirmed: false,
+  consentTos: false, consentPrivacy: false, consentRwp: false, consentState: false,
+  depositLimit: 100,
+  crTag: "", crLink: "",
+};
+
+function openWizard() {
+  if (!wizardEl) return;
+  wizardStep = 1;
+  wizardIdSkipped = false;
+  goToStep(1);
+  wizardEl.classList.remove("hidden");
+  document.body.classList.add("modal-open");
+}
+
+function closeWizard() {
+  if (!wizardEl) return;
+  wizardEl.classList.add("hidden");
+  document.body.classList.remove("modal-open");
+}
+
+function goToStep(n) {
+  for (let i = 1; i <= WIZARD_TOTAL; i++) {
+    const el = document.getElementById(`ws-${i}`);
+    if (el) el.classList.toggle("hidden", i !== n);
+  }
+  wizardStep = n;
+  if (wizardCounter) wizardCounter.textContent = `Step ${n} of ${WIZARD_TOTAL}`;
+  if (wizardFill) wizardFill.style.width = `${(n / WIZARD_TOTAL) * 100}%`;
+  if (wizardProgressbar) wizardProgressbar.setAttribute("aria-valuenow", n);
+  if (wizardBackBtn) wizardBackBtn.disabled = n === 1;
+  if (wizardNextBtn) wizardNextBtn.textContent = n === WIZARD_TOTAL ? "Complete Setup" : "Continue";
+  // Scroll step content to top
+  const stepEl = document.getElementById(`ws-${n}`);
+  if (stepEl) stepEl.scrollTop = 0;
+}
+
+function setWizardError(step, msg) {
+  const el = document.getElementById(`ws${step}-error`);
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.toggle("hidden", !msg);
+}
+
+// ── Step 1: Eligibility ───────────────────────────────────────────────────
+const wStateSelect    = document.getElementById("w-state");
+const wJurisdictionMsg = document.getElementById("w-jurisdiction-msg");
+const wAgeConfirm     = document.getElementById("w-age-confirm");
+
+wStateSelect?.addEventListener("change", () => {
+  const state = wStateSelect.value;
+  if (!state || !wJurisdictionMsg) return;
+  wJurisdictionMsg.classList.remove("hidden", "allowed", "blocked");
+  if (BLOCKED_STATES.has(state)) {
+    wJurisdictionMsg.textContent = "⚠ Skill-based wagering is not currently available in your state. You may browse but cannot wager real money.";
+    wJurisdictionMsg.classList.add("blocked");
+  } else {
+    wJurisdictionMsg.textContent = "✓ BetRoyale is available in your state.";
+    wJurisdictionMsg.classList.add("allowed");
+  }
+});
+
+function validateStep1() {
+  const state = wStateSelect?.value;
+  if (!state) { setWizardError(1, "Please select your state."); return false; }
+  if (!wAgeConfirm?.checked) { setWizardError(1, "You must confirm you are 18 or older."); return false; }
+  if (BLOCKED_STATES.has(state)) { setWizardError(1, "Skill-based wagering is not available in your state."); return false; }
+  setWizardError(1, "");
+  wData.state = state;
+  wData.ageConfirmed = true;
+  return true;
+}
+
+// ── Step 2: Credentials ───────────────────────────────────────────────────
+const wUsernameInput  = document.getElementById("w-username");
+const wEmailInput     = document.getElementById("w-email");
+const wPasswordInput  = document.getElementById("w-password");
+const wPasswordConfirm = document.getElementById("w-password-confirm");
+const wReferralInput  = document.getElementById("w-referral");
+const wPasswordToggle = document.getElementById("w-password-toggle");
+const wStrengthFill   = document.getElementById("w-strength-fill");
+const wStrengthLabel  = document.getElementById("w-strength-label");
+
+wPasswordToggle?.addEventListener("click", () => {
+  if (!wPasswordInput) return;
+  const show = wPasswordInput.type === "password";
+  wPasswordInput.type = show ? "text" : "password";
+});
+
+wPasswordInput?.addEventListener("input", () => {
+  const pw = wPasswordInput.value;
+  let score = 0;
+  if (pw.length >= 8) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  const pcts  = ["0%", "25%", "50%", "75%", "100%"];
+  const colors = ["", "#ef4444", "#f97316", "#eab308", "#2fd093"];
+  const labels = ["", "Weak", "Fair", "Good", "Strong"];
+  if (wStrengthFill) { wStrengthFill.style.width = pcts[score]; wStrengthFill.style.background = colors[score]; }
+  if (wStrengthLabel) wStrengthLabel.textContent = pw.length ? labels[score] : "";
+});
+
+async function validateStep2() {
+  const username = wUsernameInput?.value.trim() || "";
+  const email    = wEmailInput?.value.trim() || "";
+  const password = wPasswordInput?.value || "";
+  const confirm  = wPasswordConfirm?.value || "";
+  if (username.length < 3) { setWizardError(2, "Username must be at least 3 characters."); return false; }
+  if (username.length > 20) { setWizardError(2, "Username must be 20 characters or fewer."); return false; }
+  if (!email.includes("@")) { setWizardError(2, "Enter a valid email address."); return false; }
+  if (password.length < 6) { setWizardError(2, "Password must be at least 6 characters."); return false; }
+  if (password !== confirm) { setWizardError(2, "Passwords do not match."); return false; }
+  setWizardError(2, "");
+  wData.username = username; wData.email = email;
+  wData.password = password; wData.referral = wReferralInput?.value.trim() || "";
+  return true;
+}
+
+async function submitStep2() {
+  const res = await fetch("/api/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: wData.username, email: wData.email, password: wData.password }),
+  });
+  const data = await res.json();
+  if (!res.ok) { setWizardError(2, data.error || "Could not create account."); return false; }
+  currentUser = data.user;
+  refreshUI();
+  // Show dev code if no email
+  if (data.verificationCode) {
+    setWizardError(3, `Dev mode — your code: ${data.verificationCode}`);
+  }
+  const emailDisplay = document.getElementById("w-verify-email-display");
+  if (emailDisplay) emailDisplay.textContent = wData.email;
+  return true;
+}
+
+// ── Step 3: Email Verification ────────────────────────────────────────────
+const wVerifyCodeInput = document.getElementById("w-verify-code");
+const wResendCodeBtn   = document.getElementById("w-resend-code");
+
+wResendCodeBtn?.addEventListener("click", async () => {
+  setWizardError(3, "");
+  const res = await fetch("/api/auth/resend", { method: "POST", headers: { "Content-Type": "application/json" } });
+  const data = await res.json();
+  if (!res.ok) { setWizardError(3, data.error || "Could not resend code."); return; }
+  setWizardError(3, data.verificationCode ? `Dev mode — new code: ${data.verificationCode}` : "Code resent — check your inbox.");
+});
+
+async function submitStep3() {
+  const code = wVerifyCodeInput?.value.trim() || "";
+  if (code.length !== 6) { setWizardError(3, "Enter the 6-digit code from your email."); return false; }
+  const res = await fetch("/api/auth/verify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code }),
+  });
+  const data = await res.json();
+  if (!res.ok) { setWizardError(3, data.error || "Verification failed."); return false; }
+  currentUser = data.user;
+  refreshUI();
+  setWizardError(3, "");
+  return true;
+}
+
+// ── Step 4: KYC ───────────────────────────────────────────────────────────
+function validateStep4() {
+  const firstName = document.getElementById("w-first-name")?.value.trim() || "";
+  const lastName  = document.getElementById("w-last-name")?.value.trim() || "";
+  const dob       = document.getElementById("w-dob")?.value || "";
+  const address   = document.getElementById("w-address")?.value.trim() || "";
+  const city      = document.getElementById("w-city")?.value.trim() || "";
+  const zip       = document.getElementById("w-zip")?.value.trim() || "";
+  const phone     = document.getElementById("w-phone")?.value.trim() || "";
+  if (!firstName) { setWizardError(4, "Enter your legal first name."); return false; }
+  if (!lastName)  { setWizardError(4, "Enter your legal last name."); return false; }
+  if (!dob)       { setWizardError(4, "Enter your date of birth."); return false; }
+  const age = (Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+  if (age < 18)   { setWizardError(4, "You must be 18 or older to continue."); return false; }
+  if (!address)   { setWizardError(4, "Enter your street address."); return false; }
+  if (!city)      { setWizardError(4, "Enter your city."); return false; }
+  if (!zip)       { setWizardError(4, "Enter your ZIP code."); return false; }
+  if (!phone)     { setWizardError(4, "Enter your phone number."); return false; }
+  setWizardError(4, "");
+  Object.assign(wData, { firstName, lastName, dob, address, city, zip, phone });
+  return true;
+}
+
+async function submitStep4() {
+  const res = await fetch("/api/auth/kyc", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      firstName: wData.firstName, lastName: wData.lastName,
+      dob: wData.dob, address: wData.address, city: wData.city,
+      state: wData.state, zip: wData.zip, phone: wData.phone,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) { setWizardError(4, data.error || "Could not save identity information."); return false; }
+  currentUser = data.user;
+  refreshUI();
+  return true;
+}
+
+// ── Step 5: ID Upload ─────────────────────────────────────────────────────
+document.getElementById("w-id-front")?.addEventListener("change", (e) => {
+  const name = e.target.files[0]?.name || "";
+  const el = document.getElementById("id-front-name");
+  if (el) el.textContent = name;
+  document.getElementById("id-front-slot")?.classList.toggle("has-file", !!name);
+});
+document.getElementById("w-id-back")?.addEventListener("change", (e) => {
+  const name = e.target.files[0]?.name || "";
+  const el = document.getElementById("id-back-name");
+  if (el) el.textContent = name;
+  document.getElementById("id-back-slot")?.classList.toggle("has-file", !!name);
+});
+document.getElementById("w-id-skip")?.addEventListener("click", () => {
+  wizardIdSkipped = true;
+  setWizardError(5, "");
+  advanceWizard();
+});
+
+// ── Step 6: Tax ───────────────────────────────────────────────────────────
+async function validateStep6() {
+  const ssn4 = document.getElementById("w-ssn4")?.value.trim() || "";
+  const confirmed = document.getElementById("w-w9-confirm")?.checked;
+  if (!/^\d{4}$/.test(ssn4)) { setWizardError(6, "Enter the last 4 digits of your SSN."); return false; }
+  if (!confirmed) { setWizardError(6, "You must acknowledge the tax information statement."); return false; }
+  setWizardError(6, "");
+  wData.ssn4 = ssn4; wData.w9Confirmed = true;
+  return true;
+}
+
+async function submitStep6() {
+  const res = await fetch("/api/auth/tax", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ssn4: wData.ssn4 }),
+  });
+  const data = await res.json();
+  if (!res.ok) { setWizardError(6, data.error || "Could not save tax information."); return false; }
+  return true;
+}
+
+// ── Step 7: Consent ───────────────────────────────────────────────────────
+async function validateStep7() {
+  if (!document.getElementById("w-consent-tos")?.checked)     { setWizardError(7, "You must agree to the Terms of Service."); return false; }
+  if (!document.getElementById("w-consent-privacy")?.checked) { setWizardError(7, "You must agree to the Privacy Policy."); return false; }
+  if (!document.getElementById("w-consent-rwp")?.checked)     { setWizardError(7, "You must agree to the Responsible Wagering Policy."); return false; }
+  if (!document.getElementById("w-consent-state")?.checked)   { setWizardError(7, "You must confirm your state eligibility."); return false; }
+  setWizardError(7, "");
+  wData.consentTos = wData.consentPrivacy = wData.consentRwp = wData.consentState = true;
+  wData.depositLimit = Number(document.getElementById("w-deposit-limit")?.value) || 100;
+  wData.crTag  = document.getElementById("w-cr-tag")?.value.trim() || "";
+  wData.crLink = document.getElementById("w-cr-link")?.value.trim() || "";
+  return true;
+}
+
+async function submitStep7() {
+  const res = await fetch("/api/auth/consent", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      tos: true, privacy: true, rwp: true, stateConfirm: true,
+      depositLimit: wData.depositLimit,
+      tag: wData.crTag, friendLink: wData.crLink,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) { setWizardError(7, data.error || "Could not complete setup."); return false; }
+  currentUser = data.user;
+  refreshUI();
+  return true;
+}
+
+// ── Step 7 inline legal links ─────────────────────────────────────────────
+document.querySelectorAll(".inline-link[data-legal]").forEach((btn) => {
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    openLegalModal(btn.dataset.legal);
+  });
+});
+
+// ── Wizard next / back wiring ─────────────────────────────────────────────
+async function advanceWizard() {
+  if (wizardNextBtn) { wizardNextBtn.disabled = true; wizardNextBtn.textContent = "Please wait…"; }
+  try {
+    let ok = true;
+    if (wizardStep === 1) ok = validateStep1();
+    if (wizardStep === 2) { ok = await validateStep2(); if (ok) ok = await submitStep2(); }
+    if (wizardStep === 3) ok = await submitStep3();
+    if (wizardStep === 4) { ok = validateStep4(); if (ok) ok = await submitStep4(); }
+    if (wizardStep === 5) { /* file upload is optional; skip handled separately */ }
+    if (wizardStep === 6) { ok = await validateStep6(); if (ok) ok = await submitStep6(); }
+    if (wizardStep === 7) {
+      ok = await validateStep7();
+      if (ok) ok = await submitStep7();
+      if (ok) { closeWizard(); setActiveSection("profile"); openOnboarding(currentUser?.id, true); return; }
+    }
+    if (ok) goToStep(wizardStep + 1);
+  } finally {
+    if (wizardNextBtn) {
+      wizardNextBtn.disabled = false;
+      wizardNextBtn.textContent = wizardStep === WIZARD_TOTAL ? "Complete Setup" : "Continue";
+    }
+  }
+}
+
+wizardNextBtn?.addEventListener("click", advanceWizard);
+wizardBackBtn?.addEventListener("click", () => { if (wizardStep > 1) goToStep(wizardStep - 1); });
+wizardCloseBtn?.addEventListener("click", closeWizard);
+wizardEl?.addEventListener("click", (e) => { if (e.target === wizardEl) closeWizard(); });
+
+// Open wizard from hero and auth-panel buttons
+document.getElementById("hero-signup-btn")?.addEventListener("click", openWizard);
+document.getElementById("auth-signup-btn")?.addEventListener("click", openWizard);
+
+// ══════════════════════════════════════════════════════════════════════════

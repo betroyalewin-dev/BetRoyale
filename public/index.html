@@ -195,7 +195,7 @@
           Clash Royale battle log.
         </p>
         <div class="hero-actions">
-          <a class="hero-action-primary" href="#register-username">Create account</a>
+          <button type="button" class="hero-action-primary" id="hero-signup-btn">Create account</button>
           <a class="hero-action-secondary" href="#auth-panel">See how it works</a>
         </div>
         <div class="hero-trust-strip" aria-label="Why players trust BetRoyale">
@@ -291,56 +291,27 @@
           </div>
         </div>
         <div class="auth-grid">
-          <form id="register-form" class="auth-form">
+          <div class="auth-form auth-signup-entry">
             <p class="auth-kicker">New to BetRoyale</p>
             <h2>Create Account</h2>
             <p class="auth-form-note">
-              Use the email you want tied to payouts and verification codes.
+              Set up your account in a few quick steps. Real-money wagering requires identity verification.
             </p>
-            <div class="field">
-              <label for="register-username">Username</label>
-              <input
-                id="register-username"
-                name="register-username"
-                type="text"
-                autocomplete="username"
-                required
-              />
-            </div>
-            <div class="field">
-              <label for="register-email">Email</label>
-              <input
-                id="register-email"
-                name="register-email"
-                type="email"
-                autocomplete="email"
-                required
-              />
-            </div>
-            <div class="field">
-              <label for="register-password">Password</label>
-              <input
-                id="register-password"
-                name="register-password"
-                type="password"
-                autocomplete="new-password"
-                minlength="6"
-                required
-              />
-            </div>
+            <ul class="signup-entry-list">
+              <li><span class="auth-trust-icon">✓</span> Eligibility check</li>
+              <li><span class="auth-trust-icon">✓</span> Account credentials</li>
+              <li><span class="auth-trust-icon">✓</span> Identity &amp; tax info</li>
+              <li><span class="auth-trust-icon">✓</span> Responsible gaming consent</li>
+            </ul>
             <div class="button-row">
-              <button type="submit">
+              <button type="button" id="auth-signup-btn">
                 <span class="icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24">
-                    <path d="M12 5v14"></path>
-                    <path d="M5 12h14"></path>
-                  </svg>
+                  <svg viewBox="0 0 24 24"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
                 </span>
-                Create Account
+                Start Sign Up
               </button>
             </div>
-            <p id="register-message" class="form-message hidden"></p>
-          </form>
+          </div>
 
           <form id="login-form" class="auth-form">
             <p class="auth-kicker">Returning player</p>
@@ -1082,6 +1053,257 @@
           <button type="button" id="legal-modal-close" class="secondary" aria-label="Close">✕</button>
         </div>
         <div id="legal-modal-body" class="legal-body"></div>
+      </div>
+    </div>
+
+    <!-- ── 7-Step Signup Wizard ── -->
+    <div
+      id="signup-wizard"
+      class="signup-wizard hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="wizard-title"
+    >
+      <div class="signup-wizard-card">
+        <div class="wizard-header">
+          <span id="wizard-step-counter" class="wizard-step-counter">Step 1 of 7</span>
+          <button type="button" id="wizard-close" class="wizard-close" aria-label="Close sign-up">✕</button>
+        </div>
+        <div class="wizard-progress-track" role="progressbar" aria-valuemin="1" aria-valuemax="7" aria-valuenow="1" id="wizard-progressbar">
+          <div class="wizard-progress-fill" id="wizard-progress-fill"></div>
+        </div>
+
+        <!-- Step 1: Eligibility -->
+        <div class="wizard-step" id="ws-1">
+          <p class="eyebrow">Eligibility</p>
+          <h2 id="wizard-title" class="wizard-title">Welcome to BetRoyale</h2>
+          <p class="wizard-body">BetRoyale is a skill-based wagering platform. Real money is only involved when you purchase Gems. You must be 18+ and located in an eligible state.</p>
+          <div class="field">
+            <label for="w-state">Your State</label>
+            <select id="w-state" name="w-state">
+              <option value="">— Select your state —</option>
+              <option value="AL">Alabama</option><option value="AK">Alaska</option><option value="AZ">Arizona</option>
+              <option value="AR">Arkansas</option><option value="CA">California</option><option value="CO">Colorado</option>
+              <option value="CT">Connecticut</option><option value="DE">Delaware</option><option value="FL">Florida</option>
+              <option value="GA">Georgia</option><option value="HI">Hawaii</option><option value="ID">Idaho</option>
+              <option value="IL">Illinois</option><option value="IN">Indiana</option><option value="IA">Iowa</option>
+              <option value="KS">Kansas</option><option value="KY">Kentucky</option><option value="LA">Louisiana</option>
+              <option value="ME">Maine</option><option value="MD">Maryland</option><option value="MA">Massachusetts</option>
+              <option value="MI">Michigan</option><option value="MN">Minnesota</option><option value="MS">Mississippi</option>
+              <option value="MO">Missouri</option><option value="MT">Montana</option><option value="NE">Nebraska</option>
+              <option value="NV">Nevada</option><option value="NH">New Hampshire</option><option value="NJ">New Jersey</option>
+              <option value="NM">New Mexico</option><option value="NY">New York</option><option value="NC">North Carolina</option>
+              <option value="ND">North Dakota</option><option value="OH">Ohio</option><option value="OK">Oklahoma</option>
+              <option value="OR">Oregon</option><option value="PA">Pennsylvania</option><option value="RI">Rhode Island</option>
+              <option value="SC">South Carolina</option><option value="SD">South Dakota</option><option value="TN">Tennessee</option>
+              <option value="TX">Texas</option><option value="UT">Utah</option><option value="VT">Vermont</option>
+              <option value="VA">Virginia</option><option value="WA">Washington</option><option value="WV">West Virginia</option>
+              <option value="WI">Wisconsin</option><option value="WY">Wyoming</option><option value="DC">Washington D.C.</option>
+            </select>
+          </div>
+          <div id="w-jurisdiction-msg" class="wizard-jurisdiction-msg hidden"></div>
+          <label class="wizard-checkbox-row">
+            <input type="checkbox" id="w-age-confirm" />
+            <span>I confirm I am 18 years of age or older</span>
+          </label>
+          <p id="ws1-error" class="form-message hidden"></p>
+        </div>
+
+        <!-- Step 2: Credentials -->
+        <div class="wizard-step hidden" id="ws-2">
+          <p class="eyebrow">Account</p>
+          <h2 class="wizard-title">Create Your Account</h2>
+          <div class="field">
+            <label for="w-username">Username</label>
+            <input id="w-username" type="text" autocomplete="username" placeholder="3–20 characters" />
+          </div>
+          <div class="field">
+            <label for="w-email">Email</label>
+            <input id="w-email" type="email" autocomplete="email" />
+          </div>
+          <div class="field">
+            <label for="w-password">Password</label>
+            <div class="password-wrap">
+              <input id="w-password" type="password" autocomplete="new-password" minlength="6" />
+              <button type="button" class="password-toggle" id="w-password-toggle" aria-label="Show password">
+                <svg viewBox="0 0 24 24" class="icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+            <div class="password-strength-bar"><div id="w-strength-fill" class="password-strength-fill"></div></div>
+            <p id="w-strength-label" class="field-hint"></p>
+          </div>
+          <div class="field">
+            <label for="w-password-confirm">Confirm Password</label>
+            <input id="w-password-confirm" type="password" autocomplete="new-password" />
+          </div>
+          <div class="field">
+            <label for="w-referral">Referral Code <span class="optional-tag">optional</span></label>
+            <input id="w-referral" type="text" autocomplete="off" placeholder="Enter code if you have one" />
+          </div>
+          <p id="ws2-error" class="form-message hidden"></p>
+        </div>
+
+        <!-- Step 3: Email Verification -->
+        <div class="wizard-step hidden" id="ws-3">
+          <p class="eyebrow">Verification</p>
+          <h2 class="wizard-title">Confirm Your Email</h2>
+          <p class="wizard-body">We sent a 6-digit code to <strong id="w-verify-email-display"></strong>. This email will be used for payout notifications and identity verification.</p>
+          <div class="field">
+            <label for="w-verify-code">Verification Code</label>
+            <input id="w-verify-code" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000" class="code-input" />
+          </div>
+          <button type="button" class="secondary" id="w-resend-code">Resend Code</button>
+          <p id="ws3-error" class="form-message hidden"></p>
+        </div>
+
+        <!-- Step 4: KYC -->
+        <div class="wizard-step hidden" id="ws-4">
+          <p class="eyebrow">Identity</p>
+          <h2 class="wizard-title">Personal Information</h2>
+          <p class="wizard-body">Required by law before you can deposit or wager real money. Encrypted and never sold.</p>
+          <div class="wizard-field-row">
+            <div class="field">
+              <label for="w-first-name">Legal First Name</label>
+              <input id="w-first-name" type="text" autocomplete="given-name" />
+            </div>
+            <div class="field">
+              <label for="w-last-name">Legal Last Name</label>
+              <input id="w-last-name" type="text" autocomplete="family-name" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="w-dob">Date of Birth</label>
+            <input id="w-dob" type="date" autocomplete="bday" />
+            <p class="field-hint">You must be 18 or older to continue.</p>
+          </div>
+          <div class="field">
+            <label for="w-address">Street Address</label>
+            <input id="w-address" type="text" autocomplete="street-address" />
+          </div>
+          <div class="wizard-field-row">
+            <div class="field">
+              <label for="w-city">City</label>
+              <input id="w-city" type="text" autocomplete="address-level2" />
+            </div>
+            <div class="field">
+              <label for="w-zip">ZIP Code</label>
+              <input id="w-zip" type="text" inputmode="numeric" maxlength="10" autocomplete="postal-code" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="w-phone">Phone Number</label>
+            <input id="w-phone" type="tel" autocomplete="tel" placeholder="+1 555 000 0000" />
+          </div>
+          <p id="ws4-error" class="form-message hidden"></p>
+        </div>
+
+        <!-- Step 5: ID Verification -->
+        <div class="wizard-step hidden" id="ws-5">
+          <p class="eyebrow">ID Verification</p>
+          <h2 class="wizard-title">Verify Your Identity</h2>
+          <p class="wizard-body">Upload a government-issued ID to unlock full cash-out access. Gem purchases are capped at $25 until verified.</p>
+          <div class="id-upload-grid">
+            <div class="id-upload-slot" id="id-front-slot">
+              <input type="file" id="w-id-front" accept="image/*,.pdf" class="id-file-input" aria-label="Upload front of ID" />
+              <label for="w-id-front" class="id-upload-label">
+                <svg viewBox="0 0 24 24" class="id-upload-icon"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M7 15h4"/></svg>
+                <span class="id-upload-text">Front of ID</span>
+                <span class="id-upload-sub">Driver's license, passport, or state ID</span>
+              </label>
+              <p class="id-upload-filename" id="id-front-name"></p>
+            </div>
+            <div class="id-upload-slot" id="id-back-slot">
+              <input type="file" id="w-id-back" accept="image/*,.pdf" class="id-file-input" aria-label="Upload back of ID" />
+              <label for="w-id-back" class="id-upload-label">
+                <svg viewBox="0 0 24 24" class="id-upload-icon"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M7 15h4"/><path d="M15 15h2"/></svg>
+                <span class="id-upload-text">Back of ID</span>
+                <span class="id-upload-sub">Not required for passports</span>
+              </label>
+              <p class="id-upload-filename" id="id-back-name"></p>
+            </div>
+          </div>
+          <p class="hint">Powered by Stripe Identity. Documents are stored securely and never shared beyond verification.</p>
+          <button type="button" class="secondary" id="w-id-skip">Skip for now — limit gem purchases to $25</button>
+          <p id="ws5-error" class="form-message hidden"></p>
+        </div>
+
+        <!-- Step 6: Tax Information -->
+        <div class="wizard-step hidden" id="ws-6">
+          <p class="eyebrow">Tax</p>
+          <h2 class="wizard-title">Tax Information</h2>
+          <p class="wizard-body">BetRoyale may be required to report winnings over $600/year to the IRS. Your information is encrypted and never shared except as required by law.</p>
+          <div class="field">
+            <label for="w-ssn4">Last 4 Digits of SSN</label>
+            <input id="w-ssn4" type="text" inputmode="numeric" maxlength="4" placeholder="XXXX" autocomplete="off" class="code-input" />
+            <p class="field-hint">Full SSN will be requested only when approaching $600 in annual winnings.</p>
+          </div>
+          <label class="wizard-checkbox-row">
+            <input type="checkbox" id="w-w9-confirm" />
+            <span>I confirm the tax information provided is accurate. I understand BetRoyale may file IRS Form 1099 for winnings over $600.</span>
+          </label>
+          <p id="ws6-error" class="form-message hidden"></p>
+        </div>
+
+        <!-- Step 7: Consent + Responsible Gaming + CR Profile -->
+        <div class="wizard-step hidden" id="ws-7">
+          <p class="eyebrow">Final Step</p>
+          <h2 class="wizard-title">Consent &amp; Setup</h2>
+
+          <div class="wizard-section">
+            <p class="label">Legal Consent</p>
+            <label class="wizard-checkbox-row">
+              <input type="checkbox" id="w-consent-tos" />
+              <span>I agree to the <button type="button" class="inline-link" data-legal="terms">Terms of Service</button></span>
+            </label>
+            <label class="wizard-checkbox-row">
+              <input type="checkbox" id="w-consent-privacy" />
+              <span>I agree to the <button type="button" class="inline-link" data-legal="privacy">Privacy Policy</button></span>
+            </label>
+            <label class="wizard-checkbox-row">
+              <input type="checkbox" id="w-consent-rwp" />
+              <span>I agree to the Responsible Wagering Policy — I understand wagers involve risk</span>
+            </label>
+            <label class="wizard-checkbox-row">
+              <input type="checkbox" id="w-consent-state" />
+              <span>I confirm I am not a resident of a state where skill-based wagering is prohibited</span>
+            </label>
+          </div>
+
+          <div class="wizard-section">
+            <p class="label">Responsible Gaming</p>
+            <div class="field">
+              <label for="w-deposit-limit">Weekly Deposit Limit</label>
+              <select id="w-deposit-limit">
+                <option value="10">$10 / week</option>
+                <option value="25">$25 / week</option>
+                <option value="50">$50 / week</option>
+                <option value="100" selected>$100 / week</option>
+                <option value="0">No limit</option>
+              </select>
+            </div>
+            <p class="hint">You can request a 30, 90, or 180-day self-exclusion at any time from account settings. For help: <strong>1-800-522-4700</strong> (National Council on Problem Gambling).</p>
+          </div>
+
+          <div class="wizard-section">
+            <p class="label">Clash Royale Profile <span class="optional-tag">optional — set later in Profile</span></p>
+            <div class="field">
+              <label for="w-cr-tag">Player Tag</label>
+              <input id="w-cr-tag" type="text" placeholder="#2ABC8JY" autocomplete="off" />
+            </div>
+            <div class="field">
+              <label for="w-cr-link">Friend Link</label>
+              <input id="w-cr-link" type="text" placeholder="https://link.clashroyale.com/invite/friend/..." autocomplete="off" />
+            </div>
+          </div>
+
+          <p id="ws7-error" class="form-message hidden"></p>
+        </div>
+
+        <!-- Navigation -->
+        <div class="wizard-nav">
+          <button type="button" id="wizard-back" class="secondary" disabled>Back</button>
+          <button type="button" id="wizard-next">Continue</button>
+        </div>
       </div>
     </div>
 
