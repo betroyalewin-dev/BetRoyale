@@ -2688,7 +2688,7 @@ wizardCloseBtn?.addEventListener("click", closeWizard);
 wizardEl?.addEventListener("click", (e) => { if (e.target === wizardEl) closeWizard(); });
 
 // Open wizard from hero and auth-panel buttons
-document.getElementById("hero-signup-btn")?.addEventListener("click", openWizard);
-document.getElementById("auth-signup-btn")?.addEventListener("click", openWizard);
+document.getElementById("hero-signup-btn")?.addEventListener("click", () => openWizard("basic"));
+document.getElementById("auth-signup-btn")?.addEventListener("click", () => openWizard("basic"));
 
 // ══════════════════════════════════════════════════════════════════════════
