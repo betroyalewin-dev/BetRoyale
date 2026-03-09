@@ -36,9 +36,7 @@ body {
   min-height: 100dvh;
   font-family: "Manrope", sans-serif;
   color: var(--ink);
-  background: radial-gradient(circle at 12% 8%, rgba(92, 140, 255, 0.22) 0%, transparent 46%),
-    radial-gradient(circle at 84% 0%, rgba(47, 208, 147, 0.16) 0%, transparent 52%),
-    linear-gradient(180deg, #060b16 0%, #0a1222 50%, #0b1426 100%);
+  background: #0b1120;
   overflow-x: hidden;
 }
 
@@ -55,34 +53,15 @@ body.menu-drawer-open {
 }
 
 body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background-image: repeating-linear-gradient(
-      0deg,
-      rgba(151, 166, 189, 0.06),
-      rgba(151, 166, 189, 0.06) 1px,
-      transparent 1px,
-      transparent 6px
-    ),
-    repeating-linear-gradient(
-      90deg,
-      rgba(151, 166, 189, 0.05),
-      rgba(151, 166, 189, 0.05) 1px,
-      transparent 1px,
-      transparent 8px
-    );
-  opacity: 0.07;
-  pointer-events: none;
-  z-index: 0;
+  display: none;
 }
 
 .page {
   position: relative;
-  max-width: 980px;
-  width: min(100%, 980px);
+  max-width: 1240px;
+  width: min(100%, 1240px);
   margin: 0 auto;
-  padding: calc(36px + var(--safe-top)) 24px calc(96px + var(--safe-bottom));
+  padding: 0 32px calc(96px + var(--safe-bottom));
   z-index: 1;
 }
 
@@ -91,14 +70,18 @@ body::before {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 12px 18px;
-  margin-bottom: 28px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: rgba(17, 26, 42, 0.88);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 4px 12px var(--shadow);
-  max-width: 100%;
+  padding: 18px 32px;
+  margin-left: -32px;
+  margin-right: -32px;
+  margin-bottom: 36px;
+  margin-top: calc(var(--safe-top));
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: #0e1728;
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .menu-left,
@@ -390,35 +373,9 @@ body.menu-drawer-open .menu-links {
   margin-right: 4px;
 }
 
-.bg-orb {
-  position: absolute;
-  width: 320px;
-  height: 320px;
-  border-radius: 50%;
-  filter: blur(10px);
-  opacity: 0.15;
-  z-index: 0;
-}
-
-.orb-1 {
-  top: -120px;
-  right: -80px;
-  background: radial-gradient(circle, rgba(92, 140, 255, 0.58) 0%, rgba(92, 140, 255, 0) 70%);
-}
-
-.orb-2 {
-  bottom: -140px;
-  left: -120px;
-  background: radial-gradient(circle, rgba(47, 208, 147, 0.54) 0%, rgba(47, 208, 147, 0) 70%);
-}
-
+.bg-orb,
 .bg-grid {
-  position: fixed;
-  inset: 0;
-  background: radial-gradient(circle at top, rgba(47, 208, 147, 0.12), transparent 55%);
-  opacity: 0.7;
-  pointer-events: none;
-  z-index: 0;
+  display: none;
 }
 
 .hero {
@@ -2234,7 +2191,7 @@ body.in-queue::after {
     width: 100%;
     max-width: none;
     margin: 0;
-    padding-top: calc(12px + var(--safe-top));
+    padding-top: 0;
     padding-right: 12px;
     padding-bottom: calc(126px + var(--safe-bottom));
     padding-left: 12px;
@@ -2289,19 +2246,23 @@ body.in-queue::after {
 
   .menu {
     position: sticky;
-    top: calc(4px + var(--safe-top));
+    top: 0;
     z-index: 100;
     margin-bottom: 12px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    border-color: #2d3f5e;
-    background: rgba(12, 20, 34, 0.9);
-    backdrop-filter: blur(12px);
+    margin-left: -12px;
+    margin-right: -12px;
+    margin-top: 0;
+    padding: 10px 16px;
+    border-radius: 0;
+    border: none;
+    border-bottom: 1px solid #2d3f5e;
+    background: #0e1728;
+    backdrop-filter: none;
     display: flex;
     justify-content: space-between;
     gap: 8px;
     align-items: center;
-    width: 100%;
+    width: auto;
   }
 
   .menu-left,
@@ -2354,6 +2315,7 @@ body.in-queue::after {
     top: auto !important;
     left: 8px;
     right: 8px;
+    width: auto;
     bottom: calc(8px + var(--safe-bottom));
     z-index: 120;
     margin: 0;
@@ -2630,17 +2592,19 @@ body.in-queue::after {
 
 @media (max-width: 640px) {
   .page {
-    padding-top: calc(10px + var(--safe-top));
+    padding-top: 0;
     padding-right: 10px;
     padding-bottom: calc(120px + var(--safe-bottom));
     padding-left: 10px;
   }
 
   .menu {
-    border-radius: 8px;
+    border-radius: 0;
     grid-template-columns: auto auto 1fr;
     align-items: center;
     gap: 8px;
+    margin-left: -10px;
+    margin-right: -10px;
   }
 
   .menu-brand {
