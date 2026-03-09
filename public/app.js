@@ -2210,7 +2210,18 @@ if (shopAmountChips.length) {
   });
 }
 if (shopCheckoutBtn) {
-  shopCheckoutBtn.addEventListener("click", startCheckout);
+  shopCheckoutBtn.addEventListener("click", () => {
+    // Require KYC before real-money deposit
+    if (!currentUser?.kycStatus || currentUser.kycStatus === "none") {
+      if (shopMessageEl) {
+        shopMessageEl.textContent = "Identity verification is required before depositing. Complete your account setup first.";
+        shopMessageEl.className = "shop-message error";
+      }
+      setTimeout(() => openWizard("full"), 800);
+      return;
+    }
+    startCheckout();
+  });
 }
 if (shopOpenKeypadBtn) {
   shopOpenKeypadBtn.addEventListener("click", () => {
@@ -2247,6 +2258,11 @@ if (mobileKeypadKeys.length) {
 }
 if (mobileDepositPayBtn) {
   mobileDepositPayBtn.addEventListener("click", async () => {
+    if (!currentUser?.kycStatus || currentUser.kycStatus === "none") {
+      closeMobileDepositSheet();
+      setTimeout(() => openWizard("full"), 300);
+      return;
+    }
     const cents = parseAmountToCents(mobileDepositValue);
     await startCheckoutWithCents(cents);
   });
@@ -2329,7 +2345,9 @@ const wizardFill      = document.getElementById("wizard-progress-fill");
 
 let wizardStep = 1;
 let wizardIdSkipped = false;
-const WIZARD_TOTAL = 7;
+let wizardMode = "basic"; // "basic" (steps 1-3, coins only) | "full" (steps 4-7, real money)
+const WIZARD_BASIC_TOTAL = 3;
+const WIZARD_FULL_TOTAL  = 7;
 
 // Collected data across steps
 const wData = {
@@ -2342,11 +2360,12 @@ const wData = {
   crTag: "", crLink: "",
 };
 
-function openWizard() {
+function openWizard(mode = "basic") {
   if (!wizardEl) return;
-  wizardStep = 1;
+  wizardMode = mode;
   wizardIdSkipped = false;
-  goToStep(1);
+  wizardStep = mode === "full" ? 4 : 1;
+  goToStep(wizardStep);
   wizardEl.classList.remove("hidden");
   document.body.classList.add("modal-open");
 }
@@ -2358,17 +2377,21 @@ function closeWizard() {
 }
 
 function goToStep(n) {
-  for (let i = 1; i <= WIZARD_TOTAL; i++) {
+  for (let i = 1; i <= WIZARD_FULL_TOTAL; i++) {
     const el = document.getElementById(`ws-${i}`);
     if (el) el.classList.toggle("hidden", i !== n);
   }
   wizardStep = n;
-  if (wizardCounter) wizardCounter.textContent = `Step ${n} of ${WIZARD_TOTAL}`;
-  if (wizardFill) wizardFill.style.width = `${(n / WIZARD_TOTAL) * 100}%`;
-  if (wizardProgressbar) wizardProgressbar.setAttribute("aria-valuenow", n);
-  if (wizardBackBtn) wizardBackBtn.disabled = n === 1;
-  if (wizardNextBtn) wizardNextBtn.textContent = n === WIZARD_TOTAL ? "Complete Setup" : "Continue";
-  // Scroll step content to top
+  const isBasic = wizardMode === "basic";
+  const total   = isBasic ? WIZARD_BASIC_TOTAL : (WIZARD_FULL_TOTAL - WIZARD_BASIC_TOTAL);
+  const display = isBasic ? n : (n - WIZARD_BASIC_TOTAL);
+  const isLast  = isBasic ? n === WIZARD_BASIC_TOTAL : n === WIZARD_FULL_TOTAL;
+  const isFirst = isBasic ? n === 1 : n === 4;
+  if (wizardCounter) wizardCounter.textContent = `Step ${display} of ${total}`;
+  if (wizardFill) wizardFill.style.width = `${(display / total) * 100}%`;
+  if (wizardProgressbar) wizardProgressbar.setAttribute("aria-valuenow", display);
+  if (wizardBackBtn) wizardBackBtn.disabled = isFirst;
+  if (wizardNextBtn) wizardNextBtn.textContent = isLast ? (isBasic ? "Start Playing" : "Complete Setup") : "Continue";
   const stepEl = document.getElementById(`ws-${n}`);
   if (stepEl) stepEl.scrollTop = 0;
 }
@@ -2630,20 +2653,31 @@ async function advanceWizard() {
     let ok = true;
     if (wizardStep === 1) ok = validateStep1();
     if (wizardStep === 2) { ok = await validateStep2(); if (ok) ok = await submitStep2(); }
-    if (wizardStep === 3) ok = await submitStep3();
+    if (wizardStep === 3) {
+      ok = await submitStep3();
+      if (ok) {
+        // Basic signup complete — coins unlocked, real-money setup is optional later
+        closeWizard();
+        setActiveSection("profile");
+        openOnboarding(currentUser?.id, true);
+        return;
+      }
+    }
     if (wizardStep === 4) { ok = validateStep4(); if (ok) ok = await submitStep4(); }
-    if (wizardStep === 5) { /* file upload is optional; skip handled separately */ }
+    if (wizardStep === 5) { /* file upload optional; skip handled by w-id-skip btn */ }
     if (wizardStep === 6) { ok = await validateStep6(); if (ok) ok = await submitStep6(); }
     if (wizardStep === 7) {
       ok = await validateStep7();
       if (ok) ok = await submitStep7();
-      if (ok) { closeWizard(); setActiveSection("profile"); openOnboarding(currentUser?.id, true); return; }
+      if (ok) { closeWizard(); setActiveSection("shop"); return; }
     }
     if (ok) goToStep(wizardStep + 1);
   } finally {
     if (wizardNextBtn) {
       wizardNextBtn.disabled = false;
-      wizardNextBtn.textContent = wizardStep === WIZARD_TOTAL ? "Complete Setup" : "Continue";
+      // Re-render label based on updated step
+      const isLast = wizardMode === "basic" ? wizardStep === WIZARD_BASIC_TOTAL : wizardStep === WIZARD_FULL_TOTAL;
+      wizardNextBtn.textContent = isLast ? (wizardMode === "basic" ? "Start Playing" : "Complete Setup") : "Continue";
     }
   }
 }
