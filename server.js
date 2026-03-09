@@ -152,11 +152,21 @@ const QUEUE_TTL_MS = 1000 * 60 * 30;
 const MATCH_TTL_MS = 1000 * 60 * 60 * 6;
 const MATCH_LOCK_MS = 1000 * 60 * 2;
 const STARTING_CREDITS = 1000;
+const REFERRAL_BONUS_CREDITS    = 1500;  // coins both users earn on a qualifying referral
+const REFERRAL_MIN_DEPOSIT_CENTS = 1500; // $15 minimum first deposit to trigger bonus
 const VERIFICATION_TTL_MS = 1000 * 60 * 30;
 const MIN_GEM_PURCHASE_CENTS = 1000;
 const MAX_GEM_PURCHASE_CENTS = 100000;
 const MIN_CASHOUT_CENTS = 1000;
 const MAX_CASHOUT_CENTS = 100000;
+const COIN_TO_GEM_COINS = Number.parseInt(
+  process.env.COIN_GEM_EXCHANGE_COINS || "1000",
+  10
+);
+const COIN_TO_GEM_GEMS = Number.parseInt(
+  process.env.COIN_GEM_EXCHANGE_GEMS || "100",
+  10
+);
 const SESSION_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 7;
 const waitingQueue = [];
 const tickets = new Map();
@@ -373,6 +383,23 @@ app.post(
           if (user) {
             user.gems = Math.max(0, (user.gems || 0) + gems);
             user.updatedAt = Date.now();
+
+            // Referral bonus: first deposit ≥ $15 by a referred user
+            if (
+              !user.referralRewardPaid &&
+              user.referredBy &&
+              amountCents >= REFERRAL_MIN_DEPOSIT_CENTS
+            ) {
+              const referrer = findUserById(user.referredBy);
+              if (referrer) {
+                referrer.credits = Math.max(0, (referrer.credits || 0) + REFERRAL_BONUS_CREDITS);
+                referrer.referralCompletedCount = (referrer.referralCompletedCount || 0) + 1;
+                referrer.updatedAt = Date.now();
+              }
+              user.credits = Math.max(0, (user.credits || 0) + REFERRAL_BONUS_CREDITS);
+              user.referralRewardPaid = true;
+            }
+
             await saveStore();
           }
         }
@@ -980,6 +1007,22 @@ function generateVerificationCode() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
+// Referral code helpers
+const REFERRAL_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // omit 0/O/1/I
+function generateReferralCode() {
+  let code = "";
+  for (let i = 0; i < 8; i++) {
+    code += REFERRAL_CHARS[Math.floor(Math.random() * REFERRAL_CHARS.length)];
+  }
+  // Ensure uniqueness (retry on collision — vanishingly rare)
+  if (store.users?.some((u) => u.referralCode === code)) return generateReferralCode();
+  return code;
+}
+function findUserByReferralCode(code) {
+  if (!code) return null;
+  return store.users.find((u) => u.referralCode === code.toUpperCase());
+}
+
 function ensureUserDefaults(user) {
   let changed = false;
   if (!user.stats || typeof user.stats !== "object") {
@@ -1072,6 +1115,27 @@ function ensureUserDefaults(user) {
     user.stripeConnectReady = false;
     changed = true;
   }
+  // Referral fields — backfill existing accounts
+  if (!user.referralCode) {
+    user.referralCode = generateReferralCode();
+    changed = true;
+  }
+  if (!("referredBy" in user)) {
+    user.referredBy = null;
+    changed = true;
+  }
+  if (typeof user.referralRewardPaid !== "boolean") {
+    user.referralRewardPaid = false;
+    changed = true;
+  }
+  if (typeof user.referralCount !== "number") {
+    user.referralCount = 0;
+    changed = true;
+  }
+  if (typeof user.referralCompletedCount !== "number") {
+    user.referralCompletedCount = 0;
+    changed = true;
+  }
   return changed;
 }
 
@@ -1110,6 +1174,12 @@ function createUser(email, passwordHash) {
     taxData: null,                // { ssn4 } — stored hashed
     consentData: null,            // { tos, privacy, rwp, stateConfirm, depositLimit, timestamp }
     depositLimitWeekly: null,     // USD cents; null = no limit
+    // Referral
+    referralCode: generateReferralCode(),
+    referredBy: null,             // userId of the referrer
+    referralRewardPaid: false,    // true once the $15 bonus has been credited
+    referralCount: 0,             // people who signed up with this user's code
+    referralCompletedCount: 0,    // of those, how many triggered the bonus
     createdAt: now,
     updatedAt: now,
   };
@@ -1141,6 +1211,9 @@ function publicUser(user) {
     depositLimitWeekly: user.depositLimitWeekly ?? null,
     stripeConnectAccountId: user.stripeConnectAccountId || null,
     stripeConnectReady: Boolean(user.stripeConnectReady),
+    referralCode: user.referralCode || null,
+    referralCount: user.referralCount || 0,
+    referralCompletedCount: user.referralCompletedCount || 0,
   };
 }
 
@@ -1847,6 +1920,7 @@ app.post("/api/auth/register", async (req, res) => {
   const password = req.body?.password || "";
   const usernameInput = req.body?.username || "";
   const username = sanitizeUsername(usernameInput);
+  const referralCodeInput = (req.body?.referralCode || "").trim().toUpperCase();
 
   if (!email || !email.includes("@")) {
     return res.status(400).json({ error: "Enter a valid email address." });
@@ -1868,10 +1942,27 @@ app.post("/api/auth/register", async (req, res) => {
     return res.status(400).json({ error: "Username is already taken." });
   }
 
+  // Referral code validation
+  let referrer = null;
+  if (referralCodeInput) {
+    referrer = findUserByReferralCode(referralCodeInput);
+    if (!referrer) {
+      return res.status(400).json({ error: "Referral code not found." });
+    }
+    if (referrer.email === email) {
+      return res.status(400).json({ error: "You cannot use your own referral code." });
+    }
+  }
+
   try {
     const passwordHash = await bcrypt.hash(password, 10);
     const user = createUser(email, passwordHash);
     user.username = username;
+    if (referrer) {
+      user.referredBy = referrer.id;
+      referrer.referralCount = (referrer.referralCount || 0) + 1;
+      referrer.updatedAt = Date.now();
+    }
     store.users.push(user);
     await saveStore();
     let verificationWarning = null;
@@ -2227,6 +2318,23 @@ app.post("/api/shop/confirm", async (req, res) => {
 
     user.gems = Math.max(0, (user.gems || 0) + gems);
     user.updatedAt = Date.now();
+
+    // Referral bonus: first deposit ≥ $15 by a referred user
+    if (
+      !user.referralRewardPaid &&
+      user.referredBy &&
+      amountCents >= REFERRAL_MIN_DEPOSIT_CENTS
+    ) {
+      const referrer = findUserById(user.referredBy);
+      if (referrer) {
+        referrer.credits = Math.max(0, (referrer.credits || 0) + REFERRAL_BONUS_CREDITS);
+        referrer.referralCompletedCount = (referrer.referralCompletedCount || 0) + 1;
+        referrer.updatedAt = Date.now();
+      }
+      user.credits = Math.max(0, (user.credits || 0) + REFERRAL_BONUS_CREDITS);
+      user.referralRewardPaid = true;
+    }
+
     await saveStore();
     return res.json({
       ok: true,
@@ -2239,6 +2347,41 @@ app.post("/api/shop/confirm", async (req, res) => {
       error: err?.raw?.message || err.message || "Unable to confirm checkout session.",
     });
   }
+});
+
+app.get("/api/shop/exchange/rate", (req, res) => {
+  return res.json({
+    coins: Number.isFinite(COIN_TO_GEM_COINS) && COIN_TO_GEM_COINS > 0 ? COIN_TO_GEM_COINS : 1000,
+    gems: Number.isFinite(COIN_TO_GEM_GEMS) && COIN_TO_GEM_GEMS > 0 ? COIN_TO_GEM_GEMS : 100,
+  });
+});
+
+app.post("/api/shop/exchange", async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  const rateCoins =
+    Number.isFinite(COIN_TO_GEM_COINS) && COIN_TO_GEM_COINS > 0 ? COIN_TO_GEM_COINS : 1000;
+  const rateGems =
+    Number.isFinite(COIN_TO_GEM_GEMS) && COIN_TO_GEM_GEMS > 0 ? COIN_TO_GEM_GEMS : 100;
+
+  const coins = Number(user.credits) || 0;
+  if (coins < rateCoins) {
+    return res.status(400).json({
+      error: `You need at least ${rateCoins} coins to trade for gems.`,
+    });
+  }
+
+  user.credits = Math.max(0, coins - rateCoins);
+  user.gems = Math.max(0, (user.gems || 0) + rateGems);
+  user.updatedAt = Date.now();
+  await saveStore();
+
+  return res.json({
+    ok: true,
+    user: publicUser(user),
+    message: `Traded ${rateCoins} coins for ${rateGems} gems.`,
+  });
 });
 
 app.get("/api/shop/cashout/status", async (req, res) => {

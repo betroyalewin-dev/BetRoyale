@@ -53,6 +53,12 @@ const shopAmountChips = Array.from(document.querySelectorAll(".shop-amount-chip"
 const shopMobileAmount = document.getElementById("shop-mobile-amount");
 const shopMobileGemsPreview = document.getElementById("shop-mobile-gems-preview");
 const shopOpenKeypadBtn = document.getElementById("shop-open-keypad");
+const coinGemTradeBtn = document.getElementById("coin-gem-trade");
+const coinGemMessageEl = document.getElementById("coin-gem-message");
+const exchangeCoinsEl = document.getElementById("exchange-coins");
+const exchangeGemsEl = document.getElementById("exchange-gems");
+const exchangeCtaCoinsEl = document.getElementById("exchange-cta-coins");
+const exchangeCtaGemsEl = document.getElementById("exchange-cta-gems");
 const mobileDepositSheet = document.getElementById("mobile-deposit-sheet");
 const mobileDepositCloseBtn = document.getElementById("mobile-deposit-close");
 const mobileDepositAmountEl = document.getElementById("mobile-deposit-amount");
@@ -83,6 +89,8 @@ const cashoutMessageEl = document.getElementById("cashout-message");
 const cashoutConnectBtn = document.getElementById("cashout-connect");
 const cashoutSubmitBtn = document.getElementById("cashout-submit");
 const cashoutHistoryEl = document.getElementById("cashout-history");
+let COIN_TO_GEM_COINS = 1000;
+let COIN_TO_GEM_GEMS = 100;
 const joinQueueBtn = document.getElementById("join-queue");
 const wagerInput = document.getElementById("wager-amount");
 const wagerLabel = document.getElementById("wager-label");
@@ -747,6 +755,7 @@ function setAuthState(user) {
     if (mobileWalletCoinsEl) mobileWalletCoinsEl.textContent = "0";
     if (mobileWalletGemsEl) mobileWalletGemsEl.textContent = "0";
     if (shopMessageEl) shopMessageEl.textContent = "";
+    if (coinGemMessageEl) coinGemMessageEl.textContent = "";
     if (shopAmountInput) shopAmountInput.value = "";
     if (shopGemsPreview) shopGemsPreview.textContent = "0";
     if (shopMobileAmount) shopMobileAmount.textContent = "10.00";
@@ -770,6 +779,7 @@ function setAuthState(user) {
       cashoutHistoryEl.innerHTML = "";
       cashoutHistoryEl.classList.add("hidden");
     }
+    if (coinGemTradeBtn) coinGemTradeBtn.disabled = true;
     cashoutReady = false;
     if (shopPanel) shopPanel.classList.add("hidden");
     stopQueuePolling();
@@ -800,6 +810,7 @@ function updateProfileUI(user) {
   if (shopGemsEl) shopGemsEl.textContent = user.gems ?? 0;
   if (mobileWalletCoinsEl) mobileWalletCoinsEl.textContent = coins;
   if (mobileWalletGemsEl) mobileWalletGemsEl.textContent = user.gems ?? 0;
+  updateCoinGemTradeState(user);
   statWins.textContent = stats.wins || 0;
   statLosses.textContent = stats.losses || 0;
   statDraws.textContent = stats.draws || 0;
@@ -911,6 +922,38 @@ function updateCashoutPreview() {
   if (cashoutUsdPreview) cashoutUsdPreview.textContent = (safeCents / 100).toFixed(2);
 }
 
+function updateCoinGemTradeState(user) {
+  if (!coinGemTradeBtn) return;
+  const coins = user?.coins ?? user?.credits ?? 0;
+  const canTrade = Boolean(user) && coins >= COIN_TO_GEM_COINS;
+  coinGemTradeBtn.disabled = !canTrade;
+  if (!canTrade && coinGemMessageEl && !coinGemMessageEl.textContent) {
+    coinGemMessageEl.textContent = `You need ${COIN_TO_GEM_COINS} coins to trade.`;
+  }
+  if (canTrade && coinGemMessageEl && /need \d+ coins/i.test(coinGemMessageEl.textContent)) {
+    coinGemMessageEl.textContent = "";
+  }
+}
+
+function formatNumber(value) {
+  return Number(value || 0).toLocaleString("en-US");
+}
+
+async function loadExchangeRate() {
+  try {
+    const data = await apiRequest("/api/shop/exchange/rate", { method: "GET" });
+    if (Number.isFinite(data?.coins) && data.coins > 0) COIN_TO_GEM_COINS = data.coins;
+    if (Number.isFinite(data?.gems) && data.gems > 0) COIN_TO_GEM_GEMS = data.gems;
+  } catch (err) {
+    // Keep defaults if unavailable
+  }
+  if (exchangeCoinsEl) exchangeCoinsEl.textContent = formatNumber(COIN_TO_GEM_COINS);
+  if (exchangeGemsEl) exchangeGemsEl.textContent = formatNumber(COIN_TO_GEM_GEMS);
+  if (exchangeCtaCoinsEl) exchangeCtaCoinsEl.textContent = formatNumber(COIN_TO_GEM_COINS);
+  if (exchangeCtaGemsEl) exchangeCtaGemsEl.textContent = formatNumber(COIN_TO_GEM_GEMS);
+  updateCoinGemTradeState(currentUser);
+}
+
 function formatUsd(amountCents) {
   const numeric = Number(amountCents) || 0;
   return `$${(numeric / 100).toFixed(2)}`;
@@ -1003,7 +1046,9 @@ function refreshShop() {
   updateShopPreview();
   updateCashoutPreview();
   refreshCashoutStatus();
+  updateCoinGemTradeState(currentUser);
   if (shopMessageEl) shopMessageEl.textContent = "";
+  if (coinGemMessageEl) coinGemMessageEl.textContent = "";
 }
 
 function clearShopQueryParams() {
@@ -1222,6 +1267,40 @@ async function startCashout() {
     if (cashoutMessageEl) cashoutMessageEl.textContent = err.message;
   } finally {
     if (cashoutSubmitBtn) cashoutSubmitBtn.disabled = false;
+  }
+}
+
+async function tradeCoinsForGems() {
+  if (!currentUser) {
+    showStatus("Log in to trade coins for gems.", true);
+    return;
+  }
+  const coins = currentUser.coins ?? currentUser.credits ?? 0;
+  if (coins < COIN_TO_GEM_COINS) {
+    if (coinGemMessageEl) {
+      coinGemMessageEl.textContent = `You need ${COIN_TO_GEM_COINS} coins to trade.`;
+    }
+    return;
+  }
+  if (coinGemMessageEl) coinGemMessageEl.textContent = "Processing trade...";
+  if (coinGemTradeBtn) coinGemTradeBtn.disabled = true;
+  try {
+    const data = await apiRequest("/api/shop/exchange", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    if (data?.user) {
+      currentUser = data.user;
+      updateProfileUI(currentUser);
+    }
+    if (coinGemMessageEl) {
+      coinGemMessageEl.textContent =
+        data?.message || `Traded ${COIN_TO_GEM_COINS} coins for ${COIN_TO_GEM_GEMS} gems.`;
+    }
+  } catch (err) {
+    if (coinGemMessageEl) coinGemMessageEl.textContent = err.message;
+  } finally {
+    updateCoinGemTradeState(currentUser);
   }
 }
 
@@ -2283,6 +2362,9 @@ if (shopCheckoutBtn) {
     startCheckout();
   });
 }
+if (coinGemTradeBtn) {
+  coinGemTradeBtn.addEventListener("click", tradeCoinsForGems);
+}
 if (shopOpenKeypadBtn) {
   shopOpenKeypadBtn.addEventListener("click", () => {
     openMobileDepositSheet();
@@ -2385,6 +2467,7 @@ if (shopAmountInput && !String(shopAmountInput.value || "").trim()) {
 }
 updateShopPreview();
 loadSession();
+loadExchangeRate();
 
 // ══════════════════════════════════════════════════════════════════════════
 // 7-STEP SIGNUP WIZARD
