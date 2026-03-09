@@ -1017,6 +1017,161 @@ input:focus-visible,
   display: block;
 }
 
+/* ── Referral section ──────────────────────────────────────────────────── */
+.referral-section {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.referral-card {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  background: #0e1728;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px 22px;
+  margin-top: 10px;
+}
+
+.referral-card-left {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.referral-heading {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #f4f8ff;
+  margin: 0 0 6px;
+}
+
+.referral-subtext {
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+  line-height: 1.55;
+  margin: 0 0 16px;
+}
+
+.referral-subtext strong { color: var(--accent); }
+.referral-subtext em { font-style: normal; color: #f4f8ff; }
+
+.referral-stats-row {
+  display: flex;
+  gap: 16px;
+}
+
+.referral-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: #131f33;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 8px 14px;
+  min-width: 72px;
+  text-align: center;
+}
+
+.referral-stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.referral-stat-label {
+  font-size: 0.7rem;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Right column: code + link fields */
+.referral-card-right {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex-shrink: 0;
+  width: 260px;
+}
+
+.referral-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.referral-field-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+
+.referral-copy-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #0b1120;
+  border: 1px solid #2c3f60;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.referral-code-display {
+  flex: 1;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #f4f8ff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.referral-link-display {
+  flex: 1;
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.referral-copy-btn {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  color: var(--ink-muted);
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+.referral-copy-btn:hover { color: #f4f8ff; }
+.referral-copy-btn.copied { color: var(--accent); }
+.referral-copy-btn .icon { width: 15px; height: 15px; }
+.referral-copy-btn svg {
+  width: 15px; height: 15px;
+  stroke: currentColor; fill: none;
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+
+@media (max-width: 700px) {
+  .referral-card {
+    flex-direction: column;
+  }
+  .referral-card-right {
+    width: 100%;
+  }
+}
+
 .shop {
   margin-top: 24px;
   display: grid;
@@ -3094,8 +3249,24 @@ body.in-queue::after {
   padding: 14px 24px 20px;
   border-top: 1px solid #1a2840;
   flex-shrink: 0;
+  align-items: center;
+  flex-wrap: wrap;
 }
 .wizard-nav button { flex: 1; }
+.wizard-status {
+  flex-basis: 100%;
+  font-size: 0.82rem;
+  color: var(--ink-muted);
+  margin: 0 0 2px;
+}
+
+.signup-wizard.is-loading .wizard-step {
+  opacity: 0.7;
+}
+.signup-wizard.is-loading .wizard-nav button {
+  opacity: 0.8;
+  cursor: wait;
+}
 
 /* Mobile adjustments */
 @media (max-width: 540px) {

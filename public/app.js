@@ -842,7 +842,49 @@ function updateProfileUI(user) {
   updateShopPreview();
   updateProfileHighlights(user);
   updateProfileHelp(user);
+  updateReferralUI(user);
 }
+
+// ── Referral UI ─────────────────────────────────────────────────────────────
+function updateReferralUI(user) {
+  const codeEl   = document.getElementById("referral-code-display");
+  const linkEl   = document.getElementById("referral-link-display");
+  const invited  = document.getElementById("referral-invited-count");
+  const completed = document.getElementById("referral-completed-count");
+  const earned   = document.getElementById("referral-earned-count");
+
+  const code = user?.referralCode || "";
+  const link = code ? `${window.location.origin}/?ref=${code}` : "";
+
+  if (codeEl) codeEl.textContent = code || "—";
+  if (linkEl) { linkEl.textContent = link || "—"; linkEl.dataset.link = link; }
+  if (invited)   invited.textContent   = (user?.referralCount || 0).toLocaleString();
+  if (completed) completed.textContent = (user?.referralCompletedCount || 0).toLocaleString();
+  if (earned)    earned.textContent    = ((user?.referralCompletedCount || 0) * 1500).toLocaleString();
+}
+
+function copyReferralText(text, btn) {
+  if (!text || text === "—") return;
+  navigator.clipboard.writeText(text).then(() => {
+    const icon = btn.querySelector("svg");
+    if (icon) {
+      // swap to checkmark briefly
+      const prev = icon.innerHTML;
+      icon.innerHTML = '<polyline points="20 6 9 17 4 12"/>';
+      btn.classList.add("copied");
+      setTimeout(() => { icon.innerHTML = prev; btn.classList.remove("copied"); }, 1800);
+    }
+  }).catch(() => {});
+}
+
+document.getElementById("referral-copy-code-btn")?.addEventListener("click", () => {
+  const code = document.getElementById("referral-code-display")?.textContent;
+  copyReferralText(code, document.getElementById("referral-copy-code-btn"));
+});
+document.getElementById("referral-copy-link-btn")?.addEventListener("click", () => {
+  const link = document.getElementById("referral-link-display")?.dataset.link || "";
+  copyReferralText(link, document.getElementById("referral-copy-link-btn"));
+});
 
 function parseAmountToCents(value) {
   const amount = Number(value);
@@ -2357,6 +2399,7 @@ const wizardCard      = wizardEl?.querySelector(".signup-wizard-card");
 const wizardCloseBtn  = document.getElementById("wizard-close");
 const wizardBackBtn   = document.getElementById("wizard-back");
 const wizardNextBtn   = document.getElementById("wizard-next");
+const wizardStatusEl  = document.getElementById("wizard-status");
 const wizardCounter   = document.getElementById("wizard-step-counter");
 const wizardProgressbar = document.getElementById("wizard-progressbar");
 const wizardFill      = document.getElementById("wizard-progress-fill");
@@ -2383,6 +2426,11 @@ function openWizard(mode = "basic") {
   wizardMode = mode;
   wizardIdSkipped = false;
   wizardStep = mode === "full" ? 4 : 1;
+  // Pre-fill referral code from URL ?ref= param
+  if (mode === "basic" && wReferralInput && !wReferralInput.value) {
+    const refParam = new URLSearchParams(window.location.search).get("ref");
+    if (refParam) wReferralInput.value = refParam.toUpperCase();
+  }
   goToStep(wizardStep);
   wizardEl.classList.remove("hidden");
   document.body.classList.add("modal-open");
@@ -2419,6 +2467,15 @@ function setWizardError(step, msg) {
   if (!el) return;
   el.textContent = msg;
   el.classList.toggle("hidden", !msg);
+}
+
+function setWizardLoading(isLoading) {
+  if (wizardEl) wizardEl.classList.toggle("is-loading", isLoading);
+  if (wizardStatusEl) {
+    wizardStatusEl.textContent = isLoading ? "Working…" : "";
+    wizardStatusEl.classList.toggle("hidden", !isLoading);
+  }
+  if (wizardProgressbar) wizardProgressbar.setAttribute("aria-busy", isLoading ? "true" : "false");
 }
 
 // ── Step 1: Eligibility ───────────────────────────────────────────────────
@@ -2497,13 +2554,15 @@ async function validateStep2() {
 }
 
 async function submitStep2() {
-  const res = await fetch("/api/auth/register", {
+  const data = await apiRequest("/api/auth/register", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: wData.username, email: wData.email, password: wData.password }),
+    body: JSON.stringify({
+      username: wData.username,
+      email: wData.email,
+      password: wData.password,
+      referralCode: wData.referral || undefined,
+    }),
   });
-  const data = await res.json();
-  if (!res.ok) { setWizardError(2, data.error || "Could not create account."); return false; }
   currentUser = data.user;
   refreshUI();
   // Show dev code if no email
@@ -2667,6 +2726,7 @@ document.querySelectorAll(".inline-link[data-legal]").forEach((btn) => {
 // ── Wizard next / back wiring ─────────────────────────────────────────────
 async function advanceWizard() {
   if (wizardNextBtn) { wizardNextBtn.disabled = true; wizardNextBtn.textContent = "Please wait…"; }
+  setWizardLoading(true);
   try {
     let ok = true;
     if (wizardStep === 1) ok = validateStep1();
@@ -2690,7 +2750,11 @@ async function advanceWizard() {
       if (ok) { closeWizard(); setActiveSection("shop"); return; }
     }
     if (ok) goToStep(wizardStep + 1);
+  } catch (err) {
+    const message = err?.message || "Something went wrong. Please try again.";
+    setWizardError(wizardStep, message);
   } finally {
+    setWizardLoading(false);
     if (wizardNextBtn) {
       wizardNextBtn.disabled = false;
       // Re-render label based on updated step

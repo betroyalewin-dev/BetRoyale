@@ -607,6 +607,55 @@
             Your tag and link are shared with opponents when you get matched.
           </p>
         </form>
+
+        <!-- ── Referral ───────────────────────────────────────────────── -->
+        <div class="referral-section" id="referral-section">
+          <p class="eyebrow">Referral</p>
+          <div class="referral-card">
+            <div class="referral-card-left">
+              <h3 class="referral-heading">Invite Friends, Earn Coins</h3>
+              <p class="referral-subtext">
+                When a friend signs up with your code and makes their first
+                deposit of $15 or more, you <em>both</em> get
+                <strong>1,500 bonus coins</strong>.
+              </p>
+              <div class="referral-stats-row">
+                <div class="referral-stat">
+                  <span id="referral-invited-count" class="referral-stat-value">0</span>
+                  <span class="referral-stat-label">Invited</span>
+                </div>
+                <div class="referral-stat">
+                  <span id="referral-completed-count" class="referral-stat-value">0</span>
+                  <span class="referral-stat-label">Completed</span>
+                </div>
+                <div class="referral-stat">
+                  <span id="referral-earned-count" class="referral-stat-value">0</span>
+                  <span class="referral-stat-label">Coins Earned</span>
+                </div>
+              </div>
+            </div>
+            <div class="referral-card-right">
+              <div class="referral-field">
+                <span class="referral-field-label">Your Code</span>
+                <div class="referral-copy-row">
+                  <span id="referral-code-display" class="referral-code-display">—</span>
+                  <button type="button" id="referral-copy-code-btn" class="referral-copy-btn" aria-label="Copy referral code" title="Copy code">
+                    <svg viewBox="0 0 24 24" class="icon"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="referral-field">
+                <span class="referral-field-label">Share Link</span>
+                <div class="referral-copy-row">
+                  <span id="referral-link-display" class="referral-link-display">—</span>
+                  <button type="button" id="referral-copy-link-btn" class="referral-copy-btn" aria-label="Copy referral link" title="Copy link">
+                    <svg viewBox="0 0 24 24" class="icon"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section id="shop-panel" class="panel shop hidden">
@@ -1306,6 +1355,7 @@
 
         <!-- Navigation -->
         <div class="wizard-nav">
+          <p id="wizard-status" class="wizard-status hidden" aria-live="polite"></p>
           <button type="button" id="wizard-back" class="secondary" disabled>Back</button>
           <button type="button" id="wizard-next">Continue</button>
         </div>
