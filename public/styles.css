@@ -2659,3 +2659,68 @@ body.in-queue::after {
     gap: 12px;
   }
 }
+
+/* ── Legal modal (Terms / Privacy) ── */
+.legal-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1450;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(4, 10, 20, 0.72);
+  backdrop-filter: blur(7px);
+}
+
+.legal-modal.hidden {
+  display: none;
+}
+
+.legal-card {
+  width: min(680px, 100%);
+  max-height: min(82vh, 700px);
+  border-radius: 10px;
+  border: 1px solid #2a4062;
+  background: #101a2e;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.legal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid #1e2e47;
+  flex-shrink: 0;
+}
+
+.legal-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.legal-body {
+  overflow-y: auto;
+  padding: 24px;
+  font-size: 0.88rem;
+  line-height: 1.7;
+  color: var(--ink-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.legal-body h3 {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 6px;
+}
+
+.legal-body p {
+  margin: 0;
+}

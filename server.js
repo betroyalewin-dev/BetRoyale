@@ -2803,6 +2803,11 @@ app.get("/api/matches/:matchId/track", async (req, res) => {
   }
 });
 
+// SPA fallback — serve index.html for all non-API routes (e.g. /terms, /privacy)
+app.get(/^(?!\/api).*$/, (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
 async function start() {
   await loadStore();
   app.listen(PORT, HOST, () => {

@@ -64,6 +64,10 @@ const mobileKeypadMessageEl = document.getElementById("mobile-keypad-message");
 const mobileKeypadKeys = Array.from(document.querySelectorAll(".keypad-key"));
 const mobileAmountChips = Array.from(document.querySelectorAll(".mobile-chip"));
 const onboardingModal = document.getElementById("onboarding-modal");
+const legalModal = document.getElementById("legal-modal");
+const legalModalTitle = document.getElementById("legal-modal-title");
+const legalModalBody = document.getElementById("legal-modal-body");
+const legalModalClose = document.getElementById("legal-modal-close");
 const onboardingStepTitleEl = document.getElementById("onboarding-step-title");
 const onboardingStepBodyEl = document.getElementById("onboarding-step-body");
 const onboardingProgressLabelEl = document.getElementById("onboarding-progress-label");
@@ -306,6 +310,86 @@ function renderOnboardingStep() {
       onboardingStepIndex === ONBOARDING_STEPS.length - 1 ? "Finish" : "Next";
   }
 }
+
+// ── Legal modal (Terms / Privacy) ──────────────────────────────────────────
+
+const LEGAL_CONTENT = {
+  terms: {
+    title: "Terms of Service",
+    sections: [
+      { heading: "1. Eligibility", body: "You must be at least 18 years old and located in a jurisdiction where skill-based wagering is permitted to use BetRoyale. By creating an account you confirm you meet these requirements." },
+      { heading: "2. Skill-Based Wagering", body: "BetRoyale facilitates wagers on the outcome of Clash Royale friendly duels between consenting players. Results are determined solely by player skill and are verified via the official Clash Royale battle log." },
+      { heading: "3. Coins & Gems", body: "Coins are free practice currency with no real-world value. Gems are purchased with real USD at a rate of 1¢ = 1 gem and may be cashed out subject to identity verification and these Terms." },
+      { heading: "4. Deposits & Cash Outs", body: "All deposits are processed by Stripe. Cash outs require completion of identity verification. BetRoyale reserves the right to delay or deny cash outs pending fraud review or compliance checks." },
+      { heading: "5. Prohibited Conduct", body: "Collusion, match-fixing, use of automation tools, multi-accounting, and chargebacks are prohibited and will result in permanent account suspension and forfeiture of balances." },
+      { heading: "6. Termination", body: "BetRoyale may suspend or terminate your account at any time for violation of these Terms. You may close your account at any time by contacting support; pending balances will be settled within 14 business days." },
+      { heading: "7. Limitation of Liability", body: "BetRoyale is not liable for losses arising from platform downtime, battle log delays, or third-party service failures. Total liability is limited to the balance in your account at the time of the claim." },
+      { heading: "8. Changes to Terms", body: "We may update these Terms at any time. Continued use of BetRoyale after notice of changes constitutes acceptance. Material changes will be communicated by email." },
+      { heading: "9. Governing Law", body: "These Terms are governed by the laws of the jurisdiction in which BetRoyale operates. Any disputes shall be resolved through binding arbitration except where prohibited by law." },
+      { heading: "10. Contact", body: "For questions about these Terms, contact support through the BetRoyale platform." },
+    ],
+  },
+  privacy: {
+    title: "Privacy Policy",
+    sections: [
+      { heading: "1. Information We Collect", body: "We collect your username, email address, password hash, Clash Royale player tag and friend link, match history, wager history, and device/session metadata when you use BetRoyale." },
+      { heading: "2. Payment Data", body: "Deposits and cash outs are processed by Stripe. BetRoyale does not store full payment card numbers. Stripe's privacy policy governs payment data handling." },
+      { heading: "3. How We Use Your Data", body: "Your data is used to operate your account, settle wagers, detect fraud, comply with legal obligations, and send transactional emails (verification codes, payout confirmations)." },
+      { heading: "4. Data Sharing", body: "We do not sell your personal data. We share data with Stripe for payment processing, with Supercell's Clash Royale API to verify battle results, and with law enforcement when legally required." },
+      { heading: "5. Data Retention", body: "Account data is retained for the life of your account plus 7 years for financial compliance purposes. You may request deletion of non-financial data by contacting support." },
+      { heading: "6. Security", body: "Passwords are hashed with bcrypt. All data in transit uses TLS 1.2+. We conduct periodic security reviews, but no system is completely secure." },
+      { heading: "7. Cookies & Tracking", body: "BetRoyale uses session cookies only. We do not use third-party advertising trackers or analytics beyond server-side access logs." },
+      { heading: "8. Your Rights", body: "Depending on your jurisdiction, you may have rights to access, correct, or delete your personal data. Submit requests through the platform or by email." },
+      { heading: "9. Changes to This Policy", body: "We may update this Privacy Policy. Material changes will be communicated by email and reflected with a new effective date at the top of this page." },
+      { heading: "10. Contact", body: "Privacy questions or data requests can be submitted through the BetRoyale support channel." },
+    ],
+  },
+};
+
+function openLegalModal(type) {
+  if (!legalModal) return;
+  const content = LEGAL_CONTENT[type];
+  if (!content) return;
+  legalModalTitle.textContent = content.title;
+  legalModalBody.innerHTML = content.sections
+    .map((s) => `<div><h3>${s.heading}</h3><p>${s.body}</p></div>`)
+    .join("");
+  legalModal.classList.remove("hidden");
+  document.body.classList.add("modal-open");
+  history.replaceState(null, "", type === "terms" ? "/terms" : "/privacy");
+}
+
+function closeLegalModal() {
+  if (!legalModal) return;
+  legalModal.classList.add("hidden");
+  document.body.classList.remove("modal-open");
+  history.replaceState(null, "", "/");
+}
+
+if (legalModalClose) {
+  legalModalClose.addEventListener("click", closeLegalModal);
+}
+
+legalModal?.addEventListener("click", (e) => {
+  if (e.target === legalModal) closeLegalModal();
+});
+
+// Auto-open on direct navigation to /terms or /privacy
+(function checkLegalRoute() {
+  const path = window.location.pathname;
+  if (path === "/terms") openLegalModal("terms");
+  else if (path === "/privacy") openLegalModal("privacy");
+})();
+
+// Footer links
+document.querySelectorAll('a[href="/terms"]').forEach((el) => {
+  el.addEventListener("click", (e) => { e.preventDefault(); openLegalModal("terms"); });
+});
+document.querySelectorAll('a[href="/privacy"]').forEach((el) => {
+  el.addEventListener("click", (e) => { e.preventDefault(); openLegalModal("privacy"); });
+});
+
+// ── End Legal modal ─────────────────────────────────────────────────────────
 
 function openOnboarding(userId, force = false) {
   if (!onboardingModal || !userId) return;
