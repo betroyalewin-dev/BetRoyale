@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 400" role="img" aria-labelledby="title desc">
+  <title id="title">BetRoyale logo</title>
+  <desc id="desc">BetRoyale wordmark with a crown-in-gem icon.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f1d3f" />
+      <stop offset="100%" stop-color="#081226" />
+    </linearGradient>
+    <linearGradient id="gem" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#72f0ca" />
+      <stop offset="100%" stop-color="#2fd093" />
+    </linearGradient>
+    <linearGradient id="crown" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffd46b" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+  </defs>
+
+  <rect width="1400" height="400" rx="52" fill="url(#bg)" />
+
+  <g transform="translate(56 52)">
+    <rect width="296" height="296" rx="68" fill="rgba(255,255,255,0.02)" />
+    <path
+      d="M148 28 252 94 202 264 94 264 44 94 148 28Z"
+      fill="rgba(47,208,147,0.08)"
+      stroke="url(#gem)"
+      stroke-width="16"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M84 212 104 126 148 166 192 126 212 212Z"
+      fill="url(#crown)"
+      stroke="#f8fbff"
+      stroke-opacity=".16"
+      stroke-width="6"
+      stroke-linejoin="round"
+    />
+    <circle cx="104" cy="126" r="10" fill="#fff4cf" />
+    <circle cx="148" cy="166" r="10" fill="#fff4cf" />
+    <circle cx="192" cy="126" r="10" fill="#fff4cf" />
+    <path d="M104 212H192" stroke="#fff4cf" stroke-width="10" stroke-linecap="round" />
+  </g>
+
+  <g transform="translate(404 124)">
+    <text
+      x="0"
+      y="86"
+      font-family="Avenir Next, Montserrat, Gotham, Proxima Nova, Arial, sans-serif"
+      font-size="92"
+      font-weight="800"
+      letter-spacing="3"
+      fill="#f4f8ff"
+    >BET</text>
+    <text
+      x="248"
+      y="86"
+      font-family="Avenir Next, Montserrat, Gotham, Proxima Nova, Arial, sans-serif"
+      font-size="92"
+      font-weight="800"
+      letter-spacing="3"
+      fill="#2fd093"
+    >ROYALE</text>
+    <text
+      x="4"
+      y="148"
+      font-family="Avenir Next, Montserrat, Gotham, Proxima Nova, Arial, sans-serif"
+      font-size="28"
+      font-weight="600"
+      letter-spacing="5"
+      fill="#96a9c7"
+    >SKILL BATTLES. VERIFIED RESULTS.</text>
+  </g>
+</svg>
