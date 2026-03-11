@@ -3281,3 +3281,36 @@ body.in-queue::after {
   .wizard-field-row { grid-template-columns: 1fr; }
   .id-upload-grid   { grid-template-columns: 1fr; }
 }
+
+/* ── Inline field errors ──────────────────────────────────────────────────── */
+.field-error {
+  font-size: 0.78rem;
+  color: #ff6b6b;
+  line-height: 1.35;
+  margin: 4px 0 0;
+  min-height: 0;
+}
+/* Hide when empty (no JS class toggling needed) */
+.field-error:empty {
+  display: none;
+}
+
+/* Red border on invalid inputs / selects / textareas */
+.input-error,
+.signup-wizard input.input-error,
+.signup-wizard select.input-error,
+.signup-wizard textarea.input-error {
+  border-color: #e05252 !important;
+}
+.signup-wizard input.input-error:focus,
+.signup-wizard select.input-error:focus,
+.signup-wizard textarea.input-error:focus {
+  outline-color: rgba(224, 82, 82, 0.45) !important;
+  border-color: #e05252 !important;
+}
+
+/* Checkbox error highlight (wrap label or use sibling .field-error) */
+.input-error + label,
+.signup-wizard input[type="checkbox"].input-error + label {
+  color: #ff6b6b;
+}

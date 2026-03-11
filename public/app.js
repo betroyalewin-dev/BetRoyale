@@ -2552,6 +2552,19 @@ function setWizardError(step, msg) {
   el.classList.toggle("hidden", !msg);
 }
 
+// Show an inline error directly below a specific field.
+// errorId  – the <p class="field-error"> element id
+// msg      – message string (empty string clears the error)
+// inputId  – optional: the associated <input>/<select> id to highlight
+function setFieldError(errorId, msg, inputId) {
+  const errEl = document.getElementById(errorId);
+  if (errEl) errEl.textContent = msg;
+  if (inputId) {
+    const inp = document.getElementById(inputId);
+    if (inp) inp.classList.toggle("input-error", Boolean(msg));
+  }
+}
+
 function setWizardLoading(isLoading) {
   if (wizardEl) wizardEl.classList.toggle("is-loading", isLoading);
   if (wizardStatusEl) {
@@ -2580,11 +2593,12 @@ wStateSelect?.addEventListener("change", () => {
 });
 
 function validateStep1() {
+  setFieldError("w-state-error", "", "w-state");
+  setFieldError("w-age-error",   "", "w-age-confirm");
   const state = wStateSelect?.value;
-  if (!state) { setWizardError(1, "Please select your state."); return false; }
-  if (!wAgeConfirm?.checked) { setWizardError(1, "You must confirm you are 18 or older."); return false; }
-  if (BLOCKED_STATES.has(state)) { setWizardError(1, "Skill-based wagering is not available in your state."); return false; }
-  setWizardError(1, "");
+  if (!state) { setFieldError("w-state-error", "Please select your state.", "w-state"); return false; }
+  if (BLOCKED_STATES.has(state)) { setFieldError("w-state-error", "Skill-based wagering is not available in your state.", "w-state"); return false; }
+  if (!wAgeConfirm?.checked) { setFieldError("w-age-error", "You must confirm you are 18 or older.", "w-age-confirm"); return false; }
   wData.state = state;
   wData.ageConfirmed = true;
   return true;
@@ -2621,16 +2635,20 @@ wPasswordInput?.addEventListener("input", () => {
 });
 
 async function validateStep2() {
+  setFieldError("w-username-error", "", "w-username");
+  setFieldError("w-email-error",    "", "w-email");
+  setFieldError("w-password-error", "", "w-password");
+  setFieldError("w-confirm-error",  "", "w-password-confirm");
+  setFieldError("w-referral-error", "", "w-referral");
   const username = wUsernameInput?.value.trim() || "";
   const email    = wEmailInput?.value.trim() || "";
   const password = wPasswordInput?.value || "";
   const confirm  = wPasswordConfirm?.value || "";
-  if (username.length < 3) { setWizardError(2, "Username must be at least 3 characters."); return false; }
-  if (username.length > 20) { setWizardError(2, "Username must be 20 characters or fewer."); return false; }
-  if (!email.includes("@")) { setWizardError(2, "Enter a valid email address."); return false; }
-  if (password.length < 6) { setWizardError(2, "Password must be at least 6 characters."); return false; }
-  if (password !== confirm) { setWizardError(2, "Passwords do not match."); return false; }
-  setWizardError(2, "");
+  if (username.length < 3)  { setFieldError("w-username-error", "Username must be at least 3 characters.", "w-username"); return false; }
+  if (username.length > 20) { setFieldError("w-username-error", "Username must be 20 characters or fewer.", "w-username"); return false; }
+  if (!email.includes("@")) { setFieldError("w-email-error",    "Enter a valid email address.",             "w-email");    return false; }
+  if (password.length < 6)  { setFieldError("w-password-error", "Password must be at least 6 characters.", "w-password"); return false; }
+  if (password !== confirm)  { setFieldError("w-confirm-error",  "Passwords do not match.",                 "w-password-confirm"); return false; }
   wData.username = username; wData.email = email;
   wData.password = password; wData.referral = wReferralInput?.value.trim() || "";
   return true;
@@ -2670,23 +2688,25 @@ wResendCodeBtn?.addEventListener("click", async () => {
 });
 
 async function submitStep3() {
+  setFieldError("w-verify-code-error", "", "w-verify-code");
   const code = wVerifyCodeInput?.value.trim() || "";
-  if (code.length !== 6) { setWizardError(3, "Enter the 6-digit code from your email."); return false; }
+  if (code.length !== 6) { setFieldError("w-verify-code-error", "Enter the 6-digit code from your email.", "w-verify-code"); return false; }
   const res = await fetch("/api/auth/verify", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ code }),
   });
   const data = await res.json();
-  if (!res.ok) { setWizardError(3, data.error || "Verification failed."); return false; }
+  if (!res.ok) { setFieldError("w-verify-code-error", data.error || "Verification failed.", "w-verify-code"); return false; }
   currentUser = data.user;
   refreshUI();
-  setWizardError(3, "");
   return true;
 }
 
 // ── Step 4: KYC ───────────────────────────────────────────────────────────
 function validateStep4() {
+  ["w-first-name-error","w-last-name-error","w-dob-error","w-address-error","w-city-error","w-zip-error","w-phone-error"]
+    .forEach(id => setFieldError(id, "", id.replace("-error", "")));
   const firstName = document.getElementById("w-first-name")?.value.trim() || "";
   const lastName  = document.getElementById("w-last-name")?.value.trim() || "";
   const dob       = document.getElementById("w-dob")?.value || "";
@@ -2694,16 +2714,15 @@ function validateStep4() {
   const city      = document.getElementById("w-city")?.value.trim() || "";
   const zip       = document.getElementById("w-zip")?.value.trim() || "";
   const phone     = document.getElementById("w-phone")?.value.trim() || "";
-  if (!firstName) { setWizardError(4, "Enter your legal first name."); return false; }
-  if (!lastName)  { setWizardError(4, "Enter your legal last name."); return false; }
-  if (!dob)       { setWizardError(4, "Enter your date of birth."); return false; }
+  if (!firstName) { setFieldError("w-first-name-error", "Enter your legal first name.", "w-first-name"); return false; }
+  if (!lastName)  { setFieldError("w-last-name-error",  "Enter your legal last name.",  "w-last-name");  return false; }
+  if (!dob)       { setFieldError("w-dob-error",        "Enter your date of birth.",    "w-dob");        return false; }
   const age = (Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-  if (age < 18)   { setWizardError(4, "You must be 18 or older to continue."); return false; }
-  if (!address)   { setWizardError(4, "Enter your street address."); return false; }
-  if (!city)      { setWizardError(4, "Enter your city."); return false; }
-  if (!zip)       { setWizardError(4, "Enter your ZIP code."); return false; }
-  if (!phone)     { setWizardError(4, "Enter your phone number."); return false; }
-  setWizardError(4, "");
+  if (age < 18)   { setFieldError("w-dob-error", "You must be 18 or older to continue.", "w-dob");       return false; }
+  if (!address)   { setFieldError("w-address-error", "Enter your street address.",  "w-address");        return false; }
+  if (!city)      { setFieldError("w-city-error",    "Enter your city.",            "w-city");           return false; }
+  if (!zip)       { setFieldError("w-zip-error",     "Enter your ZIP code.",        "w-zip");            return false; }
+  if (!phone)     { setFieldError("w-phone-error",   "Enter your phone number.",    "w-phone");          return false; }
   Object.assign(wData, { firstName, lastName, dob, address, city, zip, phone });
   return true;
 }
@@ -2746,11 +2765,12 @@ document.getElementById("w-id-skip")?.addEventListener("click", () => {
 
 // ── Step 6: Tax ───────────────────────────────────────────────────────────
 async function validateStep6() {
+  setFieldError("w-ssn4-error", "", "w-ssn4");
+  setFieldError("w-w9-error",   "", "w-w9-confirm");
   const ssn4 = document.getElementById("w-ssn4")?.value.trim() || "";
   const confirmed = document.getElementById("w-w9-confirm")?.checked;
-  if (!/^\d{4}$/.test(ssn4)) { setWizardError(6, "Enter the last 4 digits of your SSN."); return false; }
-  if (!confirmed) { setWizardError(6, "You must acknowledge the tax information statement."); return false; }
-  setWizardError(6, "");
+  if (!/^\d{4}$/.test(ssn4)) { setFieldError("w-ssn4-error", "Enter the last 4 digits of your SSN.", "w-ssn4"); return false; }
+  if (!confirmed) { setFieldError("w-w9-error", "You must acknowledge the tax information statement.", "w-w9-confirm"); return false; }
   wData.ssn4 = ssn4; wData.w9Confirmed = true;
   return true;
 }
@@ -2768,11 +2788,11 @@ async function submitStep6() {
 
 // ── Step 7: Consent ───────────────────────────────────────────────────────
 async function validateStep7() {
-  if (!document.getElementById("w-consent-tos")?.checked)     { setWizardError(7, "You must agree to the Terms of Service."); return false; }
-  if (!document.getElementById("w-consent-privacy")?.checked) { setWizardError(7, "You must agree to the Privacy Policy."); return false; }
-  if (!document.getElementById("w-consent-rwp")?.checked)     { setWizardError(7, "You must agree to the Responsible Wagering Policy."); return false; }
-  if (!document.getElementById("w-consent-state")?.checked)   { setWizardError(7, "You must confirm your state eligibility."); return false; }
-  setWizardError(7, "");
+  setFieldError("w-consent-error", "");
+  if (!document.getElementById("w-consent-tos")?.checked)     { setFieldError("w-consent-error", "You must agree to the Terms of Service."); return false; }
+  if (!document.getElementById("w-consent-privacy")?.checked) { setFieldError("w-consent-error", "You must agree to the Privacy Policy."); return false; }
+  if (!document.getElementById("w-consent-rwp")?.checked)     { setFieldError("w-consent-error", "You must agree to the Responsible Wagering Policy."); return false; }
+  if (!document.getElementById("w-consent-state")?.checked)   { setFieldError("w-consent-error", "You must confirm your state eligibility."); return false; }
   wData.consentTos = wData.consentPrivacy = wData.consentRwp = wData.consentState = true;
   wData.depositLimit = Number(document.getElementById("w-deposit-limit")?.value) || 100;
   wData.crTag  = document.getElementById("w-cr-tag")?.value.trim() || "";

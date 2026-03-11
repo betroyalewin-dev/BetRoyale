@@ -344,6 +344,7 @@
                 required
               />
             </div>
+            <p id="login-message" class="form-message hidden"></p>
             <div class="button-row">
               <button type="submit" class="secondary">
                 <span class="icon" aria-hidden="true">
@@ -355,7 +356,6 @@
                 Log In
               </button>
             </div>
-            <p id="login-message" class="form-message hidden"></p>
           </form>
         </div>
         <div class="auth-footer">
@@ -1157,7 +1157,7 @@
           <p class="wizard-body">BetRoyale is a skill-based wagering platform. Real money is only involved when you purchase Gems. You must be 18+ and located in an eligible state.</p>
           <div class="field">
             <label for="w-state">Your State</label>
-            <select id="w-state" name="w-state">
+            <select id="w-state" name="w-state" aria-describedby="w-state-error">
               <option value="">— Select your state —</option>
               <option value="AL">Alabama</option><option value="AK">Alaska</option><option value="AZ">Arizona</option>
               <option value="AR">Arkansas</option><option value="CA">California</option><option value="CO">Colorado</option>
@@ -1177,13 +1177,14 @@
               <option value="VA">Virginia</option><option value="WA">Washington</option><option value="WV">West Virginia</option>
               <option value="WI">Wisconsin</option><option value="WY">Wyoming</option><option value="DC">Washington D.C.</option>
             </select>
+          <p class="field-error" id="w-state-error"></p>
           </div>
           <div id="w-jurisdiction-msg" class="wizard-jurisdiction-msg hidden"></div>
           <label class="wizard-checkbox-row">
             <input type="checkbox" id="w-age-confirm" />
             <span>I confirm I am 18 years of age or older</span>
           </label>
-          <p id="ws1-error" class="form-message hidden"></p>
+          <p class="field-error" id="w-age-error"></p>
         </div>
 
         <!-- Step 2: Credentials -->
@@ -1193,10 +1194,12 @@
           <div class="field">
             <label for="w-username">Username</label>
             <input id="w-username" type="text" autocomplete="username" placeholder="3–20 characters" />
+            <p class="field-error" id="w-username-error"></p>
           </div>
           <div class="field">
             <label for="w-email">Email</label>
             <input id="w-email" type="email" autocomplete="email" />
+            <p class="field-error" id="w-email-error"></p>
           </div>
           <div class="field">
             <label for="w-password">Password</label>
@@ -1208,14 +1211,17 @@
             </div>
             <div class="password-strength-bar"><div id="w-strength-fill" class="password-strength-fill"></div></div>
             <p id="w-strength-label" class="field-hint"></p>
+            <p class="field-error" id="w-password-error"></p>
           </div>
           <div class="field">
             <label for="w-password-confirm">Confirm Password</label>
             <input id="w-password-confirm" type="password" autocomplete="new-password" />
+            <p class="field-error" id="w-confirm-error"></p>
           </div>
           <div class="field">
             <label for="w-referral">Referral Code <span class="optional-tag">optional</span></label>
             <input id="w-referral" type="text" autocomplete="off" placeholder="Enter code if you have one" />
+            <p class="field-error" id="w-referral-error"></p>
           </div>
           <p id="ws2-error" class="form-message hidden"></p>
         </div>
@@ -1228,6 +1234,7 @@
           <div class="field">
             <label for="w-verify-code">Verification Code</label>
             <input id="w-verify-code" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000" class="code-input" />
+            <p class="field-error" id="w-verify-code-error"></p>
           </div>
           <button type="button" class="secondary" id="w-resend-code">Resend Code</button>
           <p id="ws3-error" class="form-message hidden"></p>
@@ -1242,34 +1249,41 @@
             <div class="field">
               <label for="w-first-name">Legal First Name</label>
               <input id="w-first-name" type="text" autocomplete="given-name" />
+              <p class="field-error" id="w-first-name-error"></p>
             </div>
             <div class="field">
               <label for="w-last-name">Legal Last Name</label>
               <input id="w-last-name" type="text" autocomplete="family-name" />
+              <p class="field-error" id="w-last-name-error"></p>
             </div>
           </div>
           <div class="field">
             <label for="w-dob">Date of Birth</label>
             <input id="w-dob" type="date" autocomplete="bday" />
             <p class="field-hint">You must be 18 or older to continue.</p>
+            <p class="field-error" id="w-dob-error"></p>
           </div>
           <div class="field">
             <label for="w-address">Street Address</label>
             <input id="w-address" type="text" autocomplete="street-address" />
+            <p class="field-error" id="w-address-error"></p>
           </div>
           <div class="wizard-field-row">
             <div class="field">
               <label for="w-city">City</label>
               <input id="w-city" type="text" autocomplete="address-level2" />
+              <p class="field-error" id="w-city-error"></p>
             </div>
             <div class="field">
               <label for="w-zip">ZIP Code</label>
               <input id="w-zip" type="text" inputmode="numeric" maxlength="10" autocomplete="postal-code" />
+              <p class="field-error" id="w-zip-error"></p>
             </div>
           </div>
           <div class="field">
             <label for="w-phone">Phone Number</label>
             <input id="w-phone" type="tel" autocomplete="tel" placeholder="+1 555 000 0000" />
+            <p class="field-error" id="w-phone-error"></p>
           </div>
           <p id="ws4-error" class="form-message hidden"></p>
         </div>
@@ -1313,11 +1327,13 @@
             <label for="w-ssn4">Last 4 Digits of SSN</label>
             <input id="w-ssn4" type="text" inputmode="numeric" maxlength="4" placeholder="XXXX" autocomplete="off" class="code-input" />
             <p class="field-hint">Full SSN will be requested only when approaching $600 in annual winnings.</p>
+            <p class="field-error" id="w-ssn4-error"></p>
           </div>
           <label class="wizard-checkbox-row">
             <input type="checkbox" id="w-w9-confirm" />
             <span>I confirm the tax information provided is accurate. I understand BetRoyale may file IRS Form 1099 for winnings over $600.</span>
           </label>
+          <p class="field-error" id="w-w9-error"></p>
           <p id="ws6-error" class="form-message hidden"></p>
         </div>
 
@@ -1344,6 +1360,7 @@
               <input type="checkbox" id="w-consent-state" />
               <span>I confirm I am not a resident of a state where skill-based wagering is prohibited</span>
             </label>
+            <p class="field-error" id="w-consent-error"></p>
           </div>
 
           <div class="wizard-section">

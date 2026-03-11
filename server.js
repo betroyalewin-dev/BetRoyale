@@ -148,6 +148,7 @@ const mailTransport =
 const stripe = STRIPE_SECRET_KEY
   ? new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2023-10-16" })
   : null;
+const ADMIN_SECRET = process.env.ADMIN_SECRET || "";
 const QUEUE_TTL_MS = 1000 * 60 * 30;
 const MATCH_TTL_MS = 1000 * 60 * 60 * 6;
 const MATCH_LOCK_MS = 1000 * 60 * 2;
@@ -1215,6 +1216,49 @@ function publicUser(user) {
     referralCount: user.referralCount || 0,
     referralCompletedCount: user.referralCompletedCount || 0,
   };
+}
+
+async function addGemsToUser({ username, email, amount }) {
+  const cleanUsername = String(username || "").trim();
+  const cleanEmail = normalizeEmail(email || "");
+  const delta = Number(amount);
+  if (!Number.isFinite(delta) || delta === 0) {
+    throw new Error("Amount must be a non-zero number.");
+  }
+  if (!cleanUsername && !cleanEmail) {
+    throw new Error("Username or email is required.");
+  }
+
+  if (pool) {
+    const updateResult = await pool.query(
+      `
+      UPDATE users
+      SET gems = COALESCE(gems, 0) + $1, updated_at = $2
+      WHERE ($3 <> '' AND username = $3) OR ($4 <> '' AND email = $4)
+      RETURNING id, username, email, gems
+      `,
+      [delta, Date.now(), cleanUsername, cleanEmail]
+    );
+    const row = updateResult.rows?.[0];
+    if (!row) return null;
+    const localUser = store.users.find((u) => u.id === row.id);
+    if (localUser) {
+      localUser.gems = row.gems;
+      localUser.updatedAt = Date.now();
+    }
+    return row;
+  }
+
+  const user = store.users.find((u) => {
+    if (cleanUsername && u.username === cleanUsername) return true;
+    if (cleanEmail && normalizeEmail(u.email) === cleanEmail) return true;
+    return false;
+  });
+  if (!user) return null;
+  user.gems = Math.max(0, (user.gems || 0) + delta);
+  user.updatedAt = Date.now();
+  await saveStore();
+  return { id: user.id, username: user.username, email: user.email, gems: user.gems };
 }
 
 function requireAuth(req, res) {
@@ -2384,6 +2428,23 @@ app.post("/api/shop/exchange", async (req, res) => {
   });
 });
 
+app.post("/api/admin/gems", async (req, res) => {
+  const secret = String(req.headers["x-admin-secret"] || "");
+  if (!ADMIN_SECRET || secret !== ADMIN_SECRET) {
+    return res.status(403).json({ error: "Forbidden." });
+  }
+  try {
+    const { username, email, amount } = req.body || {};
+    const updated = await addGemsToUser({ username, email, amount });
+    if (!updated) {
+      return res.status(404).json({ error: "User not found." });
+    }
+    return res.json({ ok: true, user: updated });
+  } catch (err) {
+    return res.status(400).json({ error: err.message || "Unable to update gems." });
+  }
+});
+
 app.get("/api/shop/cashout/status", async (req, res) => {
   const user = requireAuth(req, res);
   if (!user) return;
@@ -2901,14 +2962,22 @@ app.get("/api/matches/:matchId/track", async (req, res) => {
         tagB,
         referenceTag,
         battle: null,
-        message: "No friendly battle found yet.",
+        status: "pending",
+        message:
+          "No friendly battle found yet. It can take a minute to appear in the battle log.",
       });
     }
 
     if (!isNormal1v1Friendly(battle)) {
-      return res.status(400).json({
-        error:
-          "Only standard 1v1 Friendly Battles count. Special rules (2v2, Triple Elixir, Rage, Draft, etc.) are not allowed.",
+      return res.json({
+        matchId,
+        tagA,
+        tagB,
+        referenceTag,
+        battle: null,
+        status: "invalid",
+        message:
+          "We found a friendly battle, but the settings were off. Please play a standard 1v1 Friendly Battle (no special rules like 2v2, Triple Elixir, Rage, Draft, etc.).",
       });
     }
 
