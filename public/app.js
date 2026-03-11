@@ -153,6 +153,8 @@ let pollTimer = null;
 let matchLockTimer = null;
 let matchLockCountdownTimer = null;
 let queueTimer = null;
+let queueLastUpdated = 0;
+let queueLastUpdatedTimer = null;
 let activeSection = "auth";
 let selectedCurrency = "coins";
 const MIN_SHOP_CENTS = 1000;
@@ -532,8 +534,43 @@ function setCurrency(currency) {
       button.dataset.currency === selectedCurrency
     );
   });
-  if (wagerLabel) {
-    wagerLabel.textContent = `Wager (${selectedCurrency})`;
+  updateQueueBalance();
+}
+
+// Show available balance near the wager input so users don't have to look away.
+function updateQueueBalance() {
+  const el = document.getElementById("queue-balance");
+  if (!el) return;
+  if (!currentUser) { el.textContent = ""; return; }
+  const coins = currentUser.coins ?? currentUser.credits ?? 0;
+  const gems  = currentUser.gems ?? 0;
+  const bal   = selectedCurrency === "gems" ? gems : coins;
+  const label = selectedCurrency === "gems" ? "Gems" : "Coins";
+  el.innerHTML = `Balance: <strong>${bal.toLocaleString()} ${label}</strong>`;
+}
+
+// Show a green ✓ or amber ⚠ above the form based on profile readiness.
+function updateQueueProfileCheck() {
+  const el = document.getElementById("queue-profile-check");
+  if (!el) return;
+  if (!currentUser) { el.innerHTML = ""; return; }
+  const hasTag  = Boolean(currentUser.tag);
+  const hasLink = Boolean(currentUser.friendLink);
+  if (hasTag && hasLink) {
+    el.innerHTML =
+      `<span class="profile-check profile-check--ok">` +
+      `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>` +
+      `Profile ready — player tag and friend link set.</span>`;
+  } else {
+    const missing = [!hasTag && "player tag", !hasLink && "friend link"].filter(Boolean).join(" and ");
+    el.innerHTML =
+      `<span class="profile-check profile-check--warn">` +
+      `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>` +
+      `Missing ${missing} — <a id="queue-go-profile" href="#">update your profile</a> before joining.</span>`;
+    document.getElementById("queue-go-profile")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      setActiveSection("profile");
+    });
   }
 }
 
@@ -716,9 +753,13 @@ function setAuthState(user) {
 
   if (user) {
     updateProfileUI(user);
+    updateQueueBalance();
+    updateQueueProfileCheck();
     startQueuePolling();
     refreshShop();
   } else {
+    updateQueueBalance();
+    updateQueueProfileCheck();
     if (profileDisplayName) profileDisplayName.textContent = "—";
     profileEmail.textContent = "—";
     if (profileUsername) profileUsername.value = "";
@@ -854,6 +895,8 @@ function updateProfileUI(user) {
   updateProfileHighlights(user);
   updateProfileHelp(user);
   updateReferralUI(user);
+  updateQueueBalance();
+  updateQueueProfileCheck();
 }
 
 // ── Referral UI ─────────────────────────────────────────────────────────────
@@ -1668,6 +1711,7 @@ function renderBattle(battle, perspectiveTag) {
 
 function setWaitingState(isWaiting) {
   joinQueueBtn.disabled = isWaiting;
+  if (cancelQueueBtn) cancelQueueBtn.disabled = !isWaiting;
   if (refreshQueueBtn) refreshQueueBtn.disabled = isWaiting;
   currencyButtons.forEach((button) => {
     button.disabled = isWaiting;
@@ -1911,8 +1955,26 @@ async function refreshQueueList() {
     const data = await apiRequest("/api/queue/list", { method: "GET" });
     renderQueueList(data.entries || []);
     if (currentTicketId) {
-      const waitingText = `${(data.entries || []).length} waiting`;
-      queueCountEl.textContent = waitingText;
+      const count = (data.entries || []).length;
+      queueCountEl.textContent = `${count} waiting`;
+      queueCountEl.classList.toggle("has-players", count > 0);
+    }
+    // Update "last refreshed" indicator
+    queueLastUpdated = Date.now();
+    const updatedEl = document.getElementById("queue-last-updated");
+    if (updatedEl) {
+      updatedEl.textContent = "Updated just now";
+      if (queueLastUpdatedTimer) clearInterval(queueLastUpdatedTimer);
+      queueLastUpdatedTimer = setInterval(() => {
+        if (!updatedEl) return;
+        const secs = Math.round((Date.now() - queueLastUpdated) / 1000);
+        if (secs < 60) {
+          updatedEl.textContent = `Updated ${secs}s ago`;
+        } else {
+          updatedEl.textContent = `Updated ${Math.round(secs / 60)}m ago`;
+          clearInterval(queueLastUpdatedTimer);
+        }
+      }, 1000);
     }
   } catch (err) {
     // Quietly ignore queue list errors.
@@ -1923,12 +1985,14 @@ function renderQueueList(entries) {
   if (!queueListEl || !queueCountEl || !queueEmptyEl) return;
   queueListEl.innerHTML = "";
   if (!entries.length) {
-    queueCountEl.textContent = "0 waiting";
+    queueCountEl.textContent = "Open";
+    queueCountEl.classList.remove("has-players");
     queueEmptyEl.classList.remove("hidden");
     return;
   }
   queueEmptyEl.classList.add("hidden");
   queueCountEl.textContent = `${entries.length} waiting`;
+  queueCountEl.classList.add("has-players");
 
   entries.forEach((entry) => {
     const card = document.createElement("div");
@@ -2056,6 +2120,7 @@ function renderQueueList(entries) {
     queueListEl.prepend(placeholder);
     const count = entries.length + 1;
     queueCountEl.textContent = `${count} waiting`;
+    queueCountEl.classList.add("has-players");
   }
 }
 
@@ -2333,11 +2398,6 @@ if (helpButton) {
   });
 }
 
-if (queueEmptyJoinBtn) {
-  queueEmptyJoinBtn.addEventListener("click", () => {
-    joinQueue();
-  });
-}
 
 if (matchGoQueueBtn) {
   matchGoQueueBtn.addEventListener("click", () => {

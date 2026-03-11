@@ -802,42 +802,34 @@
       </section>
 
       <section id="queue-panel" class="panel queue hidden">
+        <!-- Header: title + icon-only refresh + live timestamp -->
         <div class="queue-header">
           <div>
             <p class="eyebrow">Matchmaking</p>
             <h2>Find an Opponent</h2>
           </div>
-          <div class="queue-actions">
-            <button type="button" id="refresh-queue" class="secondary">
+          <div class="queue-header-right">
+            <span id="queue-last-updated" class="queue-updated-hint" aria-live="polite"></span>
+            <button type="button" id="refresh-queue" class="secondary icon-btn" title="Refresh queue" aria-label="Refresh queue">
               <span class="icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24">
                   <path d="M20 12a8 8 0 1 1-2.34-5.66"></path>
                   <path d="M20 4v6h-6"></path>
                 </svg>
               </span>
-              Refresh
-            </button>
-            <button type="button" id="cancel-queue" class="secondary">
-              <span class="icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24">
-                  <path d="M6 6l12 12"></path>
-                  <path d="M18 6l-12 12"></path>
-                </svg>
-              </span>
-              Cancel
-            </button>
-            <button type="button" id="join-queue">
-              <span class="icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24">
-                  <path d="M8 5l9 7-9 7V5z"></path>
-                </svg>
-              </span>
-              Join Queue
             </button>
           </div>
         </div>
+
+        <!-- Dynamic profile readiness check -->
+        <div id="queue-profile-check" class="queue-profile-check"></div>
+
+        <!-- Wager form — linear top-to-bottom flow -->
         <div class="queue-form">
-          <label for="wager-amount" id="wager-label">Wager (coins)</label>
+          <!-- Inline balance -->
+          <div id="queue-balance" class="queue-balance"></div>
+
+          <!-- Currency selector (compact, left-aligned) -->
           <div class="currency-toggle" role="group" aria-label="Wager currency">
             <button
               type="button"
@@ -866,58 +858,63 @@
               Gems
             </button>
           </div>
-          <div class="wager-row">
-            <input
-              id="wager-amount"
-              name="wager-amount"
-              type="number"
-              min="0"
-              step="1"
-              value="0"
-            />
-            <span class="wager-hint">Set 0 for friendly only.</span>
-          </div>
+
+          <!-- Amount input -->
+          <label for="wager-amount" id="wager-label">Wager amount</label>
+          <input
+            id="wager-amount"
+            name="wager-amount"
+            type="number"
+            min="0"
+            step="1"
+            value="0"
+          />
+          <p class="wager-hint">Set to 0 for a friendly match with no wager.</p>
+
+          <!-- Preset quick-pick buttons -->
           <div class="wager-presets" role="group" aria-label="Wager presets">
-            <button type="button" class="secondary preset-button" data-wager="10">
-              10
-            </button>
-            <button type="button" class="secondary preset-button" data-wager="25">
-              25
-            </button>
-            <button type="button" class="secondary preset-button" data-wager="50">
-              50
-            </button>
-            <button type="button" class="secondary preset-button" data-wager="100">
-              100
-            </button>
-            <button type="button" class="secondary preset-button" data-wager="500">
-              500
-            </button>
+            <button type="button" class="secondary preset-button" data-wager="10">10</button>
+            <button type="button" class="secondary preset-button" data-wager="25">25</button>
+            <button type="button" class="secondary preset-button" data-wager="50">50</button>
+            <button type="button" class="secondary preset-button" data-wager="100">100</button>
+            <button type="button" class="secondary preset-button" data-wager="500">500</button>
           </div>
-        </div>
-        <div class="queue-list">
-          <div class="queue-list-header">
-            <p class="label">Live Queue</p>
-            <span id="queue-count" class="queue-count">0 waiting</span>
-          </div>
-          <div id="queue-list" class="queue-cards"></div>
-          <div id="queue-empty" class="queue-empty-state">
-            <p class="queue-empty-title">No one is waiting yet</p>
-            <p class="hint">Post a wager and be the first in the arena.</p>
-            <button type="button" id="queue-empty-join" class="secondary">
+
+          <!-- Primary action row: Join + Leave -->
+          <div class="queue-cta-row">
+            <button type="button" id="join-queue">
               <span class="icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24">
                   <path d="M8 5l9 7-9 7V5z"></path>
                 </svg>
               </span>
-              Be the first!
+              Join Queue
+            </button>
+            <button type="button" id="cancel-queue" class="secondary cancel-queue-btn" disabled>
+              <span class="icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M6 6l12 12"></path>
+                  <path d="M18 6l-12 12"></path>
+                </svg>
+              </span>
+              Leave Queue
             </button>
           </div>
         </div>
-        <p class="hint">
-          Make sure your profile has a player tag and friend link before joining
-          the queue.
-        </p>
+
+        <!-- Live queue list -->
+        <div class="queue-list">
+          <div class="queue-list-header">
+            <p class="label">Live Queue</p>
+            <span id="queue-count" class="queue-count">Open</span>
+          </div>
+          <div id="queue-list" class="queue-cards"></div>
+          <div id="queue-empty" class="queue-empty-state">
+            <span class="queue-pulse-dot" aria-hidden="true"></span>
+            <p class="queue-empty-title">Queue is open</p>
+            <p class="hint">Post your wager to start — be the first in the arena.</p>
+          </div>
+        </div>
       </section>
 
       <section id="status" class="status hidden"></section>
