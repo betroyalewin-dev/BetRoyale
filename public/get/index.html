@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Get BetRoyale</title>
+    <meta name="description" content="Install BetRoyale — wager on Clash Royale duels and cash out your winnings." />
+    <meta name="theme-color" content="#090f1c" />
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/brand/betroyale-icon-192.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      :root {
+        --bg:     #090f1c;
+        --panel:  #111a2a;
+        --accent: #2fd093;
+        --ink:    #f4f8ff;
+        --muted:  #97a6bd;
+        --border: #22314a;
+      }
+
+      html, body {
+        min-height: 100dvh;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: "Manrope", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 32px 20px 48px;
+        gap: 0;
+      }
+
+      /* ── Card ── */
+      .card {
+        width: 100%;
+        max-width: 420px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        padding: 36px 28px 32px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 24px;
+        text-align: center;
+      }
+
+      .app-icon {
+        width: 96px;
+        height: 96px;
+        border-radius: 22px;
+        border: 1px solid var(--border);
+      }
+
+      .app-name {
+        font-size: 1.75rem;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+        line-height: 1.1;
+      }
+      .app-name span { color: var(--accent); }
+
+      .app-tagline {
+        font-size: 0.95rem;
+        color: var(--muted);
+        line-height: 1.55;
+        margin-top: -12px;
+      }
+
+      /* ── Primary install button ── */
+      .btn-install {
+        width: 100%;
+        background: var(--accent);
+        color: #04150f;
+        font-family: inherit;
+        font-size: 1rem;
+        font-weight: 700;
+        border: none;
+        border-radius: 12px;
+        padding: 16px 24px;
+        cursor: pointer;
+        transition: opacity 0.15s;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+      }
+      .btn-install:hover { opacity: 0.88; }
+      .btn-install:disabled { opacity: 0.4; cursor: not-allowed; }
+
+      /* ── Secondary APK button ── */
+      .btn-apk {
+        width: 100%;
+        background: transparent;
+        color: var(--muted);
+        font-family: inherit;
+        font-size: 0.85rem;
+        font-weight: 600;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px 20px;
+        cursor: pointer;
+        transition: border-color 0.15s, color 0.15s;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+      .btn-apk:hover { border-color: var(--muted); color: var(--ink); }
+
+      /* ── iOS steps ── */
+      .ios-steps {
+        width: 100%;
+        text-align: left;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .ios-step {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        font-size: 0.88rem;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      .ios-step-num {
+        flex-shrink: 0;
+        width: 24px;
+        height: 24px;
+        background: rgba(47,208,147,0.12);
+        border: 1px solid rgba(47,208,147,0.3);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--accent);
+      }
+      .ios-step b { color: var(--ink); }
+
+      /* ── Desktop ── */
+      .desktop-block {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        width: 100%;
+      }
+      .qr-placeholder {
+        width: 140px;
+        height: 140px;
+        border: 2px dashed var(--border);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--muted);
+        font-size: 0.78rem;
+        text-align: center;
+        padding: 12px;
+        line-height: 1.4;
+      }
+      .desktop-url {
+        font-size: 0.9rem;
+        color: var(--accent);
+        font-weight: 600;
+        letter-spacing: 0.02em;
+      }
+
+      /* ── Status message ── */
+      .status-msg {
+        font-size: 0.8rem;
+        color: var(--muted);
+        line-height: 1.5;
+        display: none;
+      }
+      .status-msg.visible { display: block; }
+      .status-msg.success { color: var(--accent); }
+
+      /* ── Trust strip ── */
+      .trust-strip {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        flex-wrap: wrap;
+        font-size: 0.75rem;
+        color: var(--muted);
+        padding-top: 4px;
+        border-top: 1px solid var(--border);
+        width: 100%;
+      }
+      .trust-item { display: flex; align-items: center; gap: 5px; }
+
+      /* ── Footer ── */
+      .footer {
+        margin-top: 28px;
+        font-size: 0.75rem;
+        color: #3d5070;
+        text-align: center;
+      }
+      .footer a { color: #3d5070; }
+    </style>
+  </head>
+
+  <body>
+    <div class="card" id="card">
+      <img src="/brand/betroyale-icon-512.png" alt="BetRoyale icon" class="app-icon" />
+
+      <div>
+        <h1 class="app-name">Bet<span>Royale</span></h1>
+        <p class="app-tagline">Wager on Clash Royale duels.<br>Win real money, verified on-chain.</p>
+      </div>
+
+      <!-- Android section (shown by JS) -->
+      <div id="android-section" style="display:none; width:100%; display:flex; flex-direction:column; gap:12px;">
+        <button class="btn-install" id="pwa-install-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v13M7 10l5 5 5-5"/><path d="M5 20h14"/></svg>
+          Install App
+        </button>
+        <a class="btn-apk" href="/BetRoyale.apk" id="apk-btn" download>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Download APK directly
+        </a>
+        <p class="status-msg" id="android-status"></p>
+      </div>
+
+      <!-- iOS section -->
+      <div id="ios-section" style="display:none; width:100%;">
+        <div class="ios-steps">
+          <div class="ios-step">
+            <div class="ios-step-num">1</div>
+            <div>Open <b>betroyale.win</b> in <b>Safari</b> (not Chrome)</div>
+          </div>
+          <div class="ios-step">
+            <div class="ios-step-num">2</div>
+            <div>Tap the <b>Share</b> button <b>⎙</b> at the bottom of the screen</div>
+          </div>
+          <div class="ios-step">
+            <div class="ios-step-num">3</div>
+            <div>Scroll down and tap <b>"Add to Home Screen"</b></div>
+          </div>
+          <div class="ios-step">
+            <div class="ios-step-num">4</div>
+            <div>Tap <b>Add</b> — the app appears on your home screen instantly</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Desktop section -->
+      <div id="desktop-section" style="display:none; width:100%;">
+        <div class="desktop-block">
+          <p style="font-size:0.9rem; color:var(--muted);">Scan with your phone to install</p>
+          <div class="qr-placeholder">
+            QR code<br/>coming soon
+          </div>
+          <p class="desktop-url">betroyale.win/get</p>
+        </div>
+      </div>
+
+      <div class="trust-strip">
+        <span class="trust-item">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Stripe-secured payments
+        </span>
+        <span class="trust-item">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Instant payouts
+        </span>
+        <span class="trust-item">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Free to play
+        </span>
+      </div>
+    </div>
+
+    <p class="footer">
+      By installing you agree to our <a href="/#legal-tos">Terms</a> &amp; <a href="/#legal-privacy">Privacy Policy</a>.<br/>
+      18+ only. Skill-based wagering. Available in eligible states.
+    </p>
+
+    <script>
+      const ua = navigator.userAgent.toLowerCase();
+      const isAndroid = /android/.test(ua);
+      const isIOS = /iphone|ipad|ipod/.test(ua);
+
+      // Show the right section
+      if (isAndroid) {
+        document.getElementById('android-section').style.display = 'flex';
+      } else if (isIOS) {
+        document.getElementById('ios-section').style.display = 'block';
+      } else {
+        document.getElementById('desktop-section').style.display = 'block';
+      }
+
+      // PWA install prompt (Android Chrome)
+      let deferredPrompt = null;
+
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        const btn = document.getElementById('pwa-install-btn');
+        btn.disabled = false;
+      });
+
+      document.getElementById('pwa-install-btn')?.addEventListener('click', async () => {
+        const statusEl = document.getElementById('android-status');
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          deferredPrompt = null;
+          if (outcome === 'accepted') {
+            statusEl.textContent = '✓ BetRoyale is being installed on your home screen.';
+            statusEl.className = 'status-msg visible success';
+          }
+        } else {
+          // Prompt not available yet — send to site so it can be triggered there
+          window.location.href = '/';
+        }
+      });
+
+      window.addEventListener('appinstalled', () => {
+        const statusEl = document.getElementById('android-status');
+        statusEl.textContent = '✓ Installed! Open it from your home screen.';
+        statusEl.className = 'status-msg visible success';
+      });
+    </script>
+  </body>
+</html>
