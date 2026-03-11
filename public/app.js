@@ -245,7 +245,8 @@ function getLeagueIcon(leagueName) {
     case "Royal Champion":
       return "✦";
     case "Ultimate Champion":
-      return '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 1L13.9 7.4L17.3 6.7L16.6 10.1L23 12L16.6 13.9L17.3 17.3L13.9 16.6L12 23L10.1 16.6L6.7 17.3L7.4 13.9L1 12L7.4 10.1L6.7 6.7L10.1 7.4Z"/></svg>';
+      // Crown icon — the highest prestige in Clash Royale
+      return '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M2 19h20v2H2zM2 13l4-8 6 5 4-7 4 8v4H2z"/></svg>';
     default:
       return "•";
   }
@@ -890,9 +891,12 @@ function updateProfileUI(user) {
   }
   if (profileHighestLeague) {
     if (playerProfile) {
-      profileHighestLeague.replaceChildren(
-        createLeagueBadge(playerProfile.highestLeagueName || "Unranked")
-      );
+      // isUltimateChampion is the reliable flag — use it as an override so
+      // stale cached profiles that stored "Champion" still show correctly.
+      const leagueName = playerProfile.isUltimateChampion
+        ? "Ultimate Champion"
+        : (playerProfile.highestLeagueName || "Unranked");
+      profileHighestLeague.replaceChildren(createLeagueBadge(leagueName));
     } else {
       profileHighestLeague.textContent = "—";
     }
@@ -2030,9 +2034,9 @@ function renderQueueList(entries) {
     const losses = Number(entry.stats?.losses || 0);
     const draws = Number(entry.stats?.draws || 0);
     const record = `${wins}W-${losses}L-${draws}D`;
-    const league = normalizeLeagueName(
-      entry.profile?.highestLeagueName || "Unranked"
-    );
+    const league = entry.profile?.isUltimateChampion
+      ? "Ultimate Champion"
+      : normalizeLeagueName(entry.profile?.highestLeagueName || "Unranked");
     if (entry.profile) {
       meta.append(
         `${entry.tag} · ${entry.profile.trophies ?? 0} trophies · `,
@@ -2097,9 +2101,9 @@ function renderQueueList(entries) {
       const wins = Number(currentUser?.stats?.wins || 0);
       const losses = Number(currentUser?.stats?.losses || 0);
       const draws = Number(currentUser?.stats?.draws || 0);
-      const league = normalizeLeagueName(
-        currentUser.playerProfile?.highestLeagueName || "Unranked"
-      );
+      const league = currentUser.playerProfile?.isUltimateChampion
+        ? "Ultimate Champion"
+        : normalizeLeagueName(currentUser.playerProfile?.highestLeagueName || "Unranked");
       meta.append(
         `${currentUser.tag || "No tag"} · ${
           currentUser.playerProfile.trophies ?? 0

@@ -1631,12 +1631,11 @@ async function fetchPlayerProfile(tag) {
   };
 
   const resolveLeagueByNumber = (leagueNumber) => {
-    if (leagueNumber >= 10) return "Ultimate Champion";
-    if (leagueNumber >= 8) return leagueNameByNumberOld[leagueNumber] || "";
-    // For numbers 1-7, could be either old or new numbering.
-    // New numbering: 7 = Ultimate Champion. Old numbering: 7 = Champion.
-    // We prefer the name from the API when available; this is the fallback.
-    return leagueNameByNumberOld[leagueNumber] || "";
+    if (leagueNumber >= 10) return "Ultimate Champion";  // pre-2025 top tier was 10
+    if (leagueNumber >= 8)  return leagueNameByNumberOld[leagueNumber] || ""; // 8=Grand, 9=Royal (old)
+    // Post-June 2025 the league was compressed to 7 tiers (1–7), where 7 = Ultimate Champion.
+    // Always prefer the new mapping for 1–7 so league 7 is never misread as "Champion".
+    return leagueNameByNumberNew[leagueNumber] || leagueNameByNumberOld[leagueNumber] || "";
   };
 
   const VALID_LEAGUE_NAMES = new Set([
@@ -1658,7 +1657,9 @@ async function fetchPlayerProfile(tag) {
     ) {
       return "Ultimate Champion";
     }
-    if (leagueNumber >= 10 && lower.includes("champ")) {
+    // In the new 7-tier system league 7 is Ultimate Champion; if the API name
+    // looks like any "champ" variant for number 7 or 10+, force the correct name.
+    if ((leagueNumber >= 10 || leagueNumber === 7) && lower.includes("champ")) {
       return "Ultimate Champion";
     }
     // Map old Challenger names to Master I
@@ -1692,7 +1693,8 @@ async function fetchPlayerProfile(tag) {
       highestLeagueName = leagueNameRaw;
     }
     const leagueName = normalizeLeagueName(entry?.league?.name, leagueNumber).toLowerCase();
-    if (leagueNumber >= 10 || leagueName.includes("ultimate champion")) {
+    // league number 7 in the post-June 2025 system IS Ultimate Champion
+    if (leagueNumber >= 10 || leagueNumber === 7 || leagueName.includes("ultimate champion")) {
       ultimateChampionReached = true;
       ultimateChampionMedals = Math.max(
         ultimateChampionMedals,

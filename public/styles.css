@@ -996,21 +996,35 @@ input:focus-visible,
   letter-spacing: 0.01em;
 }
 
+/* Ultimate Champion — gold prestige badge */
 .league-prestige {
-  color: #e8d5ff;
+  color: #fef3c7;
   background:
-    linear-gradient(135deg, rgba(128, 50, 200, 0.38), rgba(170, 80, 220, 0.26)),
-    linear-gradient(120deg, rgba(90, 40, 180, 0.18), rgba(200, 140, 255, 0.12));
-  border-color: rgba(200, 170, 255, 0.35);
+    linear-gradient(135deg, rgba(180, 120, 10, 0.45), rgba(234, 179, 8, 0.22)),
+    linear-gradient(120deg, rgba(120, 80, 0, 0.25), rgba(253, 224, 71, 0.1));
+  border-color: rgba(253, 202, 50, 0.45);
   box-shadow:
-    0 12px 24px rgba(140, 60, 210, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    0 0 12px rgba(234, 179, 8, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.league-prestige .league-badge-label {
+  background: linear-gradient(90deg, #fde68a, #fbbf24, #fef08a, #fbbf24);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: uc-shimmer 3s linear infinite;
+}
+
+@keyframes uc-shimmer {
+  to { background-position: 200% center; }
 }
 
 .league-prestige .league-badge-icon {
-  background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 50%, #c39bd3 100%);
+  background: linear-gradient(135deg, #d97706 0%, #f59e0b 50%, #fbbf24 100%);
   color: #ffffff;
-  box-shadow: 0 0 18px rgba(155, 89, 182, 0.35);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
 }
 
 .league-badge-icon svg {
