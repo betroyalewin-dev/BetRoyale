@@ -2129,6 +2129,137 @@ body.in-queue::after {
   margin-top: 24px;
 }
 
+.leaderboards-panel {
+  margin-top: 24px;
+  display: grid;
+  gap: 18px;
+}
+
+.leaderboards-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.leaderboards-subtitle {
+  margin: 8px 0 0;
+  color: var(--muted);
+  max-width: 720px;
+}
+
+.leaderboard-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.leaderboard-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(12, 21, 36, 0.9);
+}
+
+.leaderboard-toggle-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 700;
+  padding: 10px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.leaderboard-toggle-btn.active {
+  background: rgba(47, 208, 147, 0.16);
+  color: var(--accent);
+}
+
+.leaderboard-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.leaderboards-label,
+.leaderboards-message {
+  margin: 0;
+}
+
+.leaderboards-label {
+  font-weight: 700;
+}
+
+.leaderboards-message {
+  color: var(--muted);
+}
+
+.leaderboard-prizes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.leaderboard-prizes.hidden {
+  display: none;
+}
+
+.leaderboard-prize-pill {
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  background: rgba(245, 158, 11, 0.12);
+  color: #ffd27d;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.leaderboard-table-wrap {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: auto;
+  background: rgba(12, 21, 36, 0.88);
+  box-shadow: 0 2px 8px var(--shadow);
+}
+
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+}
+
+.leaderboard-table th,
+.leaderboard-table td {
+  padding: 14px 16px;
+  text-align: left;
+  border-bottom: 1px solid rgba(92, 140, 255, 0.12);
+}
+
+.leaderboard-table th {
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.leaderboard-table tbody tr:hover {
+  background: rgba(47, 208, 147, 0.04);
+}
+
+.leaderboard-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
 .match-header {
   display: flex;
   align-items: center;

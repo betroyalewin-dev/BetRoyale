@@ -164,6 +164,7 @@ const MAX_CASHOUT_CENTS = 100000;
 const MAX_WAGER_GEMS   = 500;  // maximum per-match gem wager
 const MAX_WAGER_COINS  = 500;  // maximum per-match coin wager
 const WEEKLY_DEPOSIT_WINDOW_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
+const GEM_LEADERBOARD_MONTHLY_PRIZES = [1500, 1250, 1000, 750, 500];
 const COIN_TO_GEM_COINS = Number.parseInt(
   process.env.COIN_GEM_EXCHANGE_COINS || "1000",
   10
@@ -182,6 +183,7 @@ let store = {
   recordedMatches: {},
   activeMatches: {},
   migrations: {},
+  leaderboardRewards: {},
   purchases: {},
   cashouts: {},
 };
@@ -524,10 +526,13 @@ async function loadStore() {
         await Promise.all([
         pool.query("SELECT * FROM users"),
         pool.query("SELECT * FROM recorded_matches"),
-        pool.query("SELECT value FROM app_meta WHERE key = $1", ["migrations"]),
+        pool.query("SELECT key, value FROM app_meta"),
         pool.query("SELECT * FROM cashouts"),
         pool.query("SELECT * FROM active_matches WHERE expires_at > $1", [Date.now()]),
       ]);
+      const metaByKey = Object.fromEntries(
+        metaResult.rows.map((row) => [row.key, parseJsonValue(row.value, null)])
+      );
 
       store = {
         users: userResult.rows.map((row) => ({
@@ -570,7 +575,8 @@ async function loadStore() {
         })),
         recordedMatches: {},
         activeMatches: {},
-        migrations: parseJsonValue(metaResult.rows?.[0]?.value, {}) || {},
+        migrations: metaByKey.migrations || {},
+        leaderboardRewards: metaByKey.leaderboard_rewards || {},
         purchases: {},
         cashouts: {},
       };
@@ -588,6 +594,10 @@ async function loadStore() {
           matchId: row.match_id,
           tagA: row.tag_a,
           tagB: row.tag_b,
+          userIdA: details?.userIdA || null,
+          userIdB: details?.userIdB || null,
+          usernameA: details?.usernameA || "",
+          usernameB: details?.usernameB || "",
           wagerA: row.wager_a,
           wagerB: row.wager_b,
           currencyA: row.currency_a,
@@ -643,6 +653,11 @@ async function loadStore() {
         migrations:
           parsed.migrations && typeof parsed.migrations === "object"
             ? parsed.migrations
+            : {},
+        leaderboardRewards:
+          parsed.leaderboardRewards &&
+          typeof parsed.leaderboardRewards === "object"
+            ? parsed.leaderboardRewards
             : {},
         purchases:
           parsed.purchases && typeof parsed.purchases === "object"
@@ -725,6 +740,14 @@ function saveStore() {
         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
         `,
         ["migrations", store.migrations || {}]
+      );
+      await client.query(
+        `
+        INSERT INTO app_meta (key, value)
+        VALUES ($1, $2)
+        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+        `,
+        ["leaderboard_rewards", store.leaderboardRewards || {}]
       );
 
       for (const user of store.users) {
@@ -866,6 +889,10 @@ function saveStore() {
             record.currencyB || null,
             record.recordedAt || null,
             {
+              userIdA: record.userIdA || null,
+              userIdB: record.userIdB || null,
+              usernameA: record.usernameA || "",
+              usernameB: record.usernameB || "",
               battleTime: record.battleTime || null,
               battleType: record.battleType || "",
               gameModeName: record.gameModeName || "",
@@ -2196,6 +2223,219 @@ function createMatchKey(battle, tagA, tagB) {
   return `${timeKey}:${tags}`;
 }
 
+function findUserByNormalizedTag(tag) {
+  const normalized = normalizeTagValue(tag);
+  if (!normalized) return null;
+  return (
+    store.users.find(
+      (user) => normalizeTagValue(user?.tag || "") === normalized
+    ) || null
+  );
+}
+
+function getPeriodWindow(period = "month", now = Date.now()) {
+  const current = new Date(now);
+  if (period === "week") {
+    return { from: now - 7 * 24 * 60 * 60 * 1000, to: now, label: "Last 7 days" };
+  }
+  if (period === "year") {
+    return {
+      from: Date.UTC(current.getUTCFullYear(), 0, 1, 0, 0, 0, 0),
+      to: now,
+      label: `${current.getUTCFullYear()}`,
+    };
+  }
+  if (period === "all") {
+    return { from: 0, to: now, label: "All time" };
+  }
+  return {
+    from: Date.UTC(current.getUTCFullYear(), current.getUTCMonth(), 1, 0, 0, 0, 0),
+    to: now,
+    label: current.toLocaleString("en-US", {
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    }),
+  };
+}
+
+function getMonthKeyFromTimestamp(timestamp) {
+  const date = new Date(timestamp);
+  const year = date.getUTCFullYear();
+  const month = `${date.getUTCMonth() + 1}`.padStart(2, "0");
+  return `${year}-${month}`;
+}
+
+function getMonthWindowFromKey(monthKey) {
+  const match = /^(\d{4})-(\d{2})$/.exec(String(monthKey || ""));
+  if (!match) return null;
+  const year = Number(match[1]);
+  const monthIndex = Number(match[2]) - 1;
+  const from = Date.UTC(year, monthIndex, 1, 0, 0, 0, 0);
+  const to = Date.UTC(year, monthIndex + 1, 1, 0, 0, 0, 0) - 1;
+  return {
+    from,
+    to,
+    label: new Date(from).toLocaleString("en-US", {
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    }),
+  };
+}
+
+function getMonthlyPrizeSchedule() {
+  return GEM_LEADERBOARD_MONTHLY_PRIZES.map((amount, index) => ({
+    rank: index + 1,
+    gems: amount,
+  }));
+}
+
+function getWinningGainForRecord(record, normalizedTag, targetCurrency) {
+  if (!record || !normalizedTag || !targetCurrency) return 0;
+  const tagA = normalizeTagValue(record.tagA);
+  const tagB = normalizeTagValue(record.tagB);
+  const resultA = record?.resultByTag?.[tagA] || null;
+  const resultB = record?.resultByTag?.[tagB] || null;
+  const wagerA = Math.max(0, Math.floor(record?.wagerA || 0));
+  const wagerB = Math.max(0, Math.floor(record?.wagerB || 0));
+  const currencyA = record?.currencyA || "coins";
+  const currencyB = record?.currencyB || "coins";
+
+  if (normalizedTag === tagA && resultA === "win" && resultB === "loss") {
+    if (currencyA === currencyB) {
+      if (currencyA !== targetCurrency) return 0;
+      return Math.max(0, Math.floor((wagerA + wagerB) * WINNER_PCT) - wagerA);
+    }
+    if (currencyB !== targetCurrency) return 0;
+    return Math.max(0, Math.floor(wagerB * WINNER_PCT));
+  }
+
+  if (normalizedTag === tagB && resultB === "win" && resultA === "loss") {
+    if (currencyA === currencyB) {
+      if (currencyB !== targetCurrency) return 0;
+      return Math.max(0, Math.floor((wagerA + wagerB) * WINNER_PCT) - wagerB);
+    }
+    if (currencyA !== targetCurrency) return 0;
+    return Math.max(0, Math.floor(wagerA * WINNER_PCT));
+  }
+
+  return 0;
+}
+
+function buildLeaderboardEntries(currency = "coins", period = "month", options = {}) {
+  const normalizedCurrency = currency === "gems" ? "gems" : "coins";
+  const window = options.window || getPeriodWindow(period);
+  const totals = new Map();
+
+  Object.values(store.recordedMatches || {}).forEach((record) => {
+    const timestamp = getRecordTimestamp(record);
+    if (!timestamp || timestamp < window.from || timestamp > window.to) return;
+
+    [record?.tagA, record?.tagB].forEach((tag) => {
+      const normalizedTag = normalizeTagValue(tag);
+      if (!normalizedTag) return;
+      const gain = getWinningGainForRecord(
+        record,
+        normalizedTag,
+        normalizedCurrency
+      );
+      if (gain <= 0) return;
+
+      const user =
+        (normalizedTag === normalizeTagValue(record?.tagA) &&
+          record?.userIdA &&
+          findUserById(record.userIdA)) ||
+        (normalizedTag === normalizeTagValue(record?.tagB) &&
+          record?.userIdB &&
+          findUserById(record.userIdB)) ||
+        findUserByNormalizedTag(normalizedTag);
+      if (!user) return;
+
+      const existing = totals.get(user.id) || {
+        userId: user.id,
+        username: user.username || user.email || normalizedTag,
+        tag: normalizedTag,
+        winnings: 0,
+        wins: 0,
+      };
+      existing.winnings += gain;
+      existing.wins += 1;
+      existing.username = user.username || existing.username;
+      existing.tag = normalizeTagValue(user.tag || existing.tag);
+      totals.set(user.id, existing);
+    });
+  });
+
+  return Array.from(totals.values())
+    .sort((a, b) => {
+      if (b.winnings !== a.winnings) return b.winnings - a.winnings;
+      if (b.wins !== a.wins) return b.wins - a.wins;
+      return a.username.localeCompare(b.username);
+    })
+    .map((entry, index) => ({
+      rank: index + 1,
+      userId: entry.userId,
+      username: entry.username,
+      tag: entry.tag,
+      winnings: entry.winnings,
+      wins: entry.wins,
+      currency: normalizedCurrency,
+    }));
+}
+
+async function processMonthlyGemLeaderboardRewards() {
+  const rewards = store.leaderboardRewards || {};
+  const currentMonthStart = getPeriodWindow("month").from;
+  let changed = false;
+
+  const monthKeys = new Set();
+  Object.values(store.recordedMatches || {}).forEach((record) => {
+    const timestamp = getRecordTimestamp(record);
+    if (!timestamp || timestamp >= currentMonthStart) return;
+    monthKeys.add(getMonthKeyFromTimestamp(timestamp));
+  });
+
+  Array.from(monthKeys)
+    .sort()
+    .forEach((monthKey) => {
+      if (rewards[monthKey]) return;
+      const monthWindow = getMonthWindowFromKey(monthKey);
+      if (!monthWindow) return;
+      const entries = buildLeaderboardEntries("gems", "month", {
+        window: monthWindow,
+      });
+      const winners = [];
+      GEM_LEADERBOARD_MONTHLY_PRIZES.forEach((prize, index) => {
+        const entry = entries[index];
+        if (!entry) return;
+        const user = findUserById(entry.userId);
+        if (!user) return;
+        user.gems = Math.max(0, (user.gems || 0) + prize);
+        user.updatedAt = Date.now();
+        winners.push({
+          rank: index + 1,
+          userId: user.id,
+          username: user.username || user.email || user.id,
+          gems: prize,
+          winnings: entry.winnings,
+        });
+        changed = true;
+      });
+      rewards[monthKey] = {
+        monthKey,
+        processedAt: new Date().toISOString(),
+        winners,
+      };
+      changed = true;
+    });
+
+  store.leaderboardRewards = rewards;
+  if (changed) {
+    await saveStore();
+  }
+}
+
 app.use("/api/auth", authRateLimiter);
 app.use("/api/queue", queueRateLimiter);
 app.use("/api/shop", financeRateLimiter);
@@ -2956,6 +3196,34 @@ app.get("/api/results", async (req, res) => {
   });
 });
 
+app.get("/api/leaderboards", async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  const currency = req.query.currency === "gems" ? "gems" : "coins";
+  const requestedPeriod = String(req.query.period || "month").trim().toLowerCase();
+  const period = ["week", "month", "year", "all"].includes(requestedPeriod)
+    ? requestedPeriod
+    : "month";
+
+  await processMonthlyGemLeaderboardRewards();
+
+  const window = getPeriodWindow(period);
+  const entries = buildLeaderboardEntries(currency, period, { window }).slice(0, 25);
+  const lastRewardMonthKey = Object.keys(store.leaderboardRewards || {})
+    .sort()
+    .slice(-1)[0] || null;
+
+  return res.json({
+    currency,
+    period,
+    label: window.label,
+    entries,
+    prizeSchedule: currency === "gems" ? getMonthlyPrizeSchedule() : [],
+    lastRewardMonthKey,
+  });
+});
+
 app.post("/api/queue/join", (req, res) => {
   cleanupQueues();
 
@@ -3363,6 +3631,10 @@ app.get("/api/matches/:matchId/track", async (req, res) => {
         matchId,
         tagA,
         tagB,
+        userIdA: userA?.id || null,
+        userIdB: userB?.id || null,
+        usernameA: userA?.username || "",
+        usernameB: userB?.username || "",
         wagerA,
         wagerB,
         currencyA,

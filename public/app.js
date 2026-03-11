@@ -2,6 +2,7 @@ const authPanel = document.getElementById("auth-panel");
 const profilePanel = document.getElementById("profile-panel");
 const queuePanel = document.getElementById("queue-panel");
 const shopPanel = document.getElementById("shop-panel");
+const leaderboardsPanel = document.getElementById("leaderboards-panel");
 const registerForm = document.getElementById("register-form");
 const loginForm = document.getElementById("login-form");
 const logoutBtn = document.getElementById("logout");
@@ -102,6 +103,17 @@ const queueEmptyEl = document.getElementById("queue-empty");
 const statusEl = document.getElementById("status");
 const resultsEl = document.getElementById("results");
 const resultsPanel = document.getElementById("results-panel");
+const leaderboardsBodyEl = document.getElementById("leaderboards-body");
+const leaderboardsLabelEl = document.getElementById("leaderboards-label");
+const leaderboardsMessageEl = document.getElementById("leaderboards-message");
+const leaderboardWinningsHeaderEl = document.getElementById("leaderboard-winnings-header");
+const leaderboardPrizesEl = document.getElementById("leaderboard-prizes");
+const leaderboardCurrencyButtons = Array.from(
+  document.querySelectorAll("[data-leaderboard-currency]")
+);
+const leaderboardPeriodButtons = Array.from(
+  document.querySelectorAll("[data-leaderboard-period]")
+);
 const matchSection = document.getElementById("match");
 const matchIdEl = document.getElementById("match-id");
 const matchPlayersEl = document.getElementById("match-players");
@@ -142,6 +154,7 @@ const sectionPanels = {
   auth: authPanel,
   profile: profilePanel,
   shop: shopPanel,
+  leaderboards: leaderboardsPanel,
   queue: queuePanel,
   match: matchSection,
   results: resultsPanel,
@@ -167,6 +180,8 @@ let cashoutReady = false;
 let mobileDepositValue = (MIN_SHOP_CENTS / 100).toFixed(2);
 let onboardingStepIndex = 0;
 let onboardingUserId = null;
+let leaderboardCurrency = "coins";
+let leaderboardPeriod = "month";
 
 const ONBOARDING_STEPS = [
   {
@@ -642,6 +657,10 @@ function setActiveSection(section, options = {}) {
   }
   if (target === "shop") {
     refreshShop();
+    return;
+  }
+  if (target === "leaderboards" && currentUser) {
+    loadLeaderboards();
     return;
   }
   if (target === "results" && currentUser) {
@@ -1427,6 +1446,76 @@ async function refreshProfile() {
     setAuthState(data.user);
   } catch (err) {
     showStatus(err.message, true);
+  }
+}
+
+function renderLeaderboardPrizeSchedule(currency, prizes = []) {
+  if (!leaderboardPrizesEl) return;
+  leaderboardPrizesEl.innerHTML = "";
+  if (currency !== "gems" || !Array.isArray(prizes) || prizes.length === 0) {
+    leaderboardPrizesEl.classList.add("hidden");
+    return;
+  }
+  leaderboardPrizesEl.classList.remove("hidden");
+  prizes.forEach((prize) => {
+    const pill = document.createElement("div");
+    pill.className = "leaderboard-prize-pill";
+    pill.textContent = `#${prize.rank} ${prize.gems.toLocaleString()} gems`;
+    leaderboardPrizesEl.appendChild(pill);
+  });
+}
+
+function renderLeaderboards(data) {
+  if (!leaderboardsBodyEl) return;
+  leaderboardsBodyEl.innerHTML = "";
+  const currency = data?.currency === "gems" ? "gems" : "coins";
+  const entries = Array.isArray(data?.entries) ? data.entries : [];
+  if (leaderboardsLabelEl) {
+    leaderboardsLabelEl.textContent = data?.label || "This month";
+  }
+  if (leaderboardsMessageEl) {
+    leaderboardsMessageEl.textContent = entries.length
+      ? ""
+      : `No ${currency} winners recorded for this period yet.`;
+  }
+  if (leaderboardWinningsHeaderEl) {
+    leaderboardWinningsHeaderEl.textContent =
+      currency === "gems" ? "Gems Won" : "Coins Won";
+  }
+  renderLeaderboardPrizeSchedule(currency, data?.prizeSchedule || []);
+
+  entries.forEach((entry) => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${entry.rank}</td>
+      <td>${entry.username || "Unknown"}</td>
+      <td>${entry.tag || "—"}</td>
+      <td>${Number(entry.wins || 0).toLocaleString()}</td>
+      <td>${Number(entry.winnings || 0).toLocaleString()} ${currency}</td>
+    `;
+    leaderboardsBodyEl.appendChild(row);
+  });
+}
+
+async function loadLeaderboards() {
+  if (!currentUser) return;
+  if (leaderboardsMessageEl) {
+    leaderboardsMessageEl.textContent = "Loading leaderboard...";
+  }
+  try {
+    const data = await apiRequest(
+      `/api/leaderboards?currency=${encodeURIComponent(
+        leaderboardCurrency
+      )}&period=${encodeURIComponent(leaderboardPeriod)}`,
+      { method: "GET" }
+    );
+    renderLeaderboards(data);
+  } catch (err) {
+    if (leaderboardsBodyEl) leaderboardsBodyEl.innerHTML = "";
+    if (leaderboardsMessageEl) {
+      leaderboardsMessageEl.textContent = err.message;
+    }
+    if (leaderboardPrizesEl) leaderboardPrizesEl.classList.add("hidden");
   }
 }
 
@@ -2543,6 +2632,39 @@ if (cashoutConnectBtn) {
 }
 if (cashoutSubmitBtn) {
   cashoutSubmitBtn.addEventListener("click", startCashout);
+}
+if (leaderboardCurrencyButtons.length) {
+  leaderboardCurrencyButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      leaderboardCurrency =
+        button.dataset.leaderboardCurrency === "gems" ? "gems" : "coins";
+      leaderboardCurrencyButtons.forEach((candidate) => {
+        candidate.classList.toggle(
+          "active",
+          candidate.dataset.leaderboardCurrency === leaderboardCurrency
+        );
+      });
+      if (activeSection === "leaderboards") {
+        loadLeaderboards();
+      }
+    });
+  });
+}
+if (leaderboardPeriodButtons.length) {
+  leaderboardPeriodButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      leaderboardPeriod = button.dataset.leaderboardPeriod || "month";
+      leaderboardPeriodButtons.forEach((candidate) => {
+        candidate.classList.toggle(
+          "active",
+          candidate.dataset.leaderboardPeriod === leaderboardPeriod
+        );
+      });
+      if (activeSection === "leaderboards") {
+        loadLeaderboards();
+      }
+    });
+  });
 }
 if (wagerInput) {
   wagerInput.addEventListener("input", (event) => {

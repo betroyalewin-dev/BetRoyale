@@ -169,6 +169,17 @@
             </span>
             Results
           </button>
+          <button type="button" class="menu-button" data-section="leaderboards">
+            <span class="icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M7 18V10"></path>
+                <path d="M12 18V6"></path>
+                <path d="M17 18v-4"></path>
+                <path d="M5 20h14"></path>
+              </svg>
+            </span>
+            Leaderboards
+          </button>
           <button type="button" class="menu-button menu-profile-link" data-section="profile">
             <span class="icon" aria-hidden="true">
               <svg viewBox="0 0 24 24">
@@ -1044,6 +1055,52 @@
           <h2>BetRoyale Match History</h2>
         </div>
         <section id="results" class="results"></section>
+      </section>
+
+      <section id="leaderboards-panel" class="panel leaderboards-panel hidden">
+        <div class="leaderboards-header">
+          <div>
+            <p class="eyebrow">Leaderboards</p>
+            <h2>Top winners by coins or gems</h2>
+            <p class="leaderboards-subtitle">
+              Default view is this month. Gem leaderboards award the top five players at the end of each completed month.
+            </p>
+          </div>
+          <div class="leaderboard-prizes" id="leaderboard-prizes"></div>
+        </div>
+
+        <div class="leaderboard-controls">
+          <div class="leaderboard-toggle" role="group" aria-label="Leaderboard currency">
+            <button type="button" class="leaderboard-toggle-btn active" data-leaderboard-currency="coins">Coins</button>
+            <button type="button" class="leaderboard-toggle-btn" data-leaderboard-currency="gems">Gems</button>
+          </div>
+          <div class="leaderboard-toggle" role="group" aria-label="Leaderboard time period">
+            <button type="button" class="leaderboard-toggle-btn" data-leaderboard-period="week">Week</button>
+            <button type="button" class="leaderboard-toggle-btn active" data-leaderboard-period="month">Month</button>
+            <button type="button" class="leaderboard-toggle-btn" data-leaderboard-period="year">Year</button>
+            <button type="button" class="leaderboard-toggle-btn" data-leaderboard-period="all">All Time</button>
+          </div>
+        </div>
+
+        <div class="leaderboard-meta">
+          <p id="leaderboards-label" class="leaderboards-label">This month</p>
+          <p id="leaderboards-message" class="leaderboards-message"></p>
+        </div>
+
+        <div class="leaderboard-table-wrap">
+          <table class="leaderboard-table">
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Player</th>
+                <th>Tag</th>
+                <th>Wins</th>
+                <th id="leaderboard-winnings-header">Coins Won</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboards-body"></tbody>
+          </table>
+        </div>
       </section>
       <footer class="footer">
         <p>Unofficial fan-made tool. Not affiliated with Supercell.</p>
