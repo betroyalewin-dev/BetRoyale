@@ -2939,18 +2939,22 @@ body.in-queue::after {
     order: 2;
   }
 
-  .menu-links .menu-button[data-section="queue"] {
+  .menu-links .menu-button[data-section="leaderboards"] {
     order: 3;
+  }
+
+  .menu-links .menu-button[data-section="queue"] {
+    order: 4;
     border: 1px solid rgba(53, 216, 155, 0.4);
     box-shadow: none;
   }
 
   .menu-links .menu-button[data-section="shop"] {
-    order: 4;
+    order: 5;
   }
 
   .menu-links .menu-button[data-section="profile"] {
-    order: 5;
+    order: 6;
   }
 
   .panel {
