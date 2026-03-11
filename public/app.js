@@ -161,6 +161,8 @@ let selectedCurrency = "coins";
 const MIN_SHOP_CENTS = 1000;
 const MIN_CASHOUT_CENTS = 1000;
 const MAX_CASHOUT_CENTS = 100000;
+const MAX_WAGER_GEMS  = 500;
+const MAX_WAGER_COINS = 500;
 let cashoutReady = false;
 let mobileDepositValue = (MIN_SHOP_CENTS / 100).toFixed(2);
 let onboardingStepIndex = 0;
@@ -328,32 +330,38 @@ function renderOnboardingStep() {
 const LEGAL_CONTENT = {
   terms: {
     title: "Terms of Service",
+    effectiveDate: "March 11, 2026",
     sections: [
-      { heading: "1. Eligibility", body: "You must be at least 18 years old and located in a jurisdiction where skill-based wagering is permitted to use BetRoyale. By creating an account you confirm you meet these requirements." },
-      { heading: "2. Skill-Based Wagering", body: "BetRoyale facilitates wagers on the outcome of Clash Royale friendly duels between consenting players. Results are determined solely by player skill and are verified via the official Clash Royale battle log." },
-      { heading: "3. Coins & Gems", body: "Coins are free practice currency with no real-world value. Gems are purchased with real USD at a rate of 1¢ = 1 gem and may be cashed out subject to identity verification and these Terms." },
-      { heading: "4. Deposits & Cash Outs", body: "All deposits are processed by Stripe. Cash outs require completion of identity verification. BetRoyale reserves the right to delay or deny cash outs pending fraud review or compliance checks." },
-      { heading: "5. Prohibited Conduct", body: "Collusion, match-fixing, use of automation tools, multi-accounting, and chargebacks are prohibited and will result in permanent account suspension and forfeiture of balances." },
-      { heading: "6. Termination", body: "BetRoyale may suspend or terminate your account at any time for violation of these Terms. You may close your account at any time by contacting support; pending balances will be settled within 14 business days." },
-      { heading: "7. Limitation of Liability", body: "BetRoyale is not liable for losses arising from platform downtime, battle log delays, or third-party service failures. Total liability is limited to the balance in your account at the time of the claim." },
-      { heading: "8. Changes to Terms", body: "We may update these Terms at any time. Continued use of BetRoyale after notice of changes constitutes acceptance. Material changes will be communicated by email." },
-      { heading: "9. Governing Law", body: "These Terms are governed by the laws of the jurisdiction in which BetRoyale operates. Any disputes shall be resolved through binding arbitration except where prohibited by law." },
-      { heading: "10. Contact", body: "For questions about these Terms, contact support through the BetRoyale platform." },
+      { heading: "1. Eligibility", body: "You must be at least 18 years of age and physically located in a state or jurisdiction where skill-based wagering is lawful to use BetRoyale. By creating an account and providing your date of birth you represent and warrant that you meet these requirements. BetRoyale currently blocks registrations from AZ, AR, HI, ID, IL, IA, LA, MT, ND, NV, NY, PA, TN, TX, and WA." },
+      { heading: "2. Skill-Based Wagering", body: "BetRoyale facilitates wagers on the outcome of Clash Royale friendly duels between consenting players. Outcomes are determined solely by player skill and are verified through the official Clash Royale API battle log. BetRoyale does not participate in or influence match outcomes. The platform charges a 10% fee on each wagered pot (winner receives 90% of the combined pot)." },
+      { heading: "3. Coins & Gems", body: "Coins are free starter currency with no monetary value; they cannot be cashed out. Gems are purchased with real USD at a rate of 1¢ = 1 gem and may be withdrawn subject to identity verification and these Terms. Minimum deposit: $10.00. Maximum deposit: $1,000.00 per transaction." },
+      { heading: "4. Deposits, Fees & Cash Outs", body: "Deposits are processed by Stripe and are subject to Stripe's terms and fees. BetRoyale charges a 10% fee on wager pots only — there are no fees on deposits or cash outs. Cash outs require completion of Stripe identity verification and may take 1–3 business days for Stripe to approve your account, then 1–2 additional business days for the transfer to arrive. BetRoyale reserves the right to delay or deny cash outs pending fraud review or legal compliance." },
+      { heading: "5. Prohibited Conduct", body: "The following are strictly prohibited and will result in immediate account suspension and forfeiture of account balance: (a) collusion or match-fixing between players; (b) use of bots, macros, or automation tools; (c) multi-accounting (operating more than one account); (d) initiating fraudulent chargebacks; (e) exploiting platform bugs for financial gain; (f) providing false identity information; (g) allowing minors to access your account." },
+      { heading: "6. Dispute Resolution", body: "If you believe a match result was recorded incorrectly, contact support@betroyale.win within 72 hours of the match with your match ID and a description of the issue. BetRoyale will review the Clash Royale API battle log and respond within 5 business days. By agreeing to these Terms you consent to binding arbitration for any unresolved disputes and waive your right to participate in a class action lawsuit against BetRoyale." },
+      { heading: "7. Responsible Gaming & Self-Exclusion", body: "BetRoyale provides deposit limits and a self-exclusion tool accessible from your account settings. Self-exclusion is effective immediately and remains in place for a minimum of 30 days; reinstatement requires written request to support@betroyale.win and a 30-day cooling-off period. For help with problem gambling, contact the National Council on Problem Gambling at 1-800-522-4700 or ncpgambling.org." },
+      { heading: "8. Refunds", body: "Deposits are non-refundable once converted to gems, except in cases of proven technical error on our part. Unspent gems may be cashed out via the normal withdrawal process. Wager results are final once the Clash Royale battle log confirms the outcome." },
+      { heading: "9. Termination", body: "BetRoyale may suspend or terminate accounts at any time for violation of these Terms. You may close your account at any time by emailing support@betroyale.win; any pending gem balance will be processed for withdrawal within 14 business days after identity verification." },
+      { heading: "10. Limitation of Liability", body: "BetRoyale is not liable for losses arising from platform downtime, Clash Royale API delays, Stripe service failures, or other third-party failures beyond our control. Total liability to any user is limited to the gem balance in their account at the time of the claim." },
+      { heading: "11. Governing Law & Arbitration", body: "These Terms are governed by the laws of the State of California, USA, without regard to conflict-of-law principles. Any dispute not resolved by BetRoyale support shall be settled by binding arbitration administered by JAMS in Los Angeles, California, under its Streamlined Arbitration Rules. You waive any right to a jury trial or class action." },
+      { heading: "12. Changes to Terms", body: "We may update these Terms at any time. Continued use of BetRoyale after notice constitutes acceptance. Material changes will be communicated by email at least 14 days in advance." },
+      { heading: "13. Contact", body: "General: support@betroyale.win · Legal: legal@betroyale.win · Address: BetRoyale, Los Angeles, California, USA." },
     ],
   },
   privacy: {
     title: "Privacy Policy",
+    effectiveDate: "March 11, 2026",
     sections: [
-      { heading: "1. Information We Collect", body: "We collect your username, email address, password hash, Clash Royale player tag and friend link, match history, wager history, and device/session metadata when you use BetRoyale." },
-      { heading: "2. Payment Data", body: "Deposits and cash outs are processed by Stripe. BetRoyale does not store full payment card numbers. Stripe's privacy policy governs payment data handling." },
-      { heading: "3. How We Use Your Data", body: "Your data is used to operate your account, settle wagers, detect fraud, comply with legal obligations, and send transactional emails (verification codes, payout confirmations)." },
-      { heading: "4. Data Sharing", body: "We do not sell your personal data. We share data with Stripe for payment processing, with Supercell's Clash Royale API to verify battle results, and with law enforcement when legally required." },
-      { heading: "5. Data Retention", body: "Account data is retained for the life of your account plus 7 years for financial compliance purposes. You may request deletion of non-financial data by contacting support." },
-      { heading: "6. Security", body: "Passwords are hashed with bcrypt. All data in transit uses TLS 1.2+. We conduct periodic security reviews, but no system is completely secure." },
-      { heading: "7. Cookies & Tracking", body: "BetRoyale uses session cookies only. We do not use third-party advertising trackers or analytics beyond server-side access logs." },
-      { heading: "8. Your Rights", body: "Depending on your jurisdiction, you may have rights to access, correct, or delete your personal data. Submit requests through the platform or by email." },
-      { heading: "9. Changes to This Policy", body: "We may update this Privacy Policy. Material changes will be communicated by email and reflected with a new effective date at the top of this page." },
-      { heading: "10. Contact", body: "Privacy questions or data requests can be submitted through the BetRoyale support channel." },
+      { heading: "1. Information We Collect", body: "We collect: account information (username, email, hashed password, date of birth, state of residence); gameplay data (Clash Royale player tag, friend link, match history, wager history); identity verification data (name, address, government ID — collected and stored by Stripe, not BetRoyale); and technical metadata (IP address, session identifiers, browser type)." },
+      { heading: "2. Payment & Identity Data", body: "Deposits and cash outs are processed by Stripe, Inc. BetRoyale does not store payment card numbers or full government ID images. Stripe's Privacy Policy (stripe.com/privacy) governs how Stripe handles your financial and identity data." },
+      { heading: "3. How We Use Your Data", body: "Your data is used to: operate and secure your account; verify your age and state eligibility; settle wagers; detect and prevent fraud and collusion; comply with legal obligations; and send transactional emails (verification codes, payout confirmations). We do not use your data for targeted advertising." },
+      { heading: "4. Data Sharing", body: "We do not sell your personal data. We share data only: with Stripe for payment and identity processing; with Supercell's Clash Royale API to verify battle outcomes; with law enforcement or regulators when legally required; and with service providers who assist in operating the platform under data processing agreements." },
+      { heading: "5. Data Retention", body: "Account data is retained for the life of your account. Financial records (deposits, withdrawals, wager history) are retained for 7 years to comply with financial regulations. You may request deletion of non-financial personal data by emailing support@betroyale.win." },
+      { heading: "6. Security", body: "Passwords are hashed using bcrypt. All data in transit is encrypted using TLS 1.2+. We conduct periodic security reviews. No system is completely secure; please use a strong, unique password." },
+      { heading: "7. Cookies", body: "BetRoyale uses only session cookies that are strictly necessary for login and platform security. We do not use third-party advertising, tracking, or analytics cookies. You may disable cookies in your browser settings, but doing so will prevent you from logging in." },
+      { heading: "8. Your Rights (CCPA / GDPR)", body: "California residents have the right to know what personal data we collect, request deletion of their data, and opt out of sale of their data (we do not sell data). EEA/UK residents have rights under GDPR including access, rectification, erasure, restriction, and data portability. To exercise any of these rights, email support@betroyale.win with your request. We will respond within 30 days." },
+      { heading: "9. Children's Privacy", body: "BetRoyale is not directed to persons under 18. We do not knowingly collect data from minors. If you believe a minor has created an account, contact support@betroyale.win immediately." },
+      { heading: "10. Changes to This Policy", body: "We may update this Privacy Policy at any time. Material changes will be communicated by email at least 14 days in advance and reflected with a new effective date at the top of this page." },
+      { heading: "11. Contact", body: "Privacy questions or data requests: support@betroyale.win · Legal/compliance: legal@betroyale.win · BetRoyale, Los Angeles, California, USA." },
     ],
   },
 };
@@ -363,9 +371,14 @@ function openLegalModal(type) {
   const content = LEGAL_CONTENT[type];
   if (!content) return;
   legalModalTitle.textContent = content.title;
-  legalModalBody.innerHTML = content.sections
-    .map((s) => `<div><h3>${s.heading}</h3><p>${s.body}</p></div>`)
-    .join("");
+  const effectiveDateHtml = content.effectiveDate
+    ? `<p class="legal-effective-date">Effective date: ${content.effectiveDate}</p>`
+    : "";
+  legalModalBody.innerHTML =
+    effectiveDateHtml +
+    content.sections
+      .map((s) => `<div><h3>${s.heading}</h3><p>${s.body}</p></div>`)
+      .join("");
   legalModal.classList.remove("hidden");
   document.body.classList.add("modal-open");
   history.replaceState(null, "", type === "terms" ? "/terms" : "/privacy");
@@ -2692,7 +2705,7 @@ function setWizardLoading(isLoading) {
 // ── Step 1: Eligibility ───────────────────────────────────────────────────
 const wStateSelect    = document.getElementById("w-state");
 const wJurisdictionMsg = document.getElementById("w-jurisdiction-msg");
-const wAgeConfirm     = document.getElementById("w-age-confirm");
+const wDobInput       = document.getElementById("w-dob");
 
 wStateSelect?.addEventListener("change", () => {
   const state = wStateSelect.value;
@@ -2709,12 +2722,19 @@ wStateSelect?.addEventListener("change", () => {
 
 function validateStep1() {
   setFieldError("w-state-error", "", "w-state");
-  setFieldError("w-age-error",   "", "w-age-confirm");
+  setFieldError("w-age-error",   "", "w-dob");
   const state = wStateSelect?.value;
   if (!state) { setFieldError("w-state-error", "Please select your state.", "w-state"); return false; }
   if (BLOCKED_STATES.has(state)) { setFieldError("w-state-error", "Skill-based wagering is not available in your state.", "w-state"); return false; }
-  if (!wAgeConfirm?.checked) { setFieldError("w-age-error", "You must confirm you are 18 or older.", "w-age-confirm"); return false; }
+  const dob = wDobInput?.value;
+  if (!dob) { setFieldError("w-age-error", "Please enter your date of birth.", "w-dob"); return false; }
+  const birthDate = new Date(dob);
+  if (isNaN(birthDate.getTime())) { setFieldError("w-age-error", "Enter a valid date of birth.", "w-dob"); return false; }
+  const ageMsec = Date.now() - birthDate.getTime();
+  const ageYears = ageMsec / (1000 * 60 * 60 * 24 * 365.25);
+  if (ageYears < 18) { setFieldError("w-age-error", "You must be 18 or older to use BetRoyale.", "w-dob"); return false; }
   wData.state = state;
+  wData.dob = dob;
   wData.ageConfirmed = true;
   return true;
 }
@@ -2922,6 +2942,7 @@ async function submitStep7() {
     body: JSON.stringify({
       tos: true, privacy: true, rwp: true, stateConfirm: true,
       depositLimit: wData.depositLimit,
+      dob: wData.dob || null,
       tag: wData.crTag, friendLink: wData.crLink,
     }),
   });
@@ -2990,5 +3011,39 @@ wizardEl?.addEventListener("click", (e) => { if (e.target === wizardEl) closeWiz
 // Open wizard from hero and auth-panel buttons
 document.getElementById("hero-signup-btn")?.addEventListener("click", () => openWizard("basic"));
 document.getElementById("auth-signup-btn")?.addEventListener("click", () => openWizard("basic"));
+
+// ── Cookie consent banner ─────────────────────────────────────────────────
+(function initCookieBanner() {
+  const banner = document.getElementById("cookie-banner");
+  const acceptBtn = document.getElementById("cookie-accept");
+  if (!banner) return;
+  if (!localStorage.getItem("cookieConsent")) {
+    banner.classList.remove("hidden");
+  }
+  acceptBtn?.addEventListener("click", () => {
+    localStorage.setItem("cookieConsent", "1");
+    banner.classList.add("hidden");
+  });
+})();
+
+// ── Self-exclusion ────────────────────────────────────────────────────────
+async function selfExclude() {
+  const confirmed = window.confirm(
+    "⚠ Self-Exclusion Confirmation\n\n" +
+    "Self-exclusion will immediately prevent you from placing wagers for a minimum of 30 days. " +
+    "To lift the exclusion you must contact support@betroyale.win after the cooling-off period.\n\n" +
+    "Click OK to confirm self-exclusion."
+  );
+  if (!confirmed) return;
+  try {
+    await apiRequest("/api/auth/self-exclude", { method: "POST" });
+    currentUser = { ...currentUser, selfExcluded: true };
+    refreshUI();
+    showStatus("Self-exclusion applied. Wagering is disabled for 30 days. Contact support@betroyale.win to request reinstatement.", false);
+  } catch (err) {
+    showStatus(err.message || "Could not apply self-exclusion.", true);
+  }
+}
+document.getElementById("self-exclude-btn")?.addEventListener("click", selfExclude);
 
 // ══════════════════════════════════════════════════════════════════════════

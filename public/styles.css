@@ -3530,3 +3530,128 @@ body.in-queue::after {
 .signup-wizard input[type="checkbox"].input-error + label {
   color: #ff6b6b;
 }
+
+/* ── Cookie consent banner ──────────────────────────────────────────────── */
+.cookie-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  background: #0f1a2e;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.4);
+}
+.cookie-banner.hidden { display: none; }
+.cookie-banner-text {
+  flex: 1;
+  font-size: 0.82rem;
+  color: #a0aec0;
+  margin: 0;
+}
+.cookie-banner-actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+.cookie-btn {
+  font-size: 0.82rem;
+  padding: 0.4rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+.cookie-btn:hover { opacity: 0.85; }
+.cookie-btn-accept {
+  background: var(--accent, #f97316);
+  color: #fff;
+  border: none;
+  font-weight: 600;
+}
+.cookie-btn-link {
+  color: #a0aec0;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: transparent;
+}
+
+/* ── Footer responsible gambling note ──────────────────────────────────── */
+.footer-rg {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 0.5rem;
+  line-height: 1.5;
+}
+.footer-rg .footer-link {
+  color: #9ca3af;
+  text-decoration: underline;
+}
+
+/* ── Legal effective date ───────────────────────────────────────────────── */
+.legal-effective-date {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-bottom: 1.25rem;
+  font-style: italic;
+}
+
+/* ── Stripe badge icon ──────────────────────────────────────────────────── */
+.stripe-badge-icon {
+  width: 40px;
+  height: 16px;
+  vertical-align: middle;
+  margin: 0 2px;
+  display: inline-block;
+}
+
+/* ── Responsible Play section in Profile ───────────────────────────────── */
+.responsible-play-section {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+.rp-card {
+  background: rgba(15, 26, 46, 0.6);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.rp-title {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #e2e8f0;
+  margin: 0 0 0.5rem;
+}
+.rp-text {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  margin: 0 0 0.4rem;
+  line-height: 1.55;
+}
+.rp-text a { color: #93c5fd; }
+.rp-helpline {
+  font-size: 0.82rem;
+  color: #6b7280;
+  line-height: 1.5;
+  margin: 0;
+}
+.rp-helpline a { color: #93c5fd; }
+.rp-card-actions { display: flex; }
+.rp-exclude-btn {
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  color: #fca5a5 !important;
+  font-size: 0.85rem;
+}
+.rp-exclude-btn:hover {
+  background: rgba(239, 68, 68, 0.1) !important;
+  border-color: rgba(239, 68, 68, 0.6) !important;
+}

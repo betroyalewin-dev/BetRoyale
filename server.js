@@ -153,7 +153,7 @@ const QUEUE_TTL_MS = 1000 * 60 * 30;
 const MATCH_TTL_MS = 1000 * 60 * 60 * 6;
 const MATCH_LOCK_MS = 1000 * 60 * 2;
 const STARTING_CREDITS = 1000;
-const WINNER_PCT = 0.95; // winner receives 95% of total pot; 5% is the house cut
+const WINNER_PCT = 0.9; // winner receives 90% of total pot; 10% is the house cut
 const REFERRAL_BONUS_CREDITS    = 1500;  // coins both users earn on a qualifying referral
 const REFERRAL_MIN_DEPOSIT_CENTS = 1500; // $15 minimum first deposit to trigger bonus
 const VERIFICATION_TTL_MS = 1000 * 60 * 30;
@@ -161,6 +161,9 @@ const MIN_GEM_PURCHASE_CENTS = 1000;
 const MAX_GEM_PURCHASE_CENTS = 100000;
 const MIN_CASHOUT_CENTS = 1000;
 const MAX_CASHOUT_CENTS = 100000;
+const MAX_WAGER_GEMS   = 500;  // maximum per-match gem wager
+const MAX_WAGER_COINS  = 500;  // maximum per-match coin wager
+const WEEKLY_DEPOSIT_WINDOW_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
 const COIN_TO_GEM_COINS = Number.parseInt(
   process.env.COIN_GEM_EXCHANGE_COINS || "1000",
   10
@@ -246,6 +249,18 @@ async function ensureDatabaseSchema() {
   await pool.query(`
     ALTER TABLE users
     ADD COLUMN IF NOT EXISTS referral_completed_count INTEGER DEFAULT 0
+  `);
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS self_excluded BOOLEAN DEFAULT FALSE
+  `);
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS dob TEXT
+  `);
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS deposit_limit_weekly INTEGER
   `);
 
   await pool.query(`
@@ -539,6 +554,12 @@ async function loadStore() {
             typeof row.referral_completed_count === "number"
               ? row.referral_completed_count
               : 0,
+          selfExcluded: Boolean(row.self_excluded),
+          dob: row.dob || null,
+          depositLimitWeekly:
+            typeof row.deposit_limit_weekly === "number"
+              ? row.deposit_limit_weekly
+              : null,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
         })),
@@ -727,13 +748,16 @@ function saveStore() {
             referral_reward_paid,
             referral_count,
             referral_completed_count,
+            self_excluded,
+            dob,
+            deposit_limit_weekly,
             created_at,
             updated_at
           )
           VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9,
             $10, $11, $12, $13, $14, $15, $16, $17, $18, $19,
-            $20, $21, $22, $23, $24
+            $20, $21, $22, $23, $24, $25, $26, $27
           )
           ON CONFLICT (id) DO UPDATE SET
             email = EXCLUDED.email,
@@ -757,6 +781,9 @@ function saveStore() {
             referral_reward_paid = EXCLUDED.referral_reward_paid,
             referral_count = EXCLUDED.referral_count,
             referral_completed_count = EXCLUDED.referral_completed_count,
+            self_excluded = EXCLUDED.self_excluded,
+            dob = EXCLUDED.dob,
+            deposit_limit_weekly = EXCLUDED.deposit_limit_weekly,
             created_at = EXCLUDED.created_at,
             updated_at = EXCLUDED.updated_at
           `,
@@ -785,6 +812,9 @@ function saveStore() {
             Number.isFinite(user.referralCompletedCount)
               ? user.referralCompletedCount
               : 0,
+            Boolean(user.selfExcluded),
+            user.dob || null,
+            Number.isFinite(user.depositLimitWeekly) ? user.depositLimitWeekly : null,
             user.createdAt || null,
             user.updatedAt || null,
           ]
@@ -1237,6 +1267,18 @@ function ensureUserDefaults(user) {
     user.referralCompletedCount = 0;
     changed = true;
   }
+  if (typeof user.selfExcluded !== "boolean") {
+    user.selfExcluded = false;
+    changed = true;
+  }
+  if (!("dob" in user)) {
+    user.dob = null;
+    changed = true;
+  }
+  if (!("depositLimitWeekly" in user)) {
+    user.depositLimitWeekly = null;
+    changed = true;
+  }
   return changed;
 }
 
@@ -1315,6 +1357,8 @@ function publicUser(user) {
     referralCode: user.referralCode || null,
     referralCount: user.referralCount || 0,
     referralCompletedCount: user.referralCompletedCount || 0,
+    selfExcluded: Boolean(user.selfExcluded),
+    dob: user.dob || null,
   };
 }
 
@@ -2389,17 +2433,27 @@ app.post("/api/auth/tax", async (req, res) => {
 app.post("/api/auth/consent", async (req, res) => {
   const user = requireAuth(req, res);
   if (!user) return;
-  const { tos, privacy, rwp, stateConfirm, depositLimit, tag, friendLink } = req.body || {};
+  const { tos, privacy, rwp, stateConfirm, depositLimit, tag, friendLink, dob } = req.body || {};
   if (!tos || !privacy || !rwp || !stateConfirm) {
     return res.status(400).json({ error: "All consent fields are required." });
   }
   user.consentData = { tos, privacy, rwp, stateConfirm, depositLimit, timestamp: Date.now() };
   user.depositLimitWeekly = depositLimit > 0 ? Math.round(depositLimit * 100) : null;
+  if (dob) user.dob = String(dob).trim();
   if (tag) user.tag = sanitizeTag(tag);
   if (friendLink) user.friendLink = friendLink.trim();
   user.updatedAt = Date.now();
   await saveStore();
   return res.json({ user: publicUser(user) });
+});
+
+app.post("/api/auth/self-exclude", async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+  user.selfExcluded = true;
+  user.updatedAt = Date.now();
+  await saveStore();
+  return res.json({ ok: true, message: "Self-exclusion applied. Contact support@betroyale.win after 30 days to request reinstatement." });
 });
 
 app.post("/api/auth/logout", (req, res) => {
@@ -2473,6 +2527,20 @@ app.post("/api/shop/checkout", async (req, res) => {
         MIN_GEM_PURCHASE_CENTS / 100
       ).toFixed(2)} and $${(MAX_GEM_PURCHASE_CENTS / 100).toFixed(2)}.`,
     });
+  }
+
+  // Enforce weekly deposit limit
+  if (Number.isFinite(user.depositLimitWeekly) && user.depositLimitWeekly > 0) {
+    const windowStart = Date.now() - WEEKLY_DEPOSIT_WINDOW_MS;
+    const weeklySpent = Object.values(store.purchases || {})
+      .filter((p) => p.userId === user.id && (p.createdAt || 0) >= windowStart)
+      .reduce((sum, p) => sum + (p.amountCents || 0), 0);
+    if (weeklySpent + amountCents > user.depositLimitWeekly) {
+      const remaining = Math.max(0, user.depositLimitWeekly - weeklySpent);
+      return res.status(400).json({
+        error: `This deposit would exceed your weekly limit of $${(user.depositLimitWeekly / 100).toFixed(2)}. You have $${(remaining / 100).toFixed(2)} remaining this week.`,
+      });
+    }
   }
 
   const gems = amountCents;
@@ -2912,6 +2980,12 @@ app.post("/api/queue/join", (req, res) => {
       .json({ error: "Verify your account before joining the queue." });
   }
 
+  if (user.selfExcluded) {
+    return res
+      .status(403)
+      .json({ error: "Your account is self-excluded. Contact support@betroyale.win to lift the exclusion after a mandatory 30-day cooling-off period." });
+  }
+
   const wager = parseWager(req.body?.wager);
   if (wager === null) {
     return res.status(400).json({ error: "Enter a valid wager amount." });
@@ -2919,6 +2993,10 @@ app.post("/api/queue/join", (req, res) => {
   const currency = parseWagerCurrency(req.body?.currency);
   if (!currency) {
     return res.status(400).json({ error: "Choose coins or gems to wager." });
+  }
+  const maxWager = currency === "gems" ? MAX_WAGER_GEMS : MAX_WAGER_COINS;
+  if (wager > maxWager) {
+    return res.status(400).json({ error: `Maximum wager is ${maxWager} ${currency} per match.` });
   }
   const balance = currency === "gems" ? user.gems : user.credits;
   if (wager > balance) {
