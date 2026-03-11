@@ -108,6 +108,7 @@ const matchPlayersEl = document.getElementById("match-players");
 const trackBattleBtn = document.getElementById("track-battle");
 const matchLockEl = document.getElementById("match-lock");
 const matchPotEl = document.getElementById("match-pot");
+const matchWinnerPayoutEl = document.getElementById("match-winner-payout");
 const matchYourWagerEl = document.getElementById("match-your-wager");
 const matchOpponentWagerEl = document.getElementById("match-opponent-wager");
 const matchEmptyEl = document.getElementById("match-empty");
@@ -1753,6 +1754,7 @@ function resetMatch() {
   if (trackBattleBtn) trackBattleBtn.disabled = true;
   if (matchEmptyEl) matchEmptyEl.classList.remove("hidden");
   if (matchPotEl) matchPotEl.textContent = "0";
+  if (matchWinnerPayoutEl) matchWinnerPayoutEl.textContent = "0";
   if (matchYourWagerEl) matchYourWagerEl.textContent = "0";
   if (matchOpponentWagerEl) matchOpponentWagerEl.textContent = "0";
   clearLockCountdown();
@@ -1826,9 +1828,18 @@ function renderMatch(match) {
     matchCurrency === opponent?.wagerCurrency
       ? yourWager + opponentWager
       : null;
+  const winnerPayout =
+    pot === null
+      ? `${Math.floor(opponentWager * WINNER_PCT_CLIENT)} ${
+          opponent?.wagerCurrency || matchCurrency
+        }`
+      : `${Math.floor(pot * WINNER_PCT_CLIENT)} ${matchCurrency}`;
   if (matchPotEl) {
     matchPotEl.textContent =
       pot === null ? "Mixed" : `${pot} ${matchCurrency}`;
+  }
+  if (matchWinnerPayoutEl) {
+    matchWinnerPayoutEl.textContent = winnerPayout;
   }
   if (matchYourWagerEl) {
     matchYourWagerEl.textContent = `${yourWager} ${
