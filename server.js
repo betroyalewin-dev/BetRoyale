@@ -153,7 +153,7 @@ const QUEUE_TTL_MS = 1000 * 60 * 30;
 const MATCH_TTL_MS = 1000 * 60 * 60 * 6;
 const MATCH_LOCK_MS = 1000 * 60 * 2;
 const STARTING_CREDITS = 1000;
-const WINNER_PCT = 0.9; // winner receives 90% of total pot; 10% is the house cut
+const WINNER_PCT = 0.95; // winner receives 95% of total pot; 5% is the house cut
 const REFERRAL_BONUS_CREDITS    = 1500;  // coins both users earn on a qualifying referral
 const REFERRAL_MIN_DEPOSIT_CENTS = 1500; // $15 minimum first deposit to trigger bonus
 const VERIFICATION_TTL_MS = 1000 * 60 * 30;
@@ -3000,7 +3000,7 @@ app.get("/api/matches/:matchId/track", async (req, res) => {
       if (userB && resultB) updateStatsForUser(userB, resultB, battle.battleTime);
 
       // Helper: apply wager transfer with house cut.
-      // Winner receives WINNER_PCT (90%) of the total pot.
+      // Winner receives WINNER_PCT (95%) of the total pot.
       // When both players use the same currency the pot is simply wagerA + wagerB.
       // When currencies differ, the winner gets WINNER_PCT of the opponent's wager
       // in the opponent's currency; the loser forfeits their full wager.
@@ -3018,7 +3018,7 @@ app.get("/api/matches/:matchId/track", async (req, res) => {
             loser.credits  = Math.max(0, (loser.credits  || 0) - lWager);
           }
         } else {
-          // Mixed currencies: 90% of loser's wager goes to winner (in loser's currency)
+          // Mixed currencies: 95% of loser's wager goes to winner (in loser's currency)
           const loserPays = Math.floor(lWager * WINNER_PCT);
           if (lCurrency === "gems") {
             winner.gems  = Math.max(0, (winner.gems  || 0) + loserPays);
