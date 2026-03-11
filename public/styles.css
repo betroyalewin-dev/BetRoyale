@@ -3736,11 +3736,9 @@ body.in-queue::after {
   font-style: italic;
 }
 
-/* ── Stripe badge icon ──────────────────────────────────────────────────── */
-.stripe-badge-icon {
-  width: 40px;
-  height: 16px;
-  vertical-align: middle;
-  margin: 0 2px;
-  display: inline-block;
+/* ── Stripe wordmark ────────────────────────────────────────────────────── */
+.stripe-wordmark {
+  color: #635bff;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
