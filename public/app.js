@@ -535,6 +535,27 @@ function setCurrency(currency) {
     );
   });
   updateQueueBalance();
+  updateWinPreview();
+}
+
+// Potential-winnings preview: shows what the player would receive if their
+// opponent matches the entered wager (both same currency, 90% of pot rule).
+const WINNER_PCT_CLIENT = 0.9;
+function updateWinPreview() {
+  const el = document.getElementById("queue-win-preview");
+  if (!el) return;
+  const wager = Math.floor(Number(wagerInput?.value) || 0);
+  if (wager <= 0) {
+    el.textContent = "";
+    return;
+  }
+  const pot     = wager * 2;
+  const payout  = Math.floor(pot * WINNER_PCT_CLIENT);
+  const label   = selectedCurrency === "gems" ? "Gems" : "Coins";
+  el.innerHTML =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>` +
+    `Win <strong>${payout.toLocaleString()} ${label}</strong> if your opponent matches` +
+    ` <span class="win-preview-cut">(90% of ${pot.toLocaleString()} pot)</span>`;
 }
 
 // Show available balance near the wager input so users don't have to look away.
@@ -2499,6 +2520,7 @@ if (cashoutSubmitBtn) {
 if (wagerInput) {
   wagerInput.addEventListener("input", (event) => {
     updatePresetActive(event.target.value);
+    updateWinPreview();
   });
 }
 if (wagerPresetButtons.length && wagerInput) {
@@ -2508,6 +2530,7 @@ if (wagerPresetButtons.length && wagerInput) {
       if (!Number.isFinite(value)) return;
       wagerInput.value = value;
       updatePresetActive(value);
+      updateWinPreview();
     });
   });
 }

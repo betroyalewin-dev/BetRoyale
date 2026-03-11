@@ -1797,6 +1797,36 @@ input:focus-visible,
 }
 
 /* Join + Leave button row */
+/* Potential winnings preview line */
+.queue-win-preview {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #36d69a;
+  min-height: 1.2em; /* stable height so layout doesn't jump */
+}
+
+.queue-win-preview:empty {
+  display: none;
+}
+
+.queue-win-preview svg {
+  flex-shrink: 0;
+  color: #36d69a;
+}
+
+.queue-win-preview strong {
+  color: #fff;
+}
+
+.win-preview-cut {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 0.78rem;
+}
+
 .queue-cta-row {
   display: flex;
   gap: 8px;

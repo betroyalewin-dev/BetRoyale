@@ -153,6 +153,7 @@ const QUEUE_TTL_MS = 1000 * 60 * 30;
 const MATCH_TTL_MS = 1000 * 60 * 60 * 6;
 const MATCH_LOCK_MS = 1000 * 60 * 2;
 const STARTING_CREDITS = 1000;
+const WINNER_PCT = 0.9; // winner receives 90% of total pot; 10% is the house cut
 const REFERRAL_BONUS_CREDITS    = 1500;  // coins both users earn on a qualifying referral
 const REFERRAL_MIN_DEPOSIT_CENTS = 1500; // $15 minimum first deposit to trigger bonus
 const VERIFICATION_TTL_MS = 1000 * 60 * 30;
@@ -2995,37 +2996,54 @@ app.get("/api/matches/:matchId/track", async (req, res) => {
       const resultA = getResultForTag(battle, playerA.tag);
       const resultB = getResultForTag(battle, playerB.tag);
 
-      if (userA && resultA) {
-        updateStatsForUser(userA, resultA, battle.battleTime);
-        if (resultA === "win") {
-          if (currencyB === "gems") {
-            userA.gems += wagerB;
+      if (userA && resultA) updateStatsForUser(userA, resultA, battle.battleTime);
+      if (userB && resultB) updateStatsForUser(userB, resultB, battle.battleTime);
+
+      // Helper: apply wager transfer with house cut.
+      // Winner receives WINNER_PCT (90%) of the total pot.
+      // When both players use the same currency the pot is simply wagerA + wagerB.
+      // When currencies differ, the winner gets WINNER_PCT of the opponent's wager
+      // in the opponent's currency; the loser forfeits their full wager.
+      function applyWagerTransfer(winner, loser, wWager, wCurrency, lWager, lCurrency) {
+        if (!winner || !loser || lWager <= 0) return;
+        if (wCurrency === lCurrency) {
+          const pot     = wWager + lWager;
+          const payout  = Math.floor(pot * WINNER_PCT);
+          const net     = payout - wWager; // winner already holds their own stake
+          if (wCurrency === "gems") {
+            winner.gems   = Math.max(0, (winner.gems   || 0) + net);
+            loser.gems    = Math.max(0, (loser.gems    || 0) - lWager);
           } else {
-            userA.credits += wagerB;
+            winner.credits = Math.max(0, (winner.credits || 0) + net);
+            loser.credits  = Math.max(0, (loser.credits  || 0) - lWager);
           }
-        } else if (resultA === "loss") {
-          if (currencyA === "gems") {
-            userA.gems = Math.max(0, userA.gems - wagerA);
+        } else {
+          // Mixed currencies: 90% of loser's wager goes to winner (in loser's currency)
+          const loserPays = Math.floor(lWager * WINNER_PCT);
+          if (lCurrency === "gems") {
+            winner.gems  = Math.max(0, (winner.gems  || 0) + loserPays);
+            loser.gems   = Math.max(0, (loser.gems   || 0) - lWager);
           } else {
-            userA.credits = Math.max(0, userA.credits - wagerA);
+            winner.credits = Math.max(0, (winner.credits || 0) + loserPays);
+            loser.credits  = Math.max(0, (loser.credits  || 0) - lWager);
           }
         }
       }
 
-      if (userB && resultB) {
-        updateStatsForUser(userB, resultB, battle.battleTime);
-        if (resultB === "win") {
-          if (currencyA === "gems") {
-            userB.gems += wagerA;
-          } else {
-            userB.credits += wagerA;
-          }
-        } else if (resultB === "loss") {
-          if (currencyB === "gems") {
-            userB.gems = Math.max(0, userB.gems - wagerB);
-          } else {
-            userB.credits = Math.max(0, userB.credits - wagerB);
-          }
+      if (resultA === "win" && resultB === "loss") {
+        applyWagerTransfer(userA, userB, wagerA, currencyA, wagerB, currencyB);
+      } else if (resultB === "win" && resultA === "loss") {
+        applyWagerTransfer(userB, userA, wagerB, currencyB, wagerA, currencyA);
+      } else if (resultA === "loss" && !resultB) {
+        // Only A's result resolved — deduct A's wager as a safety fallback
+        if (userA) {
+          if (currencyA === "gems") userA.gems   = Math.max(0, (userA.gems   || 0) - wagerA);
+          else                      userA.credits = Math.max(0, (userA.credits || 0) - wagerA);
+        }
+      } else if (resultB === "loss" && !resultA) {
+        if (userB) {
+          if (currencyB === "gems") userB.gems   = Math.max(0, (userB.gems   || 0) - wagerB);
+          else                      userB.credits = Math.max(0, (userB.credits || 0) - wagerB);
         }
       }
 
