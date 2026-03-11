@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "win.betroyale.twa",
+        "sha256_cert_fingerprints": ["FE:4F:23:ED:EA:04:E0:D6:81:DE:BA:15:04:23:00:CB:B9:E8:B2:A6:D0:C3:C1:EC:BD:B0:D7:97:71:C9:EA:09"]
+      }
+    }]

@@ -1,3 +1,7 @@
 node_modules
 .env
 data/store.json
+
+# Play Store signing key — never commit, back up separately
+signing.keystore
+signing-key-info.txt

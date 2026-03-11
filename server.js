@@ -503,6 +503,11 @@ if (sessionStore) {
 app.use(
   session(sessionConfig)
 );
+// Serve .well-known (dotfiles) for Digital Asset Links (TWA / Play Store)
+app.use(
+  "/.well-known",
+  express.static(path.join(__dirname, "public/.well-known"), { dotfiles: "allow" })
+);
 app.use(express.static(path.join(__dirname, "public")));
 app.use((err, req, res, next) => {
   if (err && String(err.message || "").startsWith("Not allowed by CORS")) {
