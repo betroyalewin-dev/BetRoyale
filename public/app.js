@@ -1792,24 +1792,42 @@ function renderMatch(match) {
     }
 
     const linkLine = document.createElement("div");
-    if (player.friendLink) {
-      const trimmed = extractUrlFromText(player.friendLink);
-      const isUrl = /^https?:\/\//i.test(trimmed);
-      if (isUrl) {
-        const link = document.createElement("a");
-        link.className = "player-link";
-        link.href = trimmed;
-        link.target = "_blank";
-        link.rel = "noopener noreferrer";
-        link.textContent = "Open friend link";
-        linkLine.appendChild(link);
+    if (!isYou) {
+      // Opponent card — big "Add Friend" CTA that deep-links into the CR app
+      if (player.friendLink) {
+        const trimmed = extractUrlFromText(player.friendLink);
+        const isUrl = /^https?:\/\//i.test(trimmed);
+        if (isUrl) {
+          const addBtn = document.createElement("a");
+          addBtn.className = "add-friend-btn";
+          addBtn.href = trimmed;
+          addBtn.target = "_blank";
+          addBtn.rel = "noopener noreferrer";
+          addBtn.innerHTML =
+            `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" ` +
+            `fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" ` +
+            `stroke-linejoin="round" aria-hidden="true">` +
+            `<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>` +
+            `<circle cx="9" cy="7" r="4"/>` +
+            `<line x1="19" y1="8" x2="19" y2="14"/>` +
+            `<line x1="22" y1="11" x2="16" y2="11"/>` +
+            `</svg>Add Friend in Clash Royale`;
+          linkLine.appendChild(addBtn);
+        } else {
+          // Non-URL link text — show as plain text fallback
+          linkLine.className = "player-link";
+          linkLine.textContent = trimmed;
+        }
       } else {
-        linkLine.className = "player-link";
-        linkLine.textContent = trimmed;
+        linkLine.className = "player-link missing";
+        linkLine.textContent = "Friend link not available.";
       }
     } else {
-      linkLine.className = "player-link missing";
-      linkLine.textContent = "Friend link not available.";
+      // Your own card — just confirm your link was shared
+      const note = document.createElement("span");
+      note.className = "your-link-shared";
+      note.textContent = "✓ Your link has been shared with your opponent";
+      linkLine.appendChild(note);
     }
 
     item.appendChild(tagLine);
