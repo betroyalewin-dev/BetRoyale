@@ -226,6 +226,26 @@ async function ensureDatabaseSchema() {
     ALTER TABLE users
     ADD COLUMN IF NOT EXISTS stripe_connect_ready BOOLEAN DEFAULT FALSE
   `);
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS referral_code TEXT
+  `);
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS referred_by TEXT
+  `);
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS referral_reward_paid BOOLEAN DEFAULT FALSE
+  `);
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS referral_count INTEGER DEFAULT 0
+  `);
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS referral_completed_count INTEGER DEFAULT 0
+  `);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS recorded_matches (
@@ -499,6 +519,15 @@ async function loadStore() {
           verificationExpiresAt: row.verification_expires_at,
           stripeConnectAccountId: row.stripe_connect_account_id || null,
           stripeConnectReady: Boolean(row.stripe_connect_ready),
+          referralCode: row.referral_code || null,
+          referredBy: row.referred_by || null,
+          referralRewardPaid: Boolean(row.referral_reward_paid),
+          referralCount:
+            typeof row.referral_count === "number" ? row.referral_count : 0,
+          referralCompletedCount:
+            typeof row.referral_completed_count === "number"
+              ? row.referral_completed_count
+              : 0,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
         })),
@@ -661,12 +690,18 @@ function saveStore() {
             verification_expires_at,
             stripe_connect_account_id,
             stripe_connect_ready,
+            referral_code,
+            referred_by,
+            referral_reward_paid,
+            referral_count,
+            referral_completed_count,
             created_at,
             updated_at
           )
           VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9,
-            $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
+            $10, $11, $12, $13, $14, $15, $16, $17, $18, $19,
+            $20, $21, $22, $23, $24
           )
           ON CONFLICT (id) DO UPDATE SET
             email = EXCLUDED.email,
@@ -685,6 +720,11 @@ function saveStore() {
             verification_expires_at = EXCLUDED.verification_expires_at,
             stripe_connect_account_id = EXCLUDED.stripe_connect_account_id,
             stripe_connect_ready = EXCLUDED.stripe_connect_ready,
+            referral_code = EXCLUDED.referral_code,
+            referred_by = EXCLUDED.referred_by,
+            referral_reward_paid = EXCLUDED.referral_reward_paid,
+            referral_count = EXCLUDED.referral_count,
+            referral_completed_count = EXCLUDED.referral_completed_count,
             created_at = EXCLUDED.created_at,
             updated_at = EXCLUDED.updated_at
           `,
@@ -706,6 +746,13 @@ function saveStore() {
             user.verificationExpiresAt || null,
             user.stripeConnectAccountId || null,
             Boolean(user.stripeConnectReady),
+            user.referralCode || null,
+            user.referredBy || null,
+            Boolean(user.referralRewardPaid),
+            Number.isFinite(user.referralCount) ? user.referralCount : 0,
+            Number.isFinite(user.referralCompletedCount)
+              ? user.referralCompletedCount
+              : 0,
             user.createdAt || null,
             user.updatedAt || null,
           ]
