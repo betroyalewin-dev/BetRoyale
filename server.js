@@ -177,6 +177,7 @@ const matches = new Map();
 let store = {
   users: [],
   recordedMatches: {},
+  activeMatches: {},
   migrations: {},
   purchases: {},
   cashouts: {},
@@ -294,6 +295,15 @@ async function ensureDatabaseSchema() {
       error TEXT,
       created_at BIGINT,
       updated_at BIGINT
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS active_matches (
+      id TEXT PRIMARY KEY,
+      data JSONB,
+      created_at BIGINT,
+      expires_at BIGINT
     )
   `);
 }
@@ -490,12 +500,13 @@ async function loadStore() {
   try {
     if (pool) {
       await ensureDatabaseSchema();
-      const [userResult, matchResult, metaResult, cashoutResult] =
+      const [userResult, matchResult, metaResult, cashoutResult, activeMatchResult] =
         await Promise.all([
         pool.query("SELECT * FROM users"),
         pool.query("SELECT * FROM recorded_matches"),
         pool.query("SELECT value FROM app_meta WHERE key = $1", ["migrations"]),
         pool.query("SELECT * FROM cashouts"),
+        pool.query("SELECT * FROM active_matches WHERE expires_at > $1", [Date.now()]),
       ]);
 
       store = {
@@ -532,10 +543,18 @@ async function loadStore() {
           updatedAt: row.updated_at,
         })),
         recordedMatches: {},
+        activeMatches: {},
         migrations: parseJsonValue(metaResult.rows?.[0]?.value, {}) || {},
         purchases: {},
         cashouts: {},
       };
+
+      activeMatchResult.rows.forEach((row) => {
+        const data = parseJsonValue(row.data, null);
+        if (data && data.id) {
+          store.activeMatches[data.id] = data;
+        }
+      });
 
       matchResult.rows.forEach((row) => {
         const details = parseJsonValue(row.details, {});
@@ -591,6 +610,10 @@ async function loadStore() {
           parsed.recordedMatches && typeof parsed.recordedMatches === "object"
             ? parsed.recordedMatches
             : {},
+        activeMatches:
+          parsed.activeMatches && typeof parsed.activeMatches === "object"
+            ? parsed.activeMatches
+            : {},
         migrations:
           parsed.migrations && typeof parsed.migrations === "object"
             ? parsed.migrations
@@ -605,6 +628,15 @@ async function loadStore() {
             : {},
       };
     }
+    // Restore persisted active matches into the in-memory Map
+    for (const [matchId, match] of Object.entries(store.activeMatches || {})) {
+      if (Date.now() - (match.createdAt || 0) <= MATCH_TTL_MS) {
+        matches.set(matchId, match);
+      } else {
+        delete store.activeMatches[matchId];
+      }
+    }
+
     let changed = false;
     store.users.forEach((user) => {
       if (ensureUserDefaults(user)) {
@@ -819,6 +851,26 @@ function saveStore() {
             },
           ]
         );
+      }
+
+      // Sync active matches — delete expired/removed, upsert current ones
+      const activeIds = Object.keys(store.activeMatches || {});
+      if (activeIds.length === 0) {
+        await client.query("DELETE FROM active_matches");
+      } else {
+        await client.query(
+          "DELETE FROM active_matches WHERE id != ALL($1::text[])",
+          [activeIds]
+        );
+        for (const match of Object.values(store.activeMatches)) {
+          const expiresAt = (match.createdAt || Date.now()) + MATCH_TTL_MS;
+          await client.query(
+            `INSERT INTO active_matches (id, data, created_at, expires_at)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, expires_at = EXCLUDED.expires_at`,
+            [match.id, match, match.createdAt || Date.now(), expiresAt]
+          );
+        }
       }
 
       await client.query("COMMIT");
@@ -1404,10 +1456,16 @@ function cleanupQueues() {
     }
   }
 
+  let matchExpired = false;
   for (const [id, match] of matches.entries()) {
     if (isMatchExpired(match)) {
       matches.delete(id);
+      delete store.activeMatches[id];
+      matchExpired = true;
     }
+  }
+  if (matchExpired) {
+    saveStore().catch((err) => console.error("Failed to clean up expired matches:", err));
   }
 }
 
@@ -1512,6 +1570,8 @@ function createMatch(ticketA, ticketB) {
   }
 
   matches.set(match.id, match);
+  store.activeMatches[match.id] = match;
+  saveStore().catch((err) => console.error("Failed to persist active match:", err));
   return match;
 }
 
