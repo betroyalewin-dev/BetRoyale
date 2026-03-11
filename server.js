@@ -1869,8 +1869,23 @@ function isNormal1v1Friendly(battle) {
   const opponent = battle.opponent || [];
   if (team.length !== 1 || opponent.length !== 1) return false;
 
-  const modeName = (battle.gameMode?.name || "").toLowerCase().replace(/[\s_-]/g, "");
-  if (modeName !== "friendly") return false;
+  const modeLabel = `${battle.type || ""} ${battle.gameMode?.name || ""}`
+    .toLowerCase()
+    .replace(/[\s_-]/g, "");
+  const blockedModes = [
+    "2v2",
+    "tripleelixir",
+    "doubleelixir",
+    "rage",
+    "rampup",
+    "draft",
+    "mirror",
+    "touchdown",
+    "heist",
+    "suddendeath",
+    "capturethe",
+  ];
+  if (blockedModes.some((token) => modeLabel.includes(token))) return false;
 
   const deckSelection = (battle.deckSelection || "").toLowerCase();
   if (deckSelection && deckSelection !== "collection") return false;
@@ -1916,6 +1931,85 @@ function findFriendlyMatch(battles, tagA, tagB) {
     }
   });
   return latest;
+}
+
+function getRecordedMatchForMatchId(matchId) {
+  const records = Object.values(store.recordedMatches || {}).filter(
+    (record) => record?.matchId === matchId
+  );
+  if (!records.length) return null;
+  records.sort((a, b) => getRecordTimestamp(a) - getRecordTimestamp(b));
+  return records[0];
+}
+
+function getTrackWindowStart(match) {
+  const ticketTimes = (match?.players || [])
+    .map((player) => tickets.get(player.ticketId)?.createdAt || 0)
+    .filter((time) => Number.isFinite(time) && time > 0);
+  const matchCreatedAt =
+    Number.isFinite(match?.createdAt) && match.createdAt > 0
+      ? match.createdAt
+      : 0;
+  const baseTime = Math.min(matchCreatedAt || Infinity, ...ticketTimes);
+  if (!Number.isFinite(baseTime)) return 0;
+  return Math.max(0, baseTime - 15_000);
+}
+
+function collectTrackCandidates(battles, tagA, tagB, minTimestamp) {
+  if (!Array.isArray(battles)) return [];
+  const candidates = [];
+  battles.forEach((battle) => {
+    if (!isFriendlyBattle(battle) || !battleHasTags(battle, tagA, tagB)) {
+      return;
+    }
+    const time = getBattleTimestamp(battle);
+    if (minTimestamp && (!time || time < minTimestamp)) {
+      return;
+    }
+    candidates.push(battle);
+  });
+  return candidates;
+}
+
+function dedupeBattles(battles) {
+  const seen = new Set();
+  const unique = [];
+  battles.forEach((battle) => {
+    const players = []
+      .concat(battle?.team || [])
+      .concat(battle?.opponent || [])
+      .map((player) => normalizeTagValue(player?.tag))
+      .filter(Boolean)
+      .sort()
+      .join("|");
+    const key = [
+      getBattleTimestamp(battle),
+      players,
+      (battle?.type || "").toLowerCase(),
+      (battle?.gameMode?.name || "").toLowerCase(),
+    ].join(":");
+    if (seen.has(key)) return;
+    seen.add(key);
+    unique.push(battle);
+  });
+  unique.sort((a, b) => getBattleTimestamp(a) - getBattleTimestamp(b));
+  return unique;
+}
+
+function pickBattleForMatch(battles, tagA, tagB, minTimestamp) {
+  const candidates = dedupeBattles(
+    battles.flatMap((battleList) =>
+      collectTrackCandidates(battleList, tagA, tagB, minTimestamp)
+    )
+  );
+  const firstValid = candidates.find((battle) => isNormal1v1Friendly(battle));
+  if (firstValid) {
+    return { status: "matched", battle: firstValid };
+  }
+  if (candidates.length) {
+    return { status: "invalid", battle: candidates[0] };
+  }
+  return { status: "pending", battle: null };
 }
 
 function selectLatestBattle(battleA, battleB) {
@@ -2994,18 +3088,53 @@ app.get("/api/matches/:matchId/track", async (req, res) => {
   const tagA = normalizeTagValue(playerA.tag);
   const tagB = normalizeTagValue(playerB.tag);
   const referenceTag = normalizeTagValue(perspectivePlayer.tag);
+  if (!tagA || !tagB || !referenceTag) {
+    return res.status(400).json({
+      error: "Both players need valid Clash Royale tags before tracking a battle.",
+    });
+  }
+
+  const recordedMatch = getRecordedMatchForMatchId(matchId);
+  if (recordedMatch) {
+    const settledBattle = buildBattleFromRecord(recordedMatch, referenceTag);
+    return res.json({
+      matchId,
+      tagA,
+      tagB,
+      referenceTag,
+      battle: settledBattle,
+      score: {
+        team: sumCrowns(settledBattle.team),
+        opponent: sumCrowns(settledBattle.opponent),
+      },
+      settled: true,
+    });
+  }
 
   try {
-    const [battlesA, battlesB] = await Promise.all([
+    const battlelogResults = await Promise.allSettled([
       fetchBattlelog(tagA),
       fetchBattlelog(tagB),
     ]);
+    const battleLogs = battlelogResults
+      .filter((result) => result.status === "fulfilled")
+      .map((result) => result.value);
+    if (!battleLogs.length) {
+      const firstFailure = battlelogResults.find(
+        (result) => result.status === "rejected"
+      );
+      throw firstFailure?.reason || new Error("Failed to fetch battle log.");
+    }
 
-    const battleA = findFriendlyMatch(battlesA, tagA, tagB);
-    const battleB = findFriendlyMatch(battlesB, tagA, tagB);
-    const battle = selectLatestBattle(battleA, battleB);
+    const trackWindowStart = getTrackWindowStart(match);
+    const trackedBattle = pickBattleForMatch(
+      battleLogs,
+      tagA,
+      tagB,
+      trackWindowStart
+    );
 
-    if (!battle) {
+    if (trackedBattle.status === "pending" || !trackedBattle.battle) {
       return res.json({
         matchId,
         tagA,
@@ -3018,7 +3147,9 @@ app.get("/api/matches/:matchId/track", async (req, res) => {
       });
     }
 
-    if (!isNormal1v1Friendly(battle)) {
+    const battle = trackedBattle.battle;
+
+    if (trackedBattle.status === "invalid") {
       return res.json({
         matchId,
         tagA,
@@ -3083,17 +3214,6 @@ app.get("/api/matches/:matchId/track", async (req, res) => {
         applyWagerTransfer(userA, userB, wagerA, currencyA, wagerB, currencyB);
       } else if (resultB === "win" && resultA === "loss") {
         applyWagerTransfer(userB, userA, wagerB, currencyB, wagerA, currencyA);
-      } else if (resultA === "loss" && !resultB) {
-        // Only A's result resolved — deduct A's wager as a safety fallback
-        if (userA) {
-          if (currencyA === "gems") userA.gems   = Math.max(0, (userA.gems   || 0) - wagerA);
-          else                      userA.credits = Math.max(0, (userA.credits || 0) - wagerA);
-        }
-      } else if (resultB === "loss" && !resultA) {
-        if (userB) {
-          if (currencyB === "gems") userB.gems   = Math.max(0, (userB.gems   || 0) - wagerB);
-          else                      userB.credits = Math.max(0, (userB.credits || 0) - wagerB);
-        }
       }
 
       store.recordedMatches[matchKey] = {
