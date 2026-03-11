@@ -1,52 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
-  <title id="title">BetRoyale icon</title>
-  <desc id="desc">A crown inside a gem outline on a dark navy background.</desc>
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0f1d3f" />
-      <stop offset="100%" stop-color="#081226" />
-    </linearGradient>
-    <linearGradient id="gem" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#72f0ca" />
-      <stop offset="100%" stop-color="#2fd093" />
-    </linearGradient>
-    <linearGradient id="crown" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ffd46b" />
-      <stop offset="100%" stop-color="#f59e0b" />
-    </linearGradient>
-    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="10" result="blur" />
-      <feMerge>
-        <feMergeNode in="blur" />
-        <feMergeNode in="SourceGraphic" />
-      </feMerge>
-    </filter>
-  </defs>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect x="1" y="1" width="510" height="510" rx="96" fill="#090f1c" stroke="#1e2f4a" stroke-width="1.5"/>
 
-  <rect width="512" height="512" rx="120" fill="url(#bg)" />
+  <!-- Crown silhouette — taller spikes, shallower valleys, visible band -->
   <path
-    d="M256 72 398 162 330 394 182 394 114 162 256 72Z"
-    fill="rgba(47,208,147,0.08)"
-    stroke="url(#gem)"
-    stroke-width="22"
-    stroke-linejoin="round"
-    filter="url(#glow)"
+    d="M116,370 L116,260 L192,182 L232,238 L256,162 L280,238 L320,182 L396,260 L396,370 Z"
+    fill="#2fd093"
   />
-  <path
-    d="M166 324 192 206 256 260 320 206 346 324Z"
-    fill="url(#crown)"
-    stroke="#f8fbff"
-    stroke-opacity=".16"
-    stroke-width="8"
-    stroke-linejoin="round"
-  />
-  <circle cx="192" cy="206" r="16" fill="#fff4cf" />
-  <circle cx="256" cy="260" r="16" fill="#fff4cf" />
-  <circle cx="320" cy="206" r="16" fill="#fff4cf" />
-  <path
-    d="M190 324H322"
-    stroke="#fff4cf"
-    stroke-width="14"
-    stroke-linecap="round"
-  />
+
+  <!-- Left gem: background ring → white dot -->
+  <circle cx="192" cy="182" r="15" fill="#090f1c"/>
+  <circle cx="192" cy="182" r="7"  fill="#f4f8ff"/>
+
+  <!-- Center gem (tallest spike) -->
+  <circle cx="256" cy="162" r="17" fill="#090f1c"/>
+  <circle cx="256" cy="162" r="8"  fill="#f4f8ff"/>
+
+  <!-- Right gem -->
+  <circle cx="320" cy="182" r="15" fill="#090f1c"/>
+  <circle cx="320" cy="182" r="7"  fill="#f4f8ff"/>
 </svg>

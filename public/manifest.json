@@ -3,15 +3,54 @@
   "short_name": "BetRoyale",
   "description": "Wager on Clash Royale duels. Deposit, queue up, play friendly battles, and cash out.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#090f1c",
   "theme_color": "#090f1c",
+  "categories": ["games", "entertainment", "finance"],
+  "lang": "en-US",
   "icons": [
     {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "src": "/brand/betroyale-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/brand/betroyale-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/brand/betroyale-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/brand/betroyale-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
-  ]
+  ],
+  "shortcuts": [
+    {
+      "name": "Queue Up",
+      "short_name": "Queue",
+      "description": "Jump straight into the matchmaking queue",
+      "url": "/?section=queue",
+      "icons": [{ "src": "/brand/betroyale-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "My Wallet",
+      "short_name": "Wallet",
+      "description": "View your gem and coin balance",
+      "url": "/?section=profile",
+      "icons": [{ "src": "/brand/betroyale-icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "screenshots": []
 }
