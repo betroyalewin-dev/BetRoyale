@@ -135,7 +135,7 @@ body::before {
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: #f4f8ff;
-  font-size: 1.05rem;
+  font-size: 1.3rem;
 }
 
 .menu-brand::after {
@@ -400,14 +400,14 @@ body.menu-drawer-open .menu-links {
 .balance-label {
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  font-size: 0.65rem;
+  font-size: 0.60rem;
   color: var(--muted);
 }
 
 .balance-value {
   color: #f7fbff;
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
 }
 
 .icon {
@@ -3804,7 +3804,7 @@ body.in-queue::after {
     bottom: calc(8px + var(--safe-bottom));
     z-index: 120;
     margin: 0;
-    padding: 8px;
+    padding: 10px;
     border: 1px solid #2c3f60;
     border-radius: 10px;
     background: rgba(10, 18, 32, 0.95);
@@ -3812,7 +3812,7 @@ body.in-queue::after {
     box-shadow: 0 4px 12px rgba(11, 15, 19, 0.16);
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 6px;
+    gap: 8px;
     transform: translateZ(0) !important;
     opacity: 1;
     pointer-events: auto;
@@ -3834,9 +3834,9 @@ body.in-queue::after {
   }
 
   .menu-links .menu-button {
-    min-height: 50px;
-    padding: 6px 2px;
-    font-size: 0.6rem;
+    min-height: 60px;
+    padding: 10px 4px;
+    font-size: 0;
     font-weight: 700;
     letter-spacing: 0;
     border-radius: 6px;
@@ -3846,7 +3846,7 @@ body.in-queue::after {
     width: 100%;
     justify-content: center;
     flex-direction: column;
-    gap: 3px;
+    gap: 0;
     box-shadow: none;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -3863,13 +3863,13 @@ body.in-queue::after {
   }
 
   .menu-links .menu-button .icon {
-    width: 17px;
-    height: 17px;
+    width: 24px;
+    height: 24px;
   }
 
   .menu-links .menu-button .icon svg {
-    width: 17px;
-    height: 17px;
+    width: 24px;
+    height: 24px;
   }
 
   .menu-links .menu-button.profile-button {
@@ -4206,7 +4206,7 @@ body.in-queue::after {
   }
 
   .menu-brand {
-    font-size: 0.7rem;
+    font-size: 0.95rem;
   }
 
   .menu-balance {
@@ -4224,19 +4224,19 @@ body.in-queue::after {
 
   .menu-links {
     top: auto !important;
-    gap: 4px;
-    padding: 6px;
+    gap: 6px;
+    padding: 8px;
   }
 
   .menu-links .menu-button {
-    min-height: 48px;
-    font-size: 0.62rem;
+    min-height: 56px;
+    font-size: 0;
   }
 
   .menu-links .menu-button .icon,
   .menu-links .menu-button .icon svg {
-    width: 15px;
-    height: 15px;
+    width: 20px;
+    height: 20px;
   }
 
   .queue-actions {
