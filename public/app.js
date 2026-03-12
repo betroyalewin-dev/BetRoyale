@@ -67,6 +67,13 @@ const dailyRewardNextEl = document.getElementById("daily-reward-next");
 const dailyRewardNextSubtextEl = document.getElementById("daily-reward-next-subtext");
 const dailyRewardClaimBtn = document.getElementById("daily-reward-claim");
 const dailyRewardMessageEl = document.getElementById("daily-reward-message");
+const walletCoinsWonEl = document.getElementById("wallet-coins-won");
+const walletGemsWonEl = document.getElementById("wallet-gems-won");
+const walletGemsCashedOutEl = document.getElementById("wallet-gems-cashed-out");
+const walletFeesPaidEl = document.getElementById("wallet-fees-paid");
+const walletCashableEl = document.getElementById("wallet-cashable");
+const walletCashableSubtextEl = document.getElementById("wallet-cashable-subtext");
+const walletAlertEl = document.getElementById("wallet-alert");
 const mobileDepositSheet = document.getElementById("mobile-deposit-sheet");
 const mobileDepositCloseBtn = document.getElementById("mobile-deposit-close");
 const mobileDepositAmountEl = document.getElementById("mobile-deposit-amount");
@@ -156,7 +163,12 @@ const drawerAnchorButtons = Array.from(
   document.querySelectorAll(".drawer-anchor")
 );
 const profileDisplayName = document.getElementById("profile-display-name");
+const profileReadinessPercentEl = document.getElementById("profile-readiness-percent");
+const profileReadinessCopyEl = document.getElementById("profile-readiness-copy");
+const profileReadinessFillEl = document.getElementById("profile-readiness-fill");
+const profileReadinessChecklistEl = document.getElementById("profile-readiness-checklist");
 const queueEmptyJoinBtn = document.getElementById("queue-empty-join");
+const queueInsightsEl = document.getElementById("queue-insights");
 const wagerPresetButtons = Array.from(
   document.querySelectorAll(".preset-button")
 );
@@ -638,6 +650,65 @@ function updateQueueProfileCheck() {
   }
 }
 
+function getProfileReadinessState(user) {
+  const checklist = [
+    {
+      label: "Verify email",
+      done: Boolean(user?.isVerified),
+      doneText: "Email confirmed",
+      pendingText: "Needed to unlock matchmaking",
+    },
+    {
+      label: "Save player tag",
+      done: Boolean(user?.tag),
+      doneText: user?.tag || "Tag saved",
+      pendingText: "Used to verify your Clash Royale battle",
+    },
+    {
+      label: "Save friend link",
+      done: Boolean(user?.friendLink),
+      doneText: "Friend link saved",
+      pendingText: "Lets opponents add you quickly",
+    },
+  ];
+  const completed = checklist.filter((item) => item.done).length;
+  const percent = Math.round((completed / checklist.length) * 100);
+  let copy = "Verify your email, then add your player tag and friend link to unlock the queue.";
+  if (percent === 100) {
+    copy = "Queue unlocked. Your 1,000 starter coins are ready for practice wagers.";
+  } else if (completed === 2) {
+    copy = "One step left. Finish the last item to become queue-ready.";
+  } else if (completed === 1) {
+    copy = "Good start. Complete the remaining steps so opponents can connect with you.";
+  }
+  return { checklist, percent, copy };
+}
+
+function renderProfileReadiness(user) {
+  if (
+    !profileReadinessPercentEl ||
+    !profileReadinessCopyEl ||
+    !profileReadinessFillEl ||
+    !profileReadinessChecklistEl
+  ) {
+    return;
+  }
+  const state = getProfileReadinessState(user);
+  profileReadinessPercentEl.textContent = `${state.percent}%`;
+  profileReadinessCopyEl.textContent = state.copy;
+  profileReadinessFillEl.style.width = `${state.percent}%`;
+  profileReadinessChecklistEl.innerHTML = "";
+  state.checklist.forEach((item) => {
+    const node = document.createElement("div");
+    node.className = `profile-readiness-item${item.done ? " done" : ""}`;
+    node.innerHTML =
+      `<span class="profile-readiness-icon">${item.done ? "✓" : "•"}</span>` +
+      `<span class="profile-readiness-label">${item.label}</span>` +
+      `<span class="profile-readiness-note">${item.done ? item.doneText : item.pendingText}</span>`;
+    profileReadinessChecklistEl.appendChild(node);
+  });
+}
+
 function resolveSectionTarget(section, options = {}) {
   if (section === "auth" && currentUser && !options.allowAuth) {
     return "profile";
@@ -828,6 +899,9 @@ function setAuthState(user) {
   } else {
     updateQueueBalance();
     updateQueueProfileCheck();
+    renderProfileReadiness(null);
+    renderWalletSummary(null);
+    renderQueueInsights({});
     renderDailyRewards(null);
     if (profileDisplayName) profileDisplayName.textContent = "—";
     profileEmail.textContent = "—";
@@ -922,6 +996,8 @@ function updateProfileUI(user) {
   if (mobileWalletCoinsEl) mobileWalletCoinsEl.textContent = coins;
   if (mobileWalletGemsEl) mobileWalletGemsEl.textContent = user.gems ?? 0;
   updateCoinGemTradeState(user);
+  renderProfileReadiness(user);
+  renderWalletSummary(user);
   renderDailyRewards(user);
   statWins.textContent = stats.wins || 0;
   statLosses.textContent = stats.losses || 0;
@@ -1147,6 +1223,71 @@ function formatNumber(value) {
   return Number(value || 0).toLocaleString("en-US");
 }
 
+function renderWalletSummary(user) {
+  const summary = user?.walletSummary || {};
+  if (walletCoinsWonEl) {
+    walletCoinsWonEl.textContent = formatNumber(summary.coinsWon || 0);
+  }
+  if (walletGemsWonEl) {
+    walletGemsWonEl.textContent = formatNumber(summary.gemsWon || 0);
+  }
+  if (walletGemsCashedOutEl) {
+    walletGemsCashedOutEl.textContent = formatNumber(summary.gemsCashedOut || 0);
+  }
+  if (walletFeesPaidEl) {
+    walletFeesPaidEl.textContent = `${formatNumber(summary.feesPaidCoins || 0)} coins · ${formatNumber(summary.feesPaidGems || 0)} gems`;
+  }
+  if (walletCashableEl) {
+    walletCashableEl.textContent = formatUsd(summary.cashableUsdCents || 0);
+  }
+  if (walletCashableSubtextEl) {
+    walletCashableSubtextEl.textContent = summary.readyToCashOut
+      ? `${formatNumber(summary.cashableGems || 0)} gems are ready to cash out.`
+      : `Build to ${formatUsd(MIN_CASHOUT_CENTS)} to unlock cash out.`;
+  }
+  if (walletAlertEl) {
+    walletAlertEl.textContent = summary.readyToCashOut
+      ? `You have ${formatUsd(summary.cashableUsdCents || 0)} ready to cash out.`
+      : "Keep building your balance.";
+    walletAlertEl.classList.toggle("ready", Boolean(summary.readyToCashOut));
+  }
+}
+
+function renderQueueInsights(meta = {}) {
+  if (!queueInsightsEl) return;
+  const activePlayers = Number(meta.activePlayers || 0);
+  const waitEstimate = meta.waitEstimate || "~8-10 min";
+  const exactWagerCount = Number(meta.exactWagerCount || 0);
+  const tip = meta.tip || "Post your challenge to get on the board.";
+  queueInsightsEl.innerHTML = "";
+
+  [
+    {
+      label: "Active now",
+      value: activePlayers > 0 ? formatNumber(activePlayers) : "0",
+      note: activePlayers === 1 ? "player in queue or a live match" : "players in queue or live matches",
+    },
+    {
+      label: "Est. wait",
+      value: waitEstimate,
+      note: exactWagerCount > 0 ? "based on players already near your wager" : "based on current queue activity",
+    },
+    {
+      label: "Queue tip",
+      value: exactWagerCount > 0 ? "Hot lobby" : "Adjustment",
+      note: tip,
+    },
+  ].forEach((item) => {
+    const card = document.createElement("div");
+    card.className = "queue-insight-card";
+    card.innerHTML =
+      `<p class="queue-insight-label">${item.label}</p>` +
+      `<p class="queue-insight-value">${item.value}</p>` +
+      `<p class="queue-insight-note">${item.note}</p>`;
+    queueInsightsEl.appendChild(card);
+  });
+}
+
 async function loadExchangeRate() {
   try {
     const data = await apiRequest("/api/shop/exchange/rate", { method: "GET" });
@@ -1255,6 +1396,7 @@ function refreshShop() {
   updateCashoutPreview();
   refreshCashoutStatus();
   updateCoinGemTradeState(currentUser);
+  renderWalletSummary(currentUser);
   renderDailyRewards(currentUser);
   if (shopMessageEl) shopMessageEl.textContent = "";
   if (coinGemMessageEl) coinGemMessageEl.textContent = "";
@@ -1985,6 +2127,42 @@ function renderBattle(battle, perspectiveTag) {
   card.appendChild(header);
   card.appendChild(lineup);
 
+  if (battle.settlement) {
+    const settlement = document.createElement("div");
+    settlement.className = "battle-settlement";
+
+    const wagerLine = document.createElement("p");
+    wagerLine.className = "battle-settlement-line";
+    wagerLine.innerHTML = `<span>Wager</span><strong>${formatNumber(
+      battle.settlement.wager || 0
+    )} ${battle.settlement.wagerCurrency || "coins"}</strong>`;
+
+    const payoutLine = document.createElement("p");
+    payoutLine.className = "battle-settlement-line";
+    payoutLine.innerHTML = `<span>Winner payout</span><strong>${formatNumber(
+      battle.settlement.payout || 0
+    )} ${battle.settlement.payoutCurrency || battle.settlement.wagerCurrency || "coins"}</strong>`;
+
+    const feeLine = document.createElement("p");
+    feeLine.className = "battle-settlement-line";
+    feeLine.innerHTML = `<span>Platform fee</span><strong>${formatNumber(
+      battle.settlement.fee || 0
+    )} ${battle.settlement.feeCurrency || battle.settlement.wagerCurrency || "coins"}</strong>`;
+
+    const summary = document.createElement("p");
+    summary.className = `battle-settlement-summary ${
+      battle.settlement.result === "win"
+        ? "win"
+        : battle.settlement.result === "loss"
+          ? "loss"
+          : ""
+    }`;
+    summary.textContent = battle.settlement.headline || "Match settled.";
+
+    settlement.append(wagerLine, payoutLine, feeLine, summary);
+    card.appendChild(settlement);
+  }
+
   if (deck.length) {
     const cardsWrap = document.createElement("div");
     cardsWrap.className = "cards";
@@ -2248,8 +2426,15 @@ function startQueuePolling() {
 async function refreshQueueList() {
   if (!currentUser) return;
   try {
-    const data = await apiRequest("/api/queue/list", { method: "GET" });
+    const params = new URLSearchParams({
+      currency: selectedCurrency || "coins",
+      wager: String(Math.max(0, Math.floor(Number(wagerInput?.value) || 0))),
+    });
+    const data = await apiRequest(`/api/queue/list?${params.toString()}`, {
+      method: "GET",
+    });
     renderQueueList(data.entries || []);
+    renderQueueInsights(data.meta || {});
     if (currentTicketId) {
       const count = (data.entries || []).length;
       queueCountEl.textContent = `${count} waiting`;
@@ -2586,10 +2771,12 @@ async function trackFriendlyBattle() {
       return;
     }
 
-    showStatus("Friendly battle found. Loading full history...");
+    const settlementHeadline =
+      data?.battle?.settlement?.headline || "Friendly battle found. Loading full history...";
     setActiveSection("results");
     await loadResultsHistory();
     refreshProfile();
+    showStatus(settlementHeadline);
   } catch (err) {
     showStatus(err.message, true);
   }

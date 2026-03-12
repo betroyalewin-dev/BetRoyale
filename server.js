@@ -1506,6 +1506,7 @@ function publicUser(user) {
     selfExcluded: Boolean(user.selfExcluded),
     dob: user.dob || null,
     dailyRewards: getDailyRewardState(user),
+    walletSummary: getUserWalletSummary(user),
   };
 }
 
@@ -2030,6 +2031,110 @@ function getSimplePlayerFromTag(tag) {
   };
 }
 
+function buildSettlementSummaryFromRecord(record, referenceTag) {
+  const normalizedReferenceTag = normalizeTagValue(referenceTag);
+  const tagA = normalizeTagValue(record?.tagA);
+  const tagB = normalizeTagValue(record?.tagB);
+  const wagerA = Math.max(0, Math.floor(record?.wagerA || 0));
+  const wagerB = Math.max(0, Math.floor(record?.wagerB || 0));
+  const currencyA = record?.currencyA || "coins";
+  const currencyB = record?.currencyB || "coins";
+  const resultA = record?.resultByTag?.[tagA] || null;
+  const resultB = record?.resultByTag?.[tagB] || null;
+  const isA = normalizedReferenceTag === tagA;
+  const isB = normalizedReferenceTag === tagB;
+
+  if (!isA && !isB) return null;
+
+  const youResult = isA ? resultA : resultB;
+  const yourWager = isA ? wagerA : wagerB;
+  const yourCurrency = isA ? currencyA : currencyB;
+  const opponentWager = isA ? wagerB : wagerA;
+  const opponentCurrency = isA ? currencyB : currencyA;
+
+  if (youResult === "draw") {
+    return {
+      result: "draw",
+      wager: yourWager,
+      wagerCurrency: yourCurrency,
+      payout: 0,
+      payoutCurrency: yourCurrency,
+      netGain: 0,
+      fee: 0,
+      feeCurrency: yourCurrency,
+      headline: "Match settled as a draw.",
+    };
+  }
+
+  if (youResult === "win") {
+    if (yourCurrency === opponentCurrency) {
+      const pot = yourWager + opponentWager;
+      const payout = Math.floor(pot * WINNER_PCT);
+      const fee = Math.max(0, pot - payout);
+      return {
+        result: "win",
+        wager: yourWager,
+        wagerCurrency: yourCurrency,
+        payout,
+        payoutCurrency: yourCurrency,
+        netGain: Math.max(0, payout - yourWager),
+        fee,
+        feeCurrency: yourCurrency,
+        headline: `You won ${Math.max(0, payout - yourWager)} ${yourCurrency}.`,
+      };
+    }
+
+    const payout = Math.floor(opponentWager * WINNER_PCT);
+    const fee = Math.max(0, opponentWager - payout);
+    return {
+      result: "win",
+      wager: yourWager,
+      wagerCurrency: yourCurrency,
+      payout,
+      payoutCurrency: opponentCurrency,
+      netGain: payout,
+      fee,
+      feeCurrency: opponentCurrency,
+      headline: `You won ${payout} ${opponentCurrency}.`,
+    };
+  }
+
+  if (youResult === "loss") {
+    if (yourCurrency === opponentCurrency) {
+      const pot = yourWager + opponentWager;
+      const payout = Math.floor(pot * WINNER_PCT);
+      const fee = Math.max(0, pot - payout);
+      return {
+        result: "loss",
+        wager: yourWager,
+        wagerCurrency: yourCurrency,
+        payout,
+        payoutCurrency: yourCurrency,
+        netGain: -yourWager,
+        fee,
+        feeCurrency: yourCurrency,
+        headline: `You lost ${yourWager} ${yourCurrency}.`,
+      };
+    }
+
+    const payout = Math.floor(yourWager * WINNER_PCT);
+    const fee = Math.max(0, yourWager - payout);
+    return {
+      result: "loss",
+      wager: yourWager,
+      wagerCurrency: yourCurrency,
+      payout,
+      payoutCurrency: yourCurrency,
+      netGain: -yourWager,
+      fee,
+      feeCurrency: yourCurrency,
+      headline: `You lost ${yourWager} ${yourCurrency}.`,
+    };
+  }
+
+  return null;
+}
+
 function buildBattleFromRecord(record, referenceTag) {
   const reference = normalizeTagValue(referenceTag);
   const tagA = normalizeTagValue(record?.tagA);
@@ -2087,10 +2192,13 @@ function buildBattleFromRecord(record, referenceTag) {
     result: resultByTag[reference] || null,
     isBetRoyaleMatch: true,
     matchId: record?.matchId || null,
+    tagA,
+    tagB,
     wagerA: Number.isFinite(record?.wagerA) ? record.wagerA : 0,
     wagerB: Number.isFinite(record?.wagerB) ? record.wagerB : 0,
     currencyA: record?.currencyA || "coins",
     currencyB: record?.currencyB || "coins",
+    settlement: buildSettlementSummaryFromRecord(record, reference),
   };
 }
 
@@ -2438,6 +2546,119 @@ function getWinningGainForRecord(record, normalizedTag, targetCurrency) {
   return 0;
 }
 
+function getFeeShareForRecord(record, normalizedTag) {
+  if (!record || !normalizedTag) {
+    return { coins: 0, gems: 0 };
+  }
+
+  const tagA = normalizeTagValue(record.tagA);
+  const tagB = normalizeTagValue(record.tagB);
+  const wagerA = Math.max(0, Math.floor(record?.wagerA || 0));
+  const wagerB = Math.max(0, Math.floor(record?.wagerB || 0));
+  const currencyA = record?.currencyA || "coins";
+  const currencyB = record?.currencyB || "coins";
+  const resultA = record?.resultByTag?.[tagA] || null;
+  const resultB = record?.resultByTag?.[tagB] || null;
+  const totals = { coins: 0, gems: 0 };
+
+  if (currencyA === currencyB) {
+    const pot = wagerA + wagerB;
+    if (pot <= 0) return totals;
+    if (
+      !((resultA === "win" && resultB === "loss") ||
+      (resultB === "win" && resultA === "loss"))
+    ) {
+      return totals;
+    }
+    const fee = Math.max(0, pot - Math.floor(pot * WINNER_PCT));
+    const shareA = fee * (wagerA / pot);
+    const shareB = fee * (wagerB / pot);
+    const key = currencyA === "gems" ? "gems" : "coins";
+    if (normalizedTag === tagA) totals[key] += shareA;
+    if (normalizedTag === tagB) totals[key] += shareB;
+    return totals;
+  }
+
+  if (resultA === "win" && resultB === "loss") {
+    const fee = Math.max(0, wagerB - Math.floor(wagerB * WINNER_PCT));
+    const key = currencyB === "gems" ? "gems" : "coins";
+    if (normalizedTag === tagB) totals[key] += fee;
+    return totals;
+  }
+
+  if (resultB === "win" && resultA === "loss") {
+    const fee = Math.max(0, wagerA - Math.floor(wagerA * WINNER_PCT));
+    const key = currencyA === "gems" ? "gems" : "coins";
+    if (normalizedTag === tagA) totals[key] += fee;
+    return totals;
+  }
+
+  return totals;
+}
+
+function getUserWalletSummary(user) {
+  if (!user?.id) {
+    return {
+      coinsWon: 0,
+      gemsWon: 0,
+      gemsCashedOut: 0,
+      feesPaidCoins: 0,
+      feesPaidGems: 0,
+      cashableGems: 0,
+      cashableUsdCents: 0,
+      readyToCashOut: false,
+    };
+  }
+
+  const normalizedTag = normalizeTagValue(user.tag);
+  let coinsWon = 0;
+  let gemsWon = 0;
+  let feesPaidCoins = 0;
+  let feesPaidGems = 0;
+
+  Object.values(store.recordedMatches || {}).forEach((record) => {
+    const recordTagA = normalizeTagValue(record?.tagA);
+    const recordTagB = normalizeTagValue(record?.tagB);
+    const matchesUser =
+      record?.userIdA === user.id ||
+      record?.userIdB === user.id ||
+      (!!normalizedTag && (recordTagA === normalizedTag || recordTagB === normalizedTag));
+    if (!matchesUser) return;
+
+    const tagForMath =
+      record?.userIdA === user.id
+        ? recordTagA
+        : record?.userIdB === user.id
+          ? recordTagB
+          : normalizedTag;
+    coinsWon += getWinningGainForRecord(record, tagForMath, "coins");
+    gemsWon += getWinningGainForRecord(record, tagForMath, "gems");
+    const feeShare = getFeeShareForRecord(record, tagForMath);
+    feesPaidCoins += feeShare.coins;
+    feesPaidGems += feeShare.gems;
+  });
+
+  const userCashouts = Object.values(store.cashouts || {}).filter(
+    (cashout) => cashout.userId === user.id && cashout.status === "sent"
+  );
+  const gemsCashedOut = userCashouts.reduce(
+    (sum, cashout) => sum + Math.max(0, Number(cashout.gems) || 0),
+    0
+  );
+  const cashableGems = Math.max(0, Number(user.gems) || 0);
+
+  return {
+    coinsWon: Math.floor(coinsWon),
+    gemsWon: Math.floor(gemsWon),
+    gemsCashedOut: Math.floor(gemsCashedOut),
+    feesPaidCoins: Math.round(feesPaidCoins),
+    feesPaidGems: Math.round(feesPaidGems),
+    cashableGems,
+    cashableUsdCents: cashableGems,
+    readyToCashOut: cashableGems >= MIN_CASHOUT_CENTS,
+  };
+}
+
 function buildLeaderboardEntries(currency = "coins", period = "month", options = {}) {
   const normalizedCurrency = currency === "gems" ? "gems" : "coins";
   const window = options.window || getPeriodWindow(period);
@@ -2549,6 +2770,71 @@ async function processMonthlyGemLeaderboardRewards() {
   if (changed) {
     await saveStore();
   }
+}
+
+function buildQueueInsights(entries, requestedCurrency, requestedWager) {
+  const normalizedCurrency = requestedCurrency === "gems" ? "gems" : "coins";
+  const safeWager = Math.max(0, Math.floor(Number(requestedWager) || 0));
+  const competingEntries = entries.filter((entry) => !entry.isYou);
+  const sameCurrencyEntries = competingEntries.filter(
+    (entry) => (entry.currency || "coins") === normalizedCurrency
+  );
+  const exactWagerEntries = sameCurrencyEntries.filter(
+    (entry) => Math.floor(Number(entry.wager) || 0) === safeWager
+  );
+  const suggestedEntry =
+    sameCurrencyEntries
+      .slice()
+      .sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0))[0] || null;
+  const suggestedWager = suggestedEntry
+    ? Math.floor(Number(suggestedEntry.wager) || 0)
+    : null;
+
+  const waitingUsers = new Set(entries.map((entry) => entry.userId).filter(Boolean));
+  const activeMatchUsers = new Set();
+  for (const match of matches.values()) {
+    if (!match || isMatchExpired(match)) continue;
+    (match.players || []).forEach((player) => {
+      if (player?.userId) activeMatchUsers.add(player.userId);
+    });
+  }
+  const activePlayers = new Set([...waitingUsers, ...activeMatchUsers]).size;
+
+  let waitEstimate = "~8-10 min";
+  if (safeWager === 0) {
+    waitEstimate = sameCurrencyEntries.length > 0 ? "~1-2 min" : "~2-4 min";
+  } else if (exactWagerEntries.length > 0) {
+    waitEstimate = "~1-2 min";
+  } else if (sameCurrencyEntries.length >= 4) {
+    waitEstimate = "~2-4 min";
+  } else if (sameCurrencyEntries.length >= 2) {
+    waitEstimate = "~4-6 min";
+  } else if (competingEntries.length >= 5) {
+    waitEstimate = "~5-7 min";
+  }
+
+  let tip = "Post your challenge to get on the board.";
+  if (exactWagerEntries.length > 0) {
+    tip = "Popular wager amount right now.";
+  } else if (suggestedWager !== null && suggestedWager !== safeWager) {
+    tip = `Try ${suggestedWager} ${normalizedCurrency} for a faster match.`;
+  } else if (sameCurrencyEntries.length > 0) {
+    tip = `${sameCurrencyEntries.length} player${sameCurrencyEntries.length === 1 ? "" : "s"} already waiting in ${normalizedCurrency}.`;
+  } else if (normalizedCurrency === "gems") {
+    tip = "Coin queues usually fill faster than gem queues.";
+  }
+
+  return {
+    activePlayers,
+    waitingCount: entries.length,
+    activeMatches: Array.from(matches.values()).filter(
+      (match) => match && !isMatchExpired(match)
+    ).length,
+    sameCurrencyCount: sameCurrencyEntries.length,
+    exactWagerCount: exactWagerEntries.length,
+    waitEstimate,
+    tip,
+  };
 }
 
 app.use("/api/auth", authRateLimiter);
@@ -3585,6 +3871,8 @@ app.get("/api/queue/list", (req, res) => {
 
   const user = requireAuth(req, res);
   if (!user) return;
+  const requestedCurrency = req.query.currency === "gems" ? "gems" : "coins";
+  const requestedWager = Math.max(0, Math.floor(Number(req.query.wager) || 0));
 
   const entries = [];
   waitingQueue.forEach((ticketId) => {
@@ -3608,7 +3896,10 @@ app.get("/api/queue/list", (req, res) => {
   });
 
   entries.sort((a, b) => a.joinedAt - b.joinedAt);
-  return res.json({ entries });
+  return res.json({
+    entries,
+    meta: buildQueueInsights(entries, requestedCurrency, requestedWager),
+  });
 });
 
 app.post("/api/queue/cancel", (req, res) => {

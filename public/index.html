@@ -327,13 +327,13 @@
             <p class="auth-kicker">New to BetRoyale</p>
             <h2>Create Account</h2>
             <p class="auth-form-note">
-              Set up your account in a few quick steps. Real-money wagering requires identity verification.
+              Start with 1,000 practice coins first. Real-money deposits and cash outs unlock later after identity verification.
             </p>
             <ul class="signup-entry-list">
-              <li><span class="auth-trust-icon">✓</span> Eligibility check</li>
-              <li><span class="auth-trust-icon">✓</span> Account credentials</li>
-              <li><span class="auth-trust-icon">✓</span> Identity &amp; tax info</li>
-              <li><span class="auth-trust-icon">✓</span> Responsible gaming consent</li>
+              <li><span class="auth-trust-icon">✓</span> 3 quick steps to unlock practice coins</li>
+              <li><span class="auth-trust-icon">✓</span> Queue play after email + Clash setup</li>
+              <li><span class="auth-trust-icon">✓</span> Identity &amp; tax info only for real money</li>
+              <li><span class="auth-trust-icon">✓</span> Clear payout and compliance flow</li>
             </ul>
             <div class="button-row">
               <button type="button" id="auth-signup-btn">
@@ -538,6 +538,21 @@
             <p id="stat-draws" class="stat-value">0</p>
           </div>
         </div>
+        <section class="profile-readiness">
+          <div class="profile-readiness-header">
+            <div>
+              <p class="label">Queue Readiness</p>
+              <h3>You are <span id="profile-readiness-percent">0%</span> ready to play</h3>
+            </div>
+            <p id="profile-readiness-copy" class="hint">
+              Verify your email, then add your player tag and friend link to unlock the queue.
+            </p>
+          </div>
+          <div class="profile-readiness-track">
+            <div id="profile-readiness-fill" class="profile-readiness-fill"></div>
+          </div>
+          <div id="profile-readiness-checklist" class="profile-readiness-checklist"></div>
+        </section>
         <div id="profile-help" class="helper-panel">
           <p class="helper-title">Next: add your player tag + friend link</p>
           <div class="helper-columns">
@@ -712,6 +727,44 @@
           </div>
         </div>
 
+        <section class="shop-section shop-section--wide wallet-summary-section">
+          <div class="wallet-summary-header">
+            <div>
+              <p class="label">Wallet Snapshot</p>
+              <h3>Your earnings and cash-out picture</h3>
+            </div>
+            <p id="wallet-alert" class="wallet-alert">
+              Keep building your balance.
+            </p>
+          </div>
+          <div class="wallet-summary-grid">
+            <div class="shop-preview">
+              <p class="shop-preview-label">Coins won</p>
+              <p class="shop-preview-value"><span id="wallet-coins-won">0</span></p>
+            </div>
+            <div class="shop-preview">
+              <p class="shop-preview-label">Gems won</p>
+              <p class="shop-preview-value"><span id="wallet-gems-won">0</span></p>
+            </div>
+            <div class="shop-preview">
+              <p class="shop-preview-label">Gems cashed out</p>
+              <p class="shop-preview-value"><span id="wallet-gems-cashed-out">0</span></p>
+            </div>
+            <div class="shop-preview">
+              <p class="shop-preview-label">Fees paid</p>
+              <p class="shop-preview-value"><span id="wallet-fees-paid">0 coins · 0 gems</span></p>
+              <p class="shop-preview-subtext">Your share of platform fees from settled matches.</p>
+            </div>
+            <div class="shop-preview">
+              <p class="shop-preview-label">Cashable now</p>
+              <p class="shop-preview-value" id="wallet-cashable">$0.00</p>
+              <p id="wallet-cashable-subtext" class="shop-preview-subtext">
+                Build to $10.00 to unlock cash out.
+              </p>
+            </div>
+          </div>
+        </section>
+
         <div class="shop-grid">
           <section class="shop-section">
             <p class="label">Deposit</p>
@@ -884,6 +937,7 @@
             </button>
           </div>
         </div>
+        <div id="queue-insights" class="queue-insights"></div>
 
         <!-- Dynamic profile readiness check -->
         <div id="queue-profile-check" class="queue-profile-check"></div>
@@ -1272,7 +1326,7 @@
         <div class="wizard-step" id="ws-1">
           <p class="eyebrow">Eligibility</p>
           <h2 id="wizard-title" class="wizard-title">Welcome to BetRoyale</h2>
-          <p class="wizard-body">BetRoyale is a skill-based wagering platform. Real money is only involved when you purchase Gems. You must be 18+ and located in an eligible state.</p>
+          <p class="wizard-body">BetRoyale lets you start with free Coins first. You only need the full identity and tax flow later if you want to deposit USD, play with Gems, or cash out.</p>
           <div class="field">
             <label for="w-state">Your State</label>
             <select id="w-state" name="w-state" aria-describedby="w-state-error">
@@ -1364,7 +1418,7 @@
         <div class="wizard-step hidden" id="ws-4">
           <p class="eyebrow">Identity</p>
           <h2 class="wizard-title">Personal Information</h2>
-          <p class="wizard-body">Required by law before you can deposit or wager real money. Encrypted and never sold.</p>
+          <p class="wizard-body">Required by law before you can deposit or wager real money. This unlocks higher limits and payout access, and your information stays encrypted.</p>
           <div class="wizard-field-row">
             <div class="field">
               <label for="w-first-name">Legal First Name</label>
@@ -1412,7 +1466,7 @@
         <div class="wizard-step hidden" id="ws-5">
           <p class="eyebrow">ID Verification</p>
           <h2 class="wizard-title">Verify Your Identity</h2>
-          <p class="wizard-body">Upload a government-issued ID to unlock full cash-out access. Gem purchases are capped at $25 until verified.</p>
+          <p class="wizard-body">Upload a government-issued ID to unlock full cash-out access. This step protects payouts and raises your Gem purchase limits.</p>
           <div class="id-upload-grid">
             <div class="id-upload-slot" id="id-front-slot">
               <input type="file" id="w-id-front" accept="image/*,.pdf" class="id-file-input" aria-label="Upload front of ID" />

@@ -1198,6 +1198,10 @@ input:focus-visible,
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
 }
 
+.shop-section--wide {
+  grid-column: 1 / -1;
+}
+
 .shop-section {
   background: var(--panel);
   border-radius: 6px;
@@ -1290,6 +1294,41 @@ input:focus-visible,
   margin: 0;
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.wallet-summary-section {
+  gap: 16px;
+}
+
+.wallet-summary-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.wallet-summary-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.wallet-alert {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 999px;
+  background: rgba(92, 140, 255, 0.12);
+  border: 1px solid rgba(92, 140, 255, 0.18);
+  color: #cfe1ff;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.wallet-alert.ready {
+  background: rgba(47, 208, 147, 0.12);
+  border-color: rgba(47, 208, 147, 0.28);
+  color: #85efc4;
 }
 
 .daily-rewards-section {
@@ -1710,6 +1749,78 @@ input:focus-visible,
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
 }
 
+.profile-readiness {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid rgba(92, 140, 255, 0.18);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(16, 27, 47, 0.98) 0%, rgba(11, 20, 36, 0.96) 100%);
+  display: grid;
+  gap: 12px;
+}
+
+.profile-readiness-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.profile-readiness-header h3 {
+  margin: 0;
+}
+
+.profile-readiness-track {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(92, 140, 255, 0.12);
+  overflow: hidden;
+}
+
+.profile-readiness-fill {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2fd093 0%, #5c8cff 100%);
+  transition: width 180ms ease;
+}
+
+.profile-readiness-checklist {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.profile-readiness-item {
+  display: grid;
+  gap: 3px;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(9, 17, 31, 0.8);
+  border: 1px solid rgba(92, 140, 255, 0.12);
+}
+
+.profile-readiness-item.done {
+  border-color: rgba(47, 208, 147, 0.28);
+  background: rgba(47, 208, 147, 0.08);
+}
+
+.profile-readiness-icon {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.profile-readiness-label {
+  font-weight: 700;
+}
+
+.profile-readiness-note {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
 .stat-card {
   background: var(--panel);
   border-radius: 6px;
@@ -1755,6 +1866,42 @@ input:focus-visible,
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.queue-insights {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.queue-insight-card {
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(92, 140, 255, 0.14);
+  background: rgba(10, 18, 34, 0.9);
+  box-shadow: 0 2px 6px var(--shadow);
+}
+
+.queue-insight-label {
+  margin: 0;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.68rem;
+}
+
+.queue-insight-value {
+  margin: 8px 0 4px;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.queue-insight-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.45;
 }
 
 /* Right side of header: last-updated timestamp + icon refresh button */
@@ -2608,6 +2755,43 @@ body.in-queue::after {
   justify-content: space-between;
 }
 
+.battle-settlement {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(92, 140, 255, 0.14);
+  background: rgba(9, 17, 31, 0.74);
+  display: grid;
+  gap: 8px;
+}
+
+.battle-settlement-line {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.battle-settlement-line strong {
+  color: var(--ink);
+}
+
+.battle-settlement-summary {
+  margin: 4px 0 0;
+  font-weight: 700;
+}
+
+.battle-settlement-summary.win {
+  color: var(--accent);
+}
+
+.battle-settlement-summary.loss {
+  color: #f87171;
+}
+
 .badge {
   padding: 6px 12px;
   border-radius: 999px;
@@ -3229,6 +3413,12 @@ body.in-queue::after {
   }
 
   .shop-purchase {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-readiness-checklist,
+  .queue-insights,
+  .wallet-summary-grid {
     grid-template-columns: 1fr;
   }
 
