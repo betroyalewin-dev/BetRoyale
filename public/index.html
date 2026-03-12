@@ -219,51 +219,160 @@
         </div>
       </aside>
       <header class="hero">
-        <p class="eyebrow">BetRoyale Arena</p>
-        <h1>Win Duels, Win Cash.</h1>
-        <p class="subhead">
-          Real wagers on real friendlies. Load up on 1000 free starter coins or gems, play
-          the duel, and we pull the winner straight from Supercell's API data.
-        </p>
-        <div class="hero-actions">
-          <button type="button" class="hero-action-primary" id="hero-signup-btn">Create account</button>
-          <a class="hero-action-secondary" href="#auth-panel">See how it works</a>
-        </div>
-        <div class="hero-trust-strip" aria-label="Why players trust BetRoyale">
-          <article class="trust-card">
-            <p class="trust-card-label">No ladder nonsense</p>
-            <p class="trust-card-copy">
-              Stop getting ladder-stomped by randoms. Real 1v1 friendlies only.
+        <div class="hero-layout">
+          <div class="hero-copy">
+            <p class="eyebrow">BetRoyale Arena</p>
+            <div class="hero-highlight-row" aria-label="Top value propositions">
+              <div class="hero-highlight-pill">
+                <span class="icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M5 7h6l2 2-6 6H5z"></path>
+                    <path d="M19 7h-6l-2 2 6 6h2z"></path>
+                  </svg>
+                </span>
+                <span>Real wagers. Real friendlies.</span>
+              </div>
+              <div class="hero-highlight-pill">
+                <span class="icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M12 3v18"></path>
+                    <path d="M17 7.5c0-1.9-2.2-3.5-5-3.5S7 5.6 7 7.5 9.2 11 12 11s5 1.6 5 3.5S14.8 18 12 18s-5-1.6-5-3.5"></path>
+                  </svg>
+                </span>
+                <span>Instant payouts via Stripe.</span>
+              </div>
+            </div>
+            <h1>Real Wagers. Real Friendlies.</h1>
+            <p class="subhead">
+              Queue into Clash Royale 1v1 friendlies, let Supercell API data confirm the winner,
+              and cash out through Stripe when the duel is settled.
             </p>
-          </article>
-          <article class="trust-card">
-            <p class="trust-card-label">Stripe handles the money</p>
-            <p class="trust-card-copy">
-              Buy balance with Stripe checkout, then cash out to your connected payout account.
+            <div class="hero-actions">
+              <button type="button" class="hero-action-primary" id="hero-signup-btn">Create account</button>
+              <a class="hero-action-secondary" href="#auth-panel">See how it works</a>
+            </div>
+            <div class="hero-proof-pills" aria-label="Quick platform details">
+              <span class="hero-proof-pill">1,000 starter coins included</span>
+              <span class="hero-proof-pill">API-verified winners</span>
+              <span class="hero-proof-pill">No manual payout chasing</span>
+            </div>
+          </div>
+          <aside class="hero-progress-card" aria-labelledby="hero-progress-title">
+            <div class="hero-progress-header">
+              <p class="hero-progress-kicker">New player setup</p>
+              <div class="hero-progress-meta" aria-label="Setup effort">
+                <span>3 steps</span>
+                <span>About 2 min</span>
+              </div>
+            </div>
+            <h2 id="hero-progress-title">Start wagering in 3 quick steps.</h2>
+            <p class="hero-progress-copy">
+              Clear effort, no guessing: finish these once and you are ready for real matches.
             </p>
-          </article>
-          <article class="trust-card">
-            <p class="trust-card-label">We need to know you're real</p>
-            <p class="trust-card-copy">
-              Confirm your email and save your Clash Royale details before you can wager.
+            <div class="hero-progress-meter" aria-hidden="true">
+              <span class="hero-progress-segment"></span>
+              <span class="hero-progress-segment"></span>
+              <span class="hero-progress-segment"></span>
+            </div>
+            <ol class="hero-checklist">
+              <li class="hero-check-item">
+                <span class="hero-check-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="8"></circle>
+                    <path d="M12 8v8"></path>
+                    <path d="M8 12h8"></path>
+                  </svg>
+                </span>
+                <div class="hero-check-body">
+                  <p>Create account</p>
+                  <span>Claim your 1,000 starter coins.</span>
+                </div>
+                <span class="hero-check-time">30 sec</span>
+              </li>
+              <li class="hero-check-item">
+                <span class="hero-check-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M5 12l4 4 10-10"></path>
+                  </svg>
+                </span>
+                <div class="hero-check-body">
+                  <p>Verify email</p>
+                  <span>Confirm you are ready to wager for real.</span>
+                </div>
+                <span class="hero-check-time">1 min</span>
+              </li>
+              <li class="hero-check-item">
+                <span class="hero-check-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M9 11a3 3 0 1 1 6 0c0 2-3 5-3 5s-3-3-3-5z"></path>
+                    <circle cx="12" cy="11" r="1"></circle>
+                    <path d="M5 20c1.8-2.5 4.2-3.7 7-3.7s5.2 1.2 7 3.7"></path>
+                  </svg>
+                </span>
+                <div class="hero-check-body">
+                  <p>Add player tag</p>
+                  <span>Unlock queue-ready Clash Royale matchups.</span>
+                </div>
+                <span class="hero-check-time">30 sec</span>
+              </li>
+            </ol>
+            <p class="hero-progress-note">
+              Deposit only when you are ready. Verification and your player tag are the only blockers for live wagers.
             </p>
-          </article>
-        </div>
-        <div class="hero-steps">
-          <div class="step-card">
-            <p class="step-label">Step 1</p>
-            <p>Make the account and grab your 1,000 free starter coins.</p>
-          </div>
-          <div class="step-card">
-            <p class="step-label">Step 2</p>
-            <p>Drop in your tag, pick a wager, and jump into the queue.</p>
-          </div>
-          <div class="step-card">
-            <p class="step-label">Step 3</p>
-            <p>Play the duel. We read the winner from the API and settle it.</p>
-          </div>
+          </aside>
         </div>
       </header>
+
+      <section class="landing-signals auth-only" aria-label="Trust and verification details">
+        <article class="signal-card">
+          <span class="signal-card-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 3l7 4v5c0 4.2-2.7 7.7-7 9-4.3-1.3-7-4.8-7-9V7z"></path>
+              <path d="M9.5 12l1.8 1.8L14.8 10"></path>
+            </svg>
+          </span>
+          <div>
+            <p class="signal-card-label">Verified players only</p>
+            <p class="signal-card-copy">
+              Confirm your email and add your Clash Royale player tag before you can enter live wagers.
+            </p>
+          </div>
+        </article>
+        <article class="signal-card">
+          <span class="signal-card-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 3v4"></path>
+              <path d="M12 17v4"></path>
+              <path d="M4.2 7l3 1.7"></path>
+              <path d="M16.8 15.3l3 1.7"></path>
+              <path d="M4.2 17l3-1.7"></path>
+              <path d="M16.8 8.7l3-1.7"></path>
+              <circle cx="12" cy="12" r="4"></circle>
+            </svg>
+          </span>
+          <div>
+            <p class="signal-card-label">API-settled results</p>
+            <p class="signal-card-copy">
+              BetRoyale reads the friendly battle outcome from Supercell data so the winner is not decided by screenshots.
+            </p>
+          </div>
+        </article>
+        <article class="signal-card">
+          <span class="signal-card-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <rect x="3" y="6" width="18" height="12" rx="2"></rect>
+              <path d="M7 12h5"></path>
+              <path d="M16 10v4"></path>
+            </svg>
+          </span>
+          <div>
+            <p class="signal-card-label">Stripe handles the cash</p>
+            <p class="signal-card-copy">
+              Deposit through Stripe checkout and cash out to your connected payout account when you are ready.
+            </p>
+          </div>
+        </article>
+      </section>
 
       <section id="payouts-panel" class="panel payout-explainer auth-only" aria-labelledby="payouts-title">
         <div class="payout-explainer-copy">
@@ -1543,6 +1652,24 @@
         </div>
       </div>
     </div>
+
+    <button
+      type="button"
+      id="floating-signup-btn"
+      class="floating-signup-cta auth-only hidden"
+      aria-label="Create account and start in about two minutes"
+    >
+      <span class="floating-signup-copy">
+        <span class="floating-signup-title">Create account</span>
+        <span class="floating-signup-meta">Start in about 2 minutes</span>
+      </span>
+      <span class="icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24">
+          <path d="M5 12h14"></path>
+          <path d="M13 6l6 6-6 6"></path>
+        </svg>
+      </span>
+    </button>
 
     <script src="app.js"></script>
 

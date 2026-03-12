@@ -162,6 +162,7 @@ const matchTransitionSubtitleEl = document.getElementById(
 const menuButtons = Array.from(document.querySelectorAll(".menu-button"));
 const heroSection = document.querySelector(".hero");
 const authOnlySections = Array.from(document.querySelectorAll(".auth-only"));
+const floatingSignupBtn = document.getElementById("floating-signup-btn");
 const helpButton = document.getElementById("help-button");
 const menuToggleButton = document.getElementById("menu-toggle");
 const menuCloseButton = document.getElementById("menu-close");
@@ -216,6 +217,8 @@ let onboardingStepIndex = 0;
 let onboardingUserId = null;
 let leaderboardCurrency = "balance";
 let leaderboardPeriod = "month";
+let heroInView = true;
+let authPanelInView = false;
 
 const ONBOARDING_STEPS = [
   {
@@ -745,6 +748,7 @@ function setActiveSection(section, options = {}) {
     button.classList.toggle("active", button.dataset.section === target);
   });
   activeSection = target;
+  syncFloatingSignupVisibility();
   if (target === "match" && !currentMatchId) {
     resetMatch();
   }
@@ -881,12 +885,50 @@ const navAuthBtns   = document.getElementById("nav-auth-btns");
 const navProfileBtn = document.getElementById("nav-profile-btn");
 const navMenuBalance = document.getElementById("menu-balance");
 
+function syncFloatingSignupVisibility() {
+  if (!floatingSignupBtn) return;
+  const shouldShow =
+    !currentUser &&
+    activeSection === "auth" &&
+    !heroInView &&
+    !authPanelInView;
+  floatingSignupBtn.classList.toggle("hidden", !shouldShow);
+}
+
+function initFloatingSignupObserver() {
+  if (!floatingSignupBtn) return;
+  if (!("IntersectionObserver" in window)) {
+    syncFloatingSignupVisibility();
+    return;
+  }
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.target === heroSection) {
+          heroInView = entry.isIntersecting && entry.intersectionRatio >= 0.35;
+        }
+        if (entry.target === authPanel) {
+          authPanelInView = entry.isIntersecting && entry.intersectionRatio >= 0.2;
+        }
+      });
+      syncFloatingSignupVisibility();
+    },
+    { threshold: [0, 0.2, 0.35, 0.65] }
+  );
+
+  if (heroSection) observer.observe(heroSection);
+  if (authPanel) observer.observe(authPanel);
+  syncFloatingSignupVisibility();
+}
+
 function updateNavAuthState(user) {
   const loggedIn = Boolean(user);
   if (navAuthBtns)   navAuthBtns.classList.toggle("hidden", loggedIn);
   if (navProfileBtn) navProfileBtn.classList.toggle("hidden", !loggedIn);
   if (navMenuBalance) navMenuBalance.classList.toggle("hidden", !loggedIn);
   document.body.classList.toggle("landing-mobile-nav-hidden", !loggedIn);
+  syncFloatingSignupVisibility();
   if (!loggedIn) {
     closeMenuDrawer();
   }
@@ -897,6 +939,7 @@ document.getElementById("nav-login-btn")?.addEventListener("click", () => {
   document.getElementById("login-form")?.scrollIntoView({ behavior: "smooth" });
 });
 document.getElementById("nav-signup-btn")?.addEventListener("click", () => openWizard("basic"));
+floatingSignupBtn?.addEventListener("click", () => openWizard("basic"));
 
 function setAuthState(user) {
   currentUser = user;
@@ -2773,9 +2816,9 @@ async function joinQueue() {
   const wager = Math.floor(wagerValue);
   const availableCoins = currentUser.coins ?? currentUser.credits ?? 0;
   const availableBalance = currentUser.balance ?? 0;
-  const availableBalance =
+  const availableFunds =
     selectedCurrency === "balance" ? availableBalance : availableCoins;
-  if (wager > availableBalance) {
+  if (wager > availableFunds) {
     showStatus(`You don't have enough ${selectedCurrency} for that wager.`, true);
     return;
   }
@@ -3173,6 +3216,7 @@ window.addEventListener("keydown", (event) => {
 });
 
 resetMatch();
+initFloatingSignupObserver();
 setActiveSection("auth");
 setCurrency(selectedCurrency);
 if (shopAmountInput && !String(shopAmountInput.value || "").trim()) {
@@ -3602,12 +3646,15 @@ document.getElementById("auth-signup-btn")?.addEventListener("click", () => open
   const banner = document.getElementById("cookie-banner");
   const acceptBtn = document.getElementById("cookie-accept");
   if (!banner) return;
-  if (!localStorage.getItem("cookieConsent")) {
+  const showBanner = !localStorage.getItem("cookieConsent");
+  document.body.classList.toggle("cookie-banner-active", showBanner);
+  if (showBanner) {
     banner.classList.remove("hidden");
   }
   acceptBtn?.addEventListener("click", () => {
     localStorage.setItem("cookieConsent", "1");
     banner.classList.add("hidden");
+    document.body.classList.remove("cookie-banner-active");
   });
 })();
 
