@@ -2372,6 +2372,25 @@ body.in-queue::after {
   max-width: 720px;
 }
 
+.leaderboard-reward-claim {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(47, 208, 147, 0.26);
+  background: linear-gradient(135deg, rgba(47, 208, 147, 0.12), rgba(92, 140, 255, 0.12));
+}
+
+.leaderboard-reward-claim.hidden {
+  display: none;
+}
+
+.leaderboard-reward-claim h3 {
+  margin: 0;
+}
+
 .leaderboard-controls {
   display: flex;
   flex-wrap: wrap;
@@ -3361,6 +3380,11 @@ body.in-queue::after {
     flex-direction: column;
     align-items: flex-start;
     gap: 10px;
+  }
+
+  .leaderboard-reward-claim {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .queue-actions {

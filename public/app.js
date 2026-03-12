@@ -129,6 +129,10 @@ const leaderboardsLabelEl = document.getElementById("leaderboards-label");
 const leaderboardsMessageEl = document.getElementById("leaderboards-message");
 const leaderboardWinningsHeaderEl = document.getElementById("leaderboard-winnings-header");
 const leaderboardPrizesEl = document.getElementById("leaderboard-prizes");
+const leaderboardRewardClaimEl = document.getElementById("leaderboard-reward-claim");
+const leaderboardRewardTitleEl = document.getElementById("leaderboard-reward-title");
+const leaderboardRewardCopyEl = document.getElementById("leaderboard-reward-copy");
+const leaderboardRewardClaimBtn = document.getElementById("leaderboard-reward-claim-btn");
 const leaderboardCurrencyButtons = Array.from(
   document.querySelectorAll("[data-leaderboard-currency]")
 );
@@ -902,6 +906,7 @@ function setAuthState(user) {
     renderProfileReadiness(null);
     renderWalletSummary(null);
     renderQueueInsights({});
+    renderLeaderboardRewardClaim([]);
     renderDailyRewards(null);
     if (profileDisplayName) profileDisplayName.textContent = "—";
     profileEmail.textContent = "—";
@@ -1733,7 +1738,7 @@ async function refreshProfile() {
 function renderLeaderboardPrizeSchedule(currency, prizes = []) {
   if (!leaderboardPrizesEl) return;
   leaderboardPrizesEl.innerHTML = "";
-  if (currency !== "gems" || !Array.isArray(prizes) || prizes.length === 0) {
+  if (!Array.isArray(prizes) || prizes.length === 0) {
     leaderboardPrizesEl.classList.add("hidden");
     return;
   }
@@ -1743,9 +1748,57 @@ function renderLeaderboardPrizeSchedule(currency, prizes = []) {
     pill.className = `leaderboard-prize-pill rank-${prize.rank}`;
     pill.innerHTML =
       `<span class="prize-rank">#${prize.rank}</span>` +
-      `<span class="prize-amount">${prize.gems.toLocaleString()} gems</span>`;
+      `<span class="prize-amount">${Number(prize.amount || 0).toLocaleString()} ${prize.currency || currency}</span>`;
     leaderboardPrizesEl.appendChild(pill);
   });
+}
+
+function formatRewardSummary(rewards = []) {
+  if (!Array.isArray(rewards) || rewards.length === 0) return "";
+  const totals = rewards.reduce(
+    (acc, reward) => {
+      if (reward?.currency === "gems") {
+        acc.gems += Number(reward.amount || 0);
+      } else {
+        acc.coins += Number(reward.amount || 0);
+      }
+      return acc;
+    },
+    { coins: 0, gems: 0 }
+  );
+  const parts = [];
+  if (totals.coins > 0) parts.push(`${formatNumber(totals.coins)} coins`);
+  if (totals.gems > 0) parts.push(`${formatNumber(totals.gems)} gems`);
+  return parts.join(" + ");
+}
+
+function renderLeaderboardRewardClaim(pendingRewards = []) {
+  if (
+    !leaderboardRewardClaimEl ||
+    !leaderboardRewardTitleEl ||
+    !leaderboardRewardCopyEl ||
+    !leaderboardRewardClaimBtn
+  ) {
+    return;
+  }
+
+  if (!Array.isArray(pendingRewards) || pendingRewards.length === 0) {
+    leaderboardRewardClaimEl.classList.add("hidden");
+    leaderboardRewardCopyEl.textContent = "";
+    return;
+  }
+
+  const rewardCount = pendingRewards.length;
+  const summary = formatRewardSummary(pendingRewards);
+  leaderboardRewardClaimEl.classList.remove("hidden");
+  leaderboardRewardTitleEl.textContent =
+    rewardCount === 1 ? "Claim your leaderboard reward" : `Claim ${rewardCount} leaderboard rewards`;
+  leaderboardRewardCopyEl.textContent =
+    rewardCount === 1
+      ? `${summary} is ready to claim from your top-5 finish.`
+      : `${summary} is ready to claim across your weekly and monthly finishes.`;
+  leaderboardRewardClaimBtn.textContent =
+    rewardCount === 1 ? `Claim ${summary}` : `Claim ${summary}`;
 }
 
 function renderLeaderboards(data) {
@@ -1754,6 +1807,7 @@ function renderLeaderboards(data) {
   const currency = data?.currency === "gems" ? "gems" : "coins";
   const entries = Array.isArray(data?.entries) ? data.entries : [];
   const prizeSchedule = Array.isArray(data?.prizeSchedule) ? data.prizeSchedule : [];
+  renderLeaderboardRewardClaim(data?.pendingRewards || []);
   if (leaderboardsLabelEl) {
     leaderboardsLabelEl.textContent = data?.label || "This month";
   }
@@ -1780,7 +1834,7 @@ function renderLeaderboards(data) {
     leaderboardsBodyEl.appendChild(row);
   });
 
-  if (currency === "gems" && prizeSchedule.length) {
+  if (prizeSchedule.length) {
     const existingRanks = new Set(entries.map((entry) => Number(entry.rank)));
     prizeSchedule.forEach((prize) => {
       if (existingRanks.has(prize.rank)) return;
@@ -1791,7 +1845,7 @@ function renderLeaderboards(data) {
         <td>--</td>
         <td>--</td>
         <td>--</td>
-        <td>Win ${Number(prize.gems || 0).toLocaleString()} gems</td>
+        <td>Win ${Number(prize.amount || 0).toLocaleString()} ${prize.currency || currency}</td>
       `;
       leaderboardsBodyEl.appendChild(row);
     });
@@ -1813,10 +1867,41 @@ async function loadLeaderboards() {
     renderLeaderboards(data);
   } catch (err) {
     if (leaderboardsBodyEl) leaderboardsBodyEl.innerHTML = "";
+    renderLeaderboardRewardClaim([]);
     if (leaderboardsMessageEl) {
       leaderboardsMessageEl.textContent = err.message;
     }
     if (leaderboardPrizesEl) leaderboardPrizesEl.classList.add("hidden");
+  }
+}
+
+async function claimLeaderboardRewards() {
+  if (!currentUser) {
+    showStatus("Log in to claim leaderboard rewards.", true);
+    return;
+  }
+  if (leaderboardRewardClaimBtn) {
+    leaderboardRewardClaimBtn.disabled = true;
+    leaderboardRewardClaimBtn.textContent = "Claiming...";
+  }
+  try {
+    const data = await apiRequest("/api/leaderboards/claim", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    if (data?.user) {
+      currentUser = data.user;
+      updateProfileUI(currentUser);
+    }
+    renderLeaderboardRewardClaim(data?.pendingRewards || []);
+    await loadLeaderboards();
+    showStatus(data?.message || "Leaderboard rewards claimed.");
+  } catch (err) {
+    showStatus(err.message || "Unable to claim leaderboard rewards.", true);
+  } finally {
+    if (leaderboardRewardClaimBtn) {
+      leaderboardRewardClaimBtn.disabled = false;
+    }
   }
 }
 
@@ -3014,6 +3099,9 @@ if (leaderboardPeriodButtons.length) {
       }
     });
   });
+}
+if (leaderboardRewardClaimBtn) {
+  leaderboardRewardClaimBtn.addEventListener("click", claimLeaderboardRewards);
 }
 if (wagerInput) {
   wagerInput.addEventListener("input", (event) => {

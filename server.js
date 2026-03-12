@@ -164,7 +164,7 @@ const MAX_CASHOUT_CENTS = 100000;
 const MAX_WAGER_GEMS   = 500;  // maximum per-match gem wager
 const MAX_WAGER_COINS  = 500;  // maximum per-match coin wager
 const WEEKLY_DEPOSIT_WINDOW_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
-const GEM_LEADERBOARD_MONTHLY_PRIZES = [1500, 1250, 1000, 750, 500];
+const LEADERBOARD_TOP5_PRIZES = [1500, 1250, 1000, 750, 500];
 const COIN_TO_GEM_COINS = Number.parseInt(
   process.env.COIN_GEM_EXCHANGE_COINS || "1000",
   10
@@ -2459,7 +2459,12 @@ function findUserByNormalizedTag(tag) {
 function getPeriodWindow(period = "month", now = Date.now()) {
   const current = new Date(now);
   if (period === "week") {
-    return { from: now - 7 * 24 * 60 * 60 * 1000, to: now, label: "Last 7 days" };
+    const weekStart = getUtcWeekStartTimestamp(now);
+    return {
+      from: weekStart,
+      to: now,
+      label: "This week",
+    };
   }
   if (period === "year") {
     return {
@@ -2482,11 +2487,30 @@ function getPeriodWindow(period = "month", now = Date.now()) {
   };
 }
 
+function getUtcWeekStartTimestamp(timestamp = Date.now()) {
+  const date = new Date(timestamp);
+  const dayOffset = (date.getUTCDay() + 6) % 7; // Monday = 0
+  return Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate() - dayOffset,
+    0,
+    0,
+    0,
+    0
+  );
+}
+
 function getMonthKeyFromTimestamp(timestamp) {
   const date = new Date(timestamp);
   const year = date.getUTCFullYear();
   const month = `${date.getUTCMonth() + 1}`.padStart(2, "0");
   return `${year}-${month}`;
+}
+
+function getWeekKeyFromTimestamp(timestamp) {
+  const weekStart = getUtcWeekStartTimestamp(timestamp);
+  return new Date(weekStart).toISOString().slice(0, 10);
 }
 
 function getMonthWindowFromKey(monthKey) {
@@ -2507,10 +2531,30 @@ function getMonthWindowFromKey(monthKey) {
   };
 }
 
-function getMonthlyPrizeSchedule() {
-  return GEM_LEADERBOARD_MONTHLY_PRIZES.map((amount, index) => ({
+function getWeekWindowFromKey(weekKey) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(weekKey || ""));
+  if (!match) return null;
+  const from = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 0, 0, 0, 0);
+  if (!Number.isFinite(from)) return null;
+  const to = from + WEEKLY_DEPOSIT_WINDOW_MS - 1;
+  return {
+    from,
+    to,
+    label: `Week of ${new Date(from).toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      timeZone: "UTC",
+    })}`,
+  };
+}
+
+function getPrizeSchedule(currency) {
+  const rewardCurrency = currency === "gems" ? "gems" : "coins";
+  return LEADERBOARD_TOP5_PRIZES.map((amount, index) => ({
     rank: index + 1,
-    gems: amount,
+    amount,
+    currency: rewardCurrency,
   }));
 }
 
@@ -2720,49 +2764,103 @@ function buildLeaderboardEntries(currency = "coins", period = "month", options =
     }));
 }
 
-async function processMonthlyGemLeaderboardRewards() {
+function getLeaderboardRewardKey(periodType, periodKey, currency) {
+  return `${periodType}:${periodKey}:${currency}`;
+}
+
+function isLegacyMonthlyRewardProcessed(monthKey) {
+  const legacyEntry = store.leaderboardRewards?.[monthKey];
+  return Boolean(
+    legacyEntry &&
+      !legacyEntry.periodType &&
+      Array.isArray(legacyEntry.winners)
+  );
+}
+
+function createLeaderboardRewardRecord(periodType, periodKey, currency, window, entries) {
+  const rewardKey = getLeaderboardRewardKey(periodType, periodKey, currency);
+  const schedule = getPrizeSchedule(currency);
+  const winners = schedule
+    .map((prize) => {
+      const entry = entries[prize.rank - 1];
+      if (!entry) return null;
+      const user = findUserById(entry.userId);
+      if (!user) return null;
+      return {
+        rank: prize.rank,
+        userId: user.id,
+        username: user.username || user.email || user.id,
+        amount: prize.amount,
+        currency: prize.currency,
+        winnings: entry.winnings,
+        claimedAt: null,
+      };
+    })
+    .filter(Boolean);
+
+  return {
+    rewardKey,
+    periodType,
+    periodKey,
+    currency,
+    label: window.label,
+    processedAt: new Date().toISOString(),
+    winners,
+  };
+}
+
+async function processLeaderboardRewards() {
   const rewards = store.leaderboardRewards || {};
   const currentMonthStart = getPeriodWindow("month").from;
+  const currentWeekStart = getPeriodWindow("week").from;
   let changed = false;
 
-  const monthKeys = new Set();
+  const completedMonths = new Set();
+  const completedWeeks = new Set();
   Object.values(store.recordedMatches || {}).forEach((record) => {
     const timestamp = getRecordTimestamp(record);
-    if (!timestamp || timestamp >= currentMonthStart) return;
-    monthKeys.add(getMonthKeyFromTimestamp(timestamp));
+    if (!timestamp) return;
+    if (timestamp < currentMonthStart) {
+      completedMonths.add(getMonthKeyFromTimestamp(timestamp));
+    }
+    if (timestamp < currentWeekStart) {
+      completedWeeks.add(getWeekKeyFromTimestamp(timestamp));
+    }
   });
 
-  Array.from(monthKeys)
+  Array.from(completedMonths)
     .sort()
     .forEach((monthKey) => {
-      if (rewards[monthKey]) return;
-      const monthWindow = getMonthWindowFromKey(monthKey);
-      if (!monthWindow) return;
-      const entries = buildLeaderboardEntries("gems", "month", {
-        window: monthWindow,
-      });
-      const winners = [];
-      GEM_LEADERBOARD_MONTHLY_PRIZES.forEach((prize, index) => {
-        const entry = entries[index];
-        if (!entry) return;
-        const user = findUserById(entry.userId);
-        if (!user) return;
-        user.gems = Math.max(0, (user.gems || 0) + prize);
-        user.updatedAt = Date.now();
-        winners.push({
-          rank: index + 1,
-          userId: user.id,
-          username: user.username || user.email || user.id,
-          gems: prize,
-          winnings: entry.winnings,
-        });
-        changed = true;
-      });
-      rewards[monthKey] = {
+      const rewardKey = getLeaderboardRewardKey("month", monthKey, "gems");
+      if (rewards[rewardKey] || isLegacyMonthlyRewardProcessed(monthKey)) return;
+      const window = getMonthWindowFromKey(monthKey);
+      if (!window) return;
+      const entries = buildLeaderboardEntries("gems", "month", { window });
+      rewards[rewardKey] = createLeaderboardRewardRecord(
+        "month",
         monthKey,
-        processedAt: new Date().toISOString(),
-        winners,
-      };
+        "gems",
+        window,
+        entries
+      );
+      changed = true;
+    });
+
+  Array.from(completedWeeks)
+    .sort()
+    .forEach((weekKey) => {
+      const rewardKey = getLeaderboardRewardKey("week", weekKey, "coins");
+      if (rewards[rewardKey]) return;
+      const window = getWeekWindowFromKey(weekKey);
+      if (!window) return;
+      const entries = buildLeaderboardEntries("coins", "week", { window });
+      rewards[rewardKey] = createLeaderboardRewardRecord(
+        "week",
+        weekKey,
+        "coins",
+        window,
+        entries
+      );
       changed = true;
     });
 
@@ -2770,6 +2868,36 @@ async function processMonthlyGemLeaderboardRewards() {
   if (changed) {
     await saveStore();
   }
+}
+
+function getPendingLeaderboardRewardsForUser(user) {
+  if (!user?.id) return [];
+  const pending = [];
+  Object.values(store.leaderboardRewards || {}).forEach((reward) => {
+    if (!reward || !Array.isArray(reward.winners) || !reward.periodType) return;
+    reward.winners.forEach((winner) => {
+      if (winner?.userId !== user.id || winner?.claimedAt) return;
+      pending.push({
+        rewardKey: reward.rewardKey || getLeaderboardRewardKey(
+          reward.periodType,
+          reward.periodKey,
+          reward.currency
+        ),
+        periodType: reward.periodType,
+        periodKey: reward.periodKey,
+        label: reward.label || reward.periodKey,
+        rank: winner.rank,
+        amount: winner.amount,
+        currency: winner.currency,
+      });
+    });
+  });
+  pending.sort((a, b) => {
+    const typeDiff = a.periodType.localeCompare(b.periodType);
+    if (typeDiff !== 0) return typeDiff;
+    return String(a.periodKey).localeCompare(String(b.periodKey));
+  });
+  return pending;
 }
 
 function buildQueueInsights(entries, requestedCurrency, requestedWager) {
@@ -3646,21 +3774,75 @@ app.get("/api/leaderboards", async (req, res) => {
     ? requestedPeriod
     : "month";
 
-  await processMonthlyGemLeaderboardRewards();
+  await processLeaderboardRewards();
 
   const window = getPeriodWindow(period);
   const entries = buildLeaderboardEntries(currency, period, { window }).slice(0, 25);
-  const lastRewardMonthKey = Object.keys(store.leaderboardRewards || {})
-    .sort()
-    .slice(-1)[0] || null;
+  const prizeSchedule =
+    (period === "month" && currency === "gems") ||
+    (period === "week" && currency === "coins")
+      ? getPrizeSchedule(currency)
+      : [];
 
   return res.json({
     currency,
     period,
     label: window.label,
     entries,
-    prizeSchedule: currency === "gems" ? getMonthlyPrizeSchedule() : [],
-    lastRewardMonthKey,
+    prizeSchedule,
+    pendingRewards: getPendingLeaderboardRewardsForUser(user),
+  });
+});
+
+app.post("/api/leaderboards/claim", async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  const pendingRewards = getPendingLeaderboardRewardsForUser(user);
+  if (!pendingRewards.length) {
+    return res.status(400).json({ error: "No leaderboard rewards are ready to claim." });
+  }
+
+  const now = new Date().toISOString();
+  const claimedRewards = [];
+
+  pendingRewards.forEach((pendingReward) => {
+    const reward =
+      store.leaderboardRewards?.[pendingReward.rewardKey] || null;
+    if (!reward || !Array.isArray(reward.winners)) return;
+    const winner = reward.winners.find(
+      (entry) => entry?.userId === user.id && entry?.rank === pendingReward.rank
+    );
+    if (!winner || winner.claimedAt) return;
+
+    if (winner.currency === "gems") {
+      user.gems = Math.max(0, (user.gems || 0) + Number(winner.amount || 0));
+    } else {
+      user.credits = Math.max(0, (user.credits || 0) + Number(winner.amount || 0));
+    }
+    winner.claimedAt = now;
+    claimedRewards.push({
+      periodType: reward.periodType,
+      label: reward.label || reward.periodKey,
+      rank: winner.rank,
+      amount: winner.amount,
+      currency: winner.currency,
+    });
+  });
+
+  if (!claimedRewards.length) {
+    return res.status(400).json({ error: "No leaderboard rewards are ready to claim." });
+  }
+
+  user.updatedAt = Date.now();
+  await saveStore();
+
+  return res.json({
+    ok: true,
+    claimedRewards,
+    pendingRewards: getPendingLeaderboardRewardsForUser(user),
+    user: publicUser(user),
+    message: `Claimed ${claimedRewards.length} leaderboard reward${claimedRewards.length === 1 ? "" : "s"}.`,
   });
 });
 
