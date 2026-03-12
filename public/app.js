@@ -894,7 +894,7 @@ function updateNavAuthState(user) {
 
 document.getElementById("nav-login-btn")?.addEventListener("click", () => {
   setActiveSection("auth", { allowAuth: true });
-  document.getElementById("auth-panel")?.scrollIntoView({ behavior: "smooth" });
+  document.getElementById("login-form")?.scrollIntoView({ behavior: "smooth" });
 });
 document.getElementById("nav-signup-btn")?.addEventListener("click", () => openWizard("basic"));
 
