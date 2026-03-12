@@ -1805,8 +1805,12 @@ function renderLeaderboards(data) {
   if (!leaderboardsBodyEl) return;
   leaderboardsBodyEl.innerHTML = "";
   const currency = data?.currency === "gems" ? "gems" : "coins";
+  const period = data?.period || "month";
   const entries = Array.isArray(data?.entries) ? data.entries : [];
   const prizeSchedule = Array.isArray(data?.prizeSchedule) ? data.prizeSchedule : [];
+  const showWinningsColumn = !(
+    currency === "gems" && (period === "year" || period === "all")
+  );
   renderLeaderboardRewardClaim(data?.pendingRewards || []);
   if (leaderboardsLabelEl) {
     leaderboardsLabelEl.textContent = data?.label || "This month";
@@ -1817,6 +1821,7 @@ function renderLeaderboards(data) {
       : `No ${currency} winners recorded for this period yet.`;
   }
   if (leaderboardWinningsHeaderEl) {
+    leaderboardWinningsHeaderEl.hidden = !showWinningsColumn;
     leaderboardWinningsHeaderEl.textContent =
       currency === "gems" ? "Gems Won" : "Coins Won";
   }
@@ -1824,13 +1829,20 @@ function renderLeaderboards(data) {
 
   entries.forEach((entry) => {
     const row = document.createElement("tr");
-    row.innerHTML = `
-      <td>${entry.rank}</td>
-      <td>${entry.username || "Unknown"}</td>
-      <td>${entry.tag || "—"}</td>
-      <td>${Number(entry.wins || 0).toLocaleString()}</td>
-      <td>${Number(entry.winnings || 0).toLocaleString()} ${currency}</td>
-    `;
+    row.innerHTML = showWinningsColumn
+      ? `
+        <td>${entry.rank}</td>
+        <td>${entry.username || "Unknown"}</td>
+        <td>${entry.tag || "—"}</td>
+        <td>${Number(entry.wins || 0).toLocaleString()}</td>
+        <td>${Number(entry.winnings || 0).toLocaleString()} ${currency}</td>
+      `
+      : `
+        <td>${entry.rank}</td>
+        <td>${entry.username || "Unknown"}</td>
+        <td>${entry.tag || "—"}</td>
+        <td>${Number(entry.wins || 0).toLocaleString()}</td>
+      `;
     leaderboardsBodyEl.appendChild(row);
   });
 
