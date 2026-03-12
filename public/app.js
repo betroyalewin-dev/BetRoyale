@@ -60,6 +60,13 @@ const exchangeCoinsEl = document.getElementById("exchange-coins");
 const exchangeGemsEl = document.getElementById("exchange-gems");
 const exchangeCtaCoinsEl = document.getElementById("exchange-cta-coins");
 const exchangeCtaGemsEl = document.getElementById("exchange-cta-gems");
+const dailyRewardsTrackEl = document.getElementById("daily-rewards-track");
+const dailyRewardStreakEl = document.getElementById("daily-reward-streak");
+const dailyRewardStatusEl = document.getElementById("daily-reward-status");
+const dailyRewardNextEl = document.getElementById("daily-reward-next");
+const dailyRewardNextSubtextEl = document.getElementById("daily-reward-next-subtext");
+const dailyRewardClaimBtn = document.getElementById("daily-reward-claim");
+const dailyRewardMessageEl = document.getElementById("daily-reward-message");
 const mobileDepositSheet = document.getElementById("mobile-deposit-sheet");
 const mobileDepositCloseBtn = document.getElementById("mobile-deposit-close");
 const mobileDepositAmountEl = document.getElementById("mobile-deposit-amount");
@@ -92,6 +99,13 @@ const cashoutSubmitBtn = document.getElementById("cashout-submit");
 const cashoutHistoryEl = document.getElementById("cashout-history");
 let COIN_TO_GEM_COINS = 1000;
 let COIN_TO_GEM_GEMS = 100;
+const DAILY_REWARD_SCHEDULE = [
+  { day: 1, currency: "coins", amount: 50 },
+  { day: 2, currency: "coins", amount: 100 },
+  { day: 3, currency: "coins", amount: 150 },
+  { day: 4, currency: "coins", amount: 250 },
+  { day: 5, currency: "gems", amount: 50 },
+];
 const joinQueueBtn = document.getElementById("join-queue");
 const wagerInput = document.getElementById("wager-amount");
 const wagerLabel = document.getElementById("wager-label");
@@ -814,6 +828,7 @@ function setAuthState(user) {
   } else {
     updateQueueBalance();
     updateQueueProfileCheck();
+    renderDailyRewards(null);
     if (profileDisplayName) profileDisplayName.textContent = "—";
     profileEmail.textContent = "—";
     if (profileUsername) profileUsername.value = "";
@@ -851,6 +866,7 @@ function setAuthState(user) {
     if (mobileWalletGemsEl) mobileWalletGemsEl.textContent = "0";
     if (shopMessageEl) shopMessageEl.textContent = "";
     if (coinGemMessageEl) coinGemMessageEl.textContent = "";
+    if (dailyRewardMessageEl) dailyRewardMessageEl.textContent = "";
     if (shopAmountInput) shopAmountInput.value = "";
     if (shopGemsPreview) shopGemsPreview.textContent = "0";
     if (shopMobileAmount) shopMobileAmount.textContent = "10.00";
@@ -906,6 +922,7 @@ function updateProfileUI(user) {
   if (mobileWalletCoinsEl) mobileWalletCoinsEl.textContent = coins;
   if (mobileWalletGemsEl) mobileWalletGemsEl.textContent = user.gems ?? 0;
   updateCoinGemTradeState(user);
+  renderDailyRewards(user);
   statWins.textContent = stats.wins || 0;
   statLosses.textContent = stats.losses || 0;
   statDraws.textContent = stats.draws || 0;
@@ -1035,6 +1052,97 @@ function updateCoinGemTradeState(user) {
   }
 }
 
+function formatRewardLabel(reward) {
+  if (!reward) return "—";
+  const amount = Number(reward.amount || 0).toLocaleString("en-US");
+  const unit = reward.currency === "gems" ? "gems" : "coins";
+  return `${amount} ${unit}`;
+}
+
+function renderDailyRewards(user) {
+  if (
+    !dailyRewardsTrackEl ||
+    !dailyRewardStreakEl ||
+    !dailyRewardStatusEl ||
+    !dailyRewardNextEl ||
+    !dailyRewardNextSubtextEl ||
+    !dailyRewardClaimBtn
+  ) {
+    return;
+  }
+
+  const fallbackState = {
+    streak: 0,
+    canClaim: false,
+    claimedToday: false,
+    streakBroken: false,
+    nextRewardDay: 1,
+    nextReward: DAILY_REWARD_SCHEDULE[0],
+    completedInCycle: 0,
+    claimedDays: DAILY_REWARD_SCHEDULE.map((reward, index) => ({
+      ...reward,
+      status: "upcoming",
+      isNext: index === 0,
+    })),
+  };
+  const state = user?.dailyRewards || fallbackState;
+  const nextReward = state.nextReward || DAILY_REWARD_SCHEDULE[0];
+
+  const streakCount = Number(state.streak || 0);
+  dailyRewardStreakEl.textContent = `${streakCount} ${streakCount === 1 ? "day" : "days"}`;
+  dailyRewardNextEl.textContent = formatRewardLabel(nextReward);
+
+  let statusText = "Claim today to start your streak.";
+  let nextText = `Day ${state.nextRewardDay || 1} reward is ready to claim.`;
+
+  if (!user) {
+    statusText = "Log in to start your daily reward streak.";
+    nextText = "Day 1 reward unlocks after login.";
+  } else if (state.claimedToday) {
+    statusText = `Day ${state.completedInCycle || state.nextRewardDay || 1} claimed. Come back tomorrow to keep the streak alive.`;
+    nextText = `Tomorrow unlocks Day ${state.nextRewardDay || 1}.`;
+  } else if (state.streakBroken) {
+    statusText = "You missed a day, so the streak reset.";
+    nextText = "Claim Day 1 to start a new 5-day run.";
+  } else if ((state.streak || 0) > 0) {
+    statusText = `${state.streak}-day streak active.`;
+    nextText = `Claim Day ${state.nextRewardDay || 1} next.`;
+  }
+
+  dailyRewardStatusEl.textContent = statusText;
+  dailyRewardNextSubtextEl.textContent = nextText;
+
+  dailyRewardsTrackEl.innerHTML = "";
+  (state.claimedDays || DAILY_REWARD_SCHEDULE).forEach((reward) => {
+    const item = document.createElement("div");
+    const status = reward.status || "upcoming";
+    item.className = `daily-reward-day is-${status}`;
+    if (reward.isNext) {
+      item.classList.add("is-next");
+    }
+
+    const rewardLabel = formatRewardLabel(reward);
+    item.innerHTML =
+      `<span class="daily-reward-day-label">Day ${reward.day}</span>` +
+      `<strong class="daily-reward-day-value">${rewardLabel}</strong>` +
+      `<span class="daily-reward-day-state">${
+        status === "claimed"
+          ? "Claimed"
+          : reward.isNext && state.canClaim
+            ? "Ready"
+            : "Locked"
+      }</span>`;
+    dailyRewardsTrackEl.appendChild(item);
+  });
+
+  dailyRewardClaimBtn.disabled = !user || !state.canClaim;
+  dailyRewardClaimBtn.textContent = !user
+    ? "Log In to Claim"
+    : state.canClaim
+      ? `Claim Day ${state.nextRewardDay || 1} Reward`
+      : "Claimed Today";
+}
+
 function formatNumber(value) {
   return Number(value || 0).toLocaleString("en-US");
 }
@@ -1147,8 +1255,10 @@ function refreshShop() {
   updateCashoutPreview();
   refreshCashoutStatus();
   updateCoinGemTradeState(currentUser);
+  renderDailyRewards(currentUser);
   if (shopMessageEl) shopMessageEl.textContent = "";
   if (coinGemMessageEl) coinGemMessageEl.textContent = "";
+  if (dailyRewardMessageEl) dailyRewardMessageEl.textContent = "";
 }
 
 function clearShopQueryParams() {
@@ -1401,6 +1511,35 @@ async function tradeCoinsForGems() {
     if (coinGemMessageEl) coinGemMessageEl.textContent = err.message;
   } finally {
     updateCoinGemTradeState(currentUser);
+  }
+}
+
+async function claimDailyReward() {
+  if (!currentUser) {
+    showStatus("Log in to claim daily rewards.", true);
+    return;
+  }
+  if (dailyRewardMessageEl) dailyRewardMessageEl.textContent = "Claiming reward...";
+  if (dailyRewardClaimBtn) dailyRewardClaimBtn.disabled = true;
+  try {
+    const data = await apiRequest("/api/shop/daily-rewards/claim", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    if (data?.user) {
+      currentUser = data.user;
+      updateProfileUI(currentUser);
+    }
+    if (dailyRewardMessageEl) {
+      dailyRewardMessageEl.textContent =
+        data?.message || "Daily reward claimed.";
+    }
+  } catch (err) {
+    if (dailyRewardMessageEl) {
+      dailyRewardMessageEl.textContent = err.message || "Unable to claim daily reward.";
+    }
+  } finally {
+    renderDailyRewards(currentUser);
   }
 }
 
@@ -2599,6 +2738,9 @@ if (shopCheckoutBtn) {
 }
 if (coinGemTradeBtn) {
   coinGemTradeBtn.addEventListener("click", tradeCoinsForGems);
+}
+if (dailyRewardClaimBtn) {
+  dailyRewardClaimBtn.addEventListener("click", claimDailyReward);
 }
 if (shopOpenKeypadBtn) {
   shopOpenKeypadBtn.addEventListener("click", () => {

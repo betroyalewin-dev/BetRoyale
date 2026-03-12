@@ -1292,6 +1292,82 @@ input:focus-visible,
   font-size: 0.9rem;
 }
 
+.daily-rewards-section {
+  position: relative;
+  overflow: hidden;
+}
+
+.daily-rewards-section::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at top right, rgba(47, 208, 147, 0.14), transparent 34%),
+    radial-gradient(circle at bottom left, rgba(92, 140, 255, 0.12), transparent 32%);
+  pointer-events: none;
+}
+
+.daily-rewards-section > * {
+  position: relative;
+  z-index: 1;
+}
+
+.daily-rewards-track {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.daily-reward-day {
+  min-height: 112px;
+  border-radius: 10px;
+  border: 1px solid rgba(92, 140, 255, 0.18);
+  background: rgba(10, 21, 39, 0.9);
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  transition: border-color 160ms ease, transform 160ms ease, background 160ms ease;
+}
+
+.daily-reward-day.is-next {
+  border-color: rgba(47, 208, 147, 0.46);
+  background: rgba(47, 208, 147, 0.1);
+  transform: translateY(-1px);
+}
+
+.daily-reward-day.is-claimed {
+  border-color: rgba(47, 208, 147, 0.28);
+  background: rgba(47, 208, 147, 0.08);
+}
+
+.daily-reward-day-label {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.68rem;
+}
+
+.daily-reward-day-value {
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.daily-reward-day-state {
+  color: var(--muted);
+  font-size: 0.83rem;
+  font-weight: 600;
+}
+
+.daily-reward-day.is-next .daily-reward-day-value,
+.daily-reward-day.is-claimed .daily-reward-day-value {
+  color: var(--accent);
+}
+
+.daily-reward-day.is-next .daily-reward-day-state {
+  color: var(--accent);
+}
+
 .shop-actions {
   display: flex;
   flex-wrap: wrap;
@@ -3153,6 +3229,10 @@ body.in-queue::after {
   }
 
   .shop-purchase {
+    grid-template-columns: 1fr;
+  }
+
+  .daily-rewards-track {
     grid-template-columns: 1fr;
   }
 

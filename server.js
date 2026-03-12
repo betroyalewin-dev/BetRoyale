@@ -173,6 +173,13 @@ const COIN_TO_GEM_GEMS = Number.parseInt(
   process.env.COIN_GEM_EXCHANGE_GEMS || "100",
   10
 );
+const DAILY_REWARD_SCHEDULE = [
+  { day: 1, currency: "coins", amount: 50 },
+  { day: 2, currency: "coins", amount: 100 },
+  { day: 3, currency: "coins", amount: 150 },
+  { day: 4, currency: "coins", amount: 250 },
+  { day: 5, currency: "gems", amount: 50 },
+];
 const SESSION_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 7;
 const waitingQueue = [];
 const tickets = new Map();
@@ -263,6 +270,18 @@ async function ensureDatabaseSchema() {
   await pool.query(`
     ALTER TABLE users
     ADD COLUMN IF NOT EXISTS deposit_limit_weekly INTEGER
+  `);
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS daily_reward_streak INTEGER DEFAULT 0
+  `);
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS daily_reward_last_claim_day TEXT
+  `);
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS daily_reward_last_claim_at BIGINT
   `);
 
   await pool.query(`
@@ -570,6 +589,15 @@ async function loadStore() {
             typeof row.deposit_limit_weekly === "number"
               ? row.deposit_limit_weekly
               : null,
+          dailyRewardStreak:
+            typeof row.daily_reward_streak === "number"
+              ? row.daily_reward_streak
+              : 0,
+          dailyRewardLastClaimDay: row.daily_reward_last_claim_day || null,
+          dailyRewardLastClaimAt:
+            typeof row.daily_reward_last_claim_at === "number"
+              ? row.daily_reward_last_claim_at
+              : null,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
         })),
@@ -779,13 +807,16 @@ function saveStore() {
             self_excluded,
             dob,
             deposit_limit_weekly,
+            daily_reward_streak,
+            daily_reward_last_claim_day,
+            daily_reward_last_claim_at,
             created_at,
             updated_at
           )
           VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9,
             $10, $11, $12, $13, $14, $15, $16, $17, $18, $19,
-            $20, $21, $22, $23, $24, $25, $26, $27
+            $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30
           )
           ON CONFLICT (id) DO UPDATE SET
             email = EXCLUDED.email,
@@ -812,6 +843,9 @@ function saveStore() {
             self_excluded = EXCLUDED.self_excluded,
             dob = EXCLUDED.dob,
             deposit_limit_weekly = EXCLUDED.deposit_limit_weekly,
+            daily_reward_streak = EXCLUDED.daily_reward_streak,
+            daily_reward_last_claim_day = EXCLUDED.daily_reward_last_claim_day,
+            daily_reward_last_claim_at = EXCLUDED.daily_reward_last_claim_at,
             created_at = EXCLUDED.created_at,
             updated_at = EXCLUDED.updated_at
           `,
@@ -843,6 +877,11 @@ function saveStore() {
             Boolean(user.selfExcluded),
             user.dob || null,
             Number.isFinite(user.depositLimitWeekly) ? user.depositLimitWeekly : null,
+            Number.isFinite(user.dailyRewardStreak) ? user.dailyRewardStreak : 0,
+            user.dailyRewardLastClaimDay || null,
+            Number.isFinite(user.dailyRewardLastClaimAt)
+              ? user.dailyRewardLastClaimAt
+              : null,
             user.createdAt || null,
             user.updatedAt || null,
           ]
@@ -1186,6 +1225,66 @@ function findUserByReferralCode(code) {
   return store.users.find((u) => u.referralCode === code.toUpperCase());
 }
 
+function getUtcDayKey(timestamp = Date.now()) {
+  return new Date(timestamp).toISOString().slice(0, 10);
+}
+
+function getUtcDayDiff(fromDayKey, toDayKey) {
+  if (!fromDayKey || !toDayKey) return null;
+  const from = Date.parse(`${fromDayKey}T00:00:00.000Z`);
+  const to = Date.parse(`${toDayKey}T00:00:00.000Z`);
+  if (!Number.isFinite(from) || !Number.isFinite(to)) return null;
+  return Math.round((to - from) / (1000 * 60 * 60 * 24));
+}
+
+function getDailyRewardState(user, now = Date.now()) {
+  const schedule = DAILY_REWARD_SCHEDULE.map((reward) => ({ ...reward }));
+  const cycleLength = schedule.length;
+  const totalClaims = Math.max(
+    0,
+    Math.floor(Number(user?.dailyRewardStreak) || 0)
+  );
+  const lastClaimDay = user?.dailyRewardLastClaimDay || null;
+  const todayKey = getUtcDayKey(now);
+  const dayDiff = lastClaimDay ? getUtcDayDiff(lastClaimDay, todayKey) : null;
+  const claimedToday = dayDiff === 0;
+  const streakBroken =
+    totalClaims > 0 && Number.isFinite(dayDiff) && dayDiff > 1;
+  const streakAlive =
+    totalClaims > 0 &&
+    (claimedToday || dayDiff === 1 || dayDiff === null);
+
+  const completedInCycle = claimedToday
+    ? (((totalClaims - 1) % cycleLength) + 1 || 0)
+    : streakAlive
+      ? totalClaims % cycleLength
+      : 0;
+  const nextRewardIndex = claimedToday
+    ? totalClaims % cycleLength
+    : completedInCycle % cycleLength;
+  const activeStreak = streakBroken ? 0 : totalClaims;
+  const canClaim = !claimedToday;
+  const nextReward = schedule[nextRewardIndex] || schedule[0];
+
+  return {
+    cycleLength,
+    streak: activeStreak,
+    claimedToday,
+    canClaim,
+    streakBroken,
+    todayKey,
+    lastClaimDay,
+    nextRewardDay: nextReward.day,
+    nextReward,
+    completedInCycle,
+    claimedDays: schedule.map((reward, index) => ({
+      ...reward,
+      status: index < completedInCycle ? "claimed" : "upcoming",
+      isNext: canClaim && index === nextRewardIndex,
+    })),
+  };
+}
+
 function ensureUserDefaults(user) {
   let changed = false;
   if (!user.stats || typeof user.stats !== "object") {
@@ -1311,6 +1410,18 @@ function ensureUserDefaults(user) {
     user.depositLimitWeekly = null;
     changed = true;
   }
+  if (typeof user.dailyRewardStreak !== "number") {
+    user.dailyRewardStreak = 0;
+    changed = true;
+  }
+  if (!("dailyRewardLastClaimDay" in user)) {
+    user.dailyRewardLastClaimDay = null;
+    changed = true;
+  }
+  if (!("dailyRewardLastClaimAt" in user)) {
+    user.dailyRewardLastClaimAt = null;
+    changed = true;
+  }
   return changed;
 }
 
@@ -1355,6 +1466,9 @@ function createUser(email, passwordHash) {
     referralRewardPaid: false,    // true once the $15 bonus has been credited
     referralCount: 0,             // people who signed up with this user's code
     referralCompletedCount: 0,    // of those, how many triggered the bonus
+    dailyRewardStreak: 0,
+    dailyRewardLastClaimDay: null,
+    dailyRewardLastClaimAt: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -1391,6 +1505,7 @@ function publicUser(user) {
     referralCompletedCount: user.referralCompletedCount || 0,
     selfExcluded: Boolean(user.selfExcluded),
     dob: user.dob || null,
+    dailyRewards: getDailyRewardState(user),
   };
 }
 
@@ -2942,6 +3057,45 @@ app.post("/api/shop/exchange", async (req, res) => {
     ok: true,
     user: publicUser(user),
     message: `Traded ${rateCoins} coins for ${rateGems} gems.`,
+  });
+});
+
+app.post("/api/shop/daily-rewards/claim", async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  const rewardState = getDailyRewardState(user);
+  if (!rewardState.canClaim) {
+    return res.status(400).json({
+      error: "Daily reward already claimed today. Come back tomorrow.",
+      user: publicUser(user),
+    });
+  }
+
+  const reward = rewardState.nextReward;
+  if (!reward) {
+    return res.status(500).json({ error: "Daily reward schedule unavailable." });
+  }
+
+  if (reward.currency === "gems") {
+    user.gems = Math.max(0, (user.gems || 0) + reward.amount);
+  } else {
+    user.credits = Math.max(0, (user.credits || 0) + reward.amount);
+  }
+
+  user.dailyRewardStreak = rewardState.streakBroken
+    ? 1
+    : Math.max(0, Math.floor(Number(user.dailyRewardStreak) || 0)) + 1;
+  user.dailyRewardLastClaimDay = rewardState.todayKey;
+  user.dailyRewardLastClaimAt = Date.now();
+  user.updatedAt = Date.now();
+  await saveStore();
+
+  return res.json({
+    ok: true,
+    reward,
+    user: publicUser(user),
+    message: `Claimed Day ${reward.day}: ${reward.amount} ${reward.currency}.`,
   });
 });
 
