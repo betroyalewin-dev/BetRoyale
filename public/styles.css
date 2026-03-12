@@ -3798,14 +3798,13 @@ body.in-queue::after {
   .menu-links {
     position: fixed;
     top: auto !important;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 8px;
+    right: 8px;
     width: auto;
-    max-width: calc(100% - 16px);
     bottom: calc(6px + var(--safe-bottom));
     z-index: 120;
     margin: 0;
-    padding: 8px;
+    padding: 6px;
     border: 1px solid #2c3f60;
     border-radius: 10px;
     background: rgba(10, 18, 32, 0.95);
@@ -3834,8 +3833,8 @@ body.in-queue::after {
   }
 
   .menu-links .menu-button {
-    min-height: 60px;
-    padding: 10px 4px;
+    min-height: 52px;
+    padding: 6px 4px;
     font-size: 0;
     font-weight: 700;
     letter-spacing: 0;
@@ -4229,7 +4228,8 @@ body.in-queue::after {
   }
 
   .menu-links .menu-button {
-    min-height: 56px;
+    min-height: 50px;
+    padding: 5px 4px;
     font-size: 0;
   }
 
