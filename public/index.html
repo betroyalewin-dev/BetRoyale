@@ -7,7 +7,7 @@
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
     <title>BetRoyale</title>
-    <meta name="description" content="Wager on Clash Royale friendly duels. Create an account, deposit USD for gems, queue up for 1v1 matches, and cash out your winnings." />
+    <meta name="description" content="Wager on Clash Royale friendly duels. Create an account, deposit USD for balance, queue up for 1v1 matches, and cash out your winnings." />
     <meta name="theme-color" content="#090f1c" />
     <link rel="manifest" href="/manifest.json" />
 
@@ -95,8 +95,8 @@
                 <path d="M5 12h14"></path>
               </svg>
             </span>
-            <span class="balance-label">Gems</span>
-            <span id="balance-gems" class="balance-value">0</span>
+            <span class="balance-label">Balance</span>
+            <span id="balance-balance" class="balance-value">0</span>
           </div>
         </div>
         <button
@@ -222,7 +222,7 @@
         <p class="eyebrow">BetRoyale Arena</p>
         <h1>Win Duels, Win Cash.</h1>
         <p class="subhead">
-          Real wagers on real friendlies. Load up free starter coins or gems, play
+          Real wagers on real friendlies. Load up free starter coins or balance, play
           the duel, and we pull the winner straight from Supercell's API data.
         </p>
         <div class="hero-actions">
@@ -239,7 +239,7 @@
           <article class="trust-card">
             <p class="trust-card-label">Stripe handles the money</p>
             <p class="trust-card-copy">
-              Buy gems with Stripe checkout, then cash out to your connected payout account.
+              Buy balance with Stripe checkout, then cash out to your connected payout account.
             </p>
           </article>
           <article class="trust-card">
@@ -270,7 +270,7 @@
           <p class="eyebrow">How payouts work</p>
           <h2 id="payouts-title">Money in. Duel. Money out.</h2>
           <p class="payout-explainer-subhead">
-            Buy gems with Stripe, play the friendly, then cash out through your
+            Buy balance with Stripe, play the friendly, then cash out through your
             connected payout account. No awkward Venmo DMs. No manual settlement.
           </p>
         </div>
@@ -278,7 +278,7 @@
           <article class="payout-step">
             <p class="payout-step-label">1. Deposit</p>
             <h3>Fund your wallet</h3>
-            <p>Run checkout through Stripe and your USD turns into gems inside BetRoyale.</p>
+            <p>Run checkout through Stripe and your USD turns into balance inside BetRoyale.</p>
           </article>
           <article class="payout-step">
             <p class="payout-step-label">2. Play</p>
@@ -288,7 +288,7 @@
           <article class="payout-step">
             <p class="payout-step-label">3. Cash out</p>
             <h3>Connect Stripe payouts</h3>
-            <p>Connect Stripe payouts once, then turn gems back into USD when you are ready.</p>
+            <p>Connect Stripe payouts once, then turn balance back into USD when you are ready.</p>
           </article>
         </div>
       </section>
@@ -390,7 +390,7 @@
           </div>
           <div class="auth-footer-item">
             <p class="auth-footer-label">Results pulled, not reported</p>
-            <p class="auth-footer-copy">We read the winner from Supercell's API data before coins or gems move.</p>
+            <p class="auth-footer-copy">We read the winner from Supercell's API data before coins or balance move.</p>
           </div>
           <div class="auth-footer-item">
             <p class="auth-footer-label">No ghost accounts</p>
@@ -422,7 +422,7 @@
           <article class="faq-item">
             <h3>How do deposits and payouts work?</h3>
             <p>
-              Stripe handles checkout when you buy gems, and Stripe payout
+              Stripe handles checkout when you buy balance, and Stripe payout
               onboarding sends cash outs back to your connected account.
             </p>
           </article>
@@ -519,9 +519,9 @@
                   <path d="M5 12h14"></path>
                 </svg>
               </span>
-              Gems
+              Balance
             </p>
-            <p id="stat-gems" class="stat-value">0</p>
+            <p id="stat-balance" class="stat-value">0</p>
           </div>
           <div class="stat-card stat-card--featured">
             <p class="stat-label">Wins</p>
@@ -710,17 +710,17 @@
           <div>
             <p class="eyebrow">Shop</p>
             <h2>Wallet</h2>
-            <p class="subhead">Deposit USD to buy gems, then cash out gems to USD.</p>
+            <p class="subhead">Deposit USD to buy balance, then cash out balance to USD.</p>
             <p class="shop-currency-info hint">
               <strong>Coins</strong> are free starter currency for practice wagers.
-              <strong>Gems</strong> are purchased with real USD and can be cashed out.
+              <strong>Balance</strong> are purchased with real USD and can be cashed out.
             </p>
           </div>
           <div class="shop-balance">
             <p class="shop-balance-label">Your Balance</p>
             <p class="shop-balance-value">
               <span id="shop-coins">0</span> coins ·
-              <span id="shop-gems">0</span> gems
+              <span id="shop-balance">0</span> balance
             </p>
           </div>
         </div>
@@ -741,16 +741,16 @@
               <p class="shop-preview-value"><span id="wallet-coins-won">0</span></p>
             </div>
             <div class="shop-preview">
-              <p class="shop-preview-label">Gems won</p>
-              <p class="shop-preview-value"><span id="wallet-gems-won">0</span></p>
+              <p class="shop-preview-label">Balance won</p>
+              <p class="shop-preview-value"><span id="wallet-balance-won">0</span></p>
             </div>
             <div class="shop-preview">
-              <p class="shop-preview-label">Gems cashed out</p>
-              <p class="shop-preview-value"><span id="wallet-gems-cashed-out">0</span></p>
+              <p class="shop-preview-label">Balance cashed out</p>
+              <p class="shop-preview-value"><span id="wallet-balance-cashed-out">0</span></p>
             </div>
             <div class="shop-preview">
               <p class="shop-preview-label">Fees paid</p>
-              <p class="shop-preview-value"><span id="wallet-fees-paid">0 coins · 0 gems</span></p>
+              <p class="shop-preview-value"><span id="wallet-fees-paid">0 coins · 0 balance</span></p>
               <p class="shop-preview-subtext">Your share of platform fees from settled matches.</p>
             </div>
             <div class="shop-preview">
@@ -766,7 +766,7 @@
         <div class="shop-grid">
           <section class="shop-section">
             <p class="label">Deposit</p>
-            <h3>Buy Gems</h3>
+            <h3>Buy Balance</h3>
             <div class="shop-purchase shop-deposit-desktop">
               <div class="field">
                 <label for="shop-amount">Amount (USD)</label>
@@ -780,7 +780,7 @@
                   inputmode="decimal"
                 />
                 <p class="field-hint">
-                  1¢ = 1 gem. $1.00 = 100 gems. Minimum deposit: $10.00.
+                  1¢ = 1 gem. $1.00 = 100 balance units. Minimum deposit: $10.00.
                 </p>
                 <div class="shop-shortcuts" role="group" aria-label="Quick amounts">
                   <button type="button" class="secondary shop-amount-chip" data-cents="1000">$10</button>
@@ -792,7 +792,7 @@
               <div class="shop-preview">
                 <p class="shop-preview-label">You get</p>
                 <p class="shop-preview-value">
-                  <span id="shop-gems-preview">0</span> gems
+                  <span id="shop-balance-preview">0</span> balance
                 </p>
               </div>
             </div>
@@ -801,7 +801,7 @@
                 <p class="shop-preview-label">Deposit amount</p>
                 <p class="shop-preview-value">$<span id="shop-mobile-amount">10.00</span></p>
                 <p class="shop-preview-subtext">
-                  You get <span id="shop-mobile-gems-preview">1000</span> gems
+                  You get <span id="shop-mobile-balance-preview">1000</span> balance
                 </p>
               </div>
               <button type="button" class="secondary" id="shop-open-keypad">
@@ -819,7 +819,7 @@
 
           <section class="shop-section">
             <p class="label">Cash Out</p>
-            <h3>Trade Gems for USD</h3>
+            <h3>Trade Balance for USD</h3>
             <div class="shop-purchase">
               <div class="field">
                 <label for="cashout-amount">Cash out amount (USD)</label>
@@ -839,7 +839,7 @@
               <div class="shop-preview">
                 <p class="shop-preview-label">You trade</p>
                 <p class="shop-preview-value">
-                  <span id="cashout-gems-preview">0</span> gems
+                  <span id="cashout-balance-preview">0</span> balance
                 </p>
                 <p class="shop-preview-subtext">
                   You receive: $<span id="cashout-usd-preview">0.00</span>
@@ -864,7 +864,7 @@
 
           <section class="shop-section">
             <p class="label">Exchange</p>
-            <h3>Trade Coins for Gems</h3>
+            <h3>Trade Coins for Balance</h3>
             <div class="shop-purchase">
               <div class="shop-preview">
                 <p class="shop-preview-label">You give</p>
@@ -873,13 +873,13 @@
               </div>
               <div class="shop-preview">
                 <p class="shop-preview-label">You receive</p>
-                <p class="shop-preview-value"><span id="exchange-gems">100</span> gems</p>
-                <p class="shop-preview-subtext">Gems can be cashed out after verification.</p>
+                <p class="shop-preview-value"><span id="exchange-balance">100</span> balance</p>
+                <p class="shop-preview-subtext">Balance can be cashed out after verification.</p>
               </div>
             </div>
             <div class="shop-actions">
               <button type="button" class="secondary" id="coin-gem-trade">
-                Trade <span id="exchange-cta-coins">1,000</span> coins for <span id="exchange-cta-gems">100</span> gems
+                Trade <span id="exchange-cta-coins">1,000</span> coins for <span id="exchange-cta-balance">100</span> balance
               </button>
             </div>
             <p id="coin-gem-message" class="shop-message"></p>
@@ -963,7 +963,7 @@
             <button
               type="button"
               class="secondary currency-button"
-              data-currency="gems"
+              data-currency="balance"
             >
               <span class="icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24">
@@ -971,7 +971,7 @@
                   <path d="M5 12h14"></path>
                 </svg>
               </span>
-              Gems
+              Balance
             </button>
           </div>
 
@@ -1116,7 +1116,7 @@
         <div class="leaderboards-header">
           <div>
             <p class="eyebrow">Leaderboards</p>
-            <h2>Top winners by coins or gems</h2>
+            <h2>Top winners by coins or balance</h2>
             <p class="leaderboards-subtitle">
               Weekly coin leaderboards and monthly gem leaderboards pay the top five players after each completed period.
             </p>
@@ -1127,7 +1127,7 @@
         <div class="leaderboard-controls">
           <div class="leaderboard-toggle" role="group" aria-label="Leaderboard currency">
             <button type="button" class="leaderboard-toggle-btn" data-leaderboard-currency="coins">Coins</button>
-            <button type="button" class="leaderboard-toggle-btn active" data-leaderboard-currency="gems">Gems</button>
+            <button type="button" class="leaderboard-toggle-btn active" data-leaderboard-currency="balance">Balance</button>
           </div>
           <div class="leaderboard-toggle" role="group" aria-label="Leaderboard time period">
             <button type="button" class="leaderboard-toggle-btn" data-leaderboard-period="week">Week</button>
@@ -1251,14 +1251,14 @@
           <p class="mobile-balance-label">Wallet</p>
           <p class="mobile-balance-value">
             <span id="mobile-wallet-coins">0</span> coins ·
-            <span id="mobile-wallet-gems">0</span> gems
+            <span id="mobile-wallet-balance">0</span> balance
           </p>
         </div>
         <div class="mobile-amount-display">
           <p class="mobile-amount-label">Amount</p>
           <p class="mobile-amount-value">$<span id="mobile-deposit-amount">10.00</span></p>
           <p class="mobile-amount-conversion">
-            You get <span id="mobile-deposit-gems">1000</span> gems
+            You get <span id="mobile-deposit-balance">1000</span> balance
           </p>
         </div>
         <div>
@@ -1332,7 +1332,7 @@
         <div class="wizard-step" id="ws-1">
           <p class="eyebrow">Eligibility</p>
           <h2 id="wizard-title" class="wizard-title">Welcome to BetRoyale</h2>
-          <p class="wizard-body">BetRoyale lets you start with free Coins first. You only need the full identity and tax flow later if you want to deposit USD, play with Gems, or cash out.</p>
+          <p class="wizard-body">BetRoyale lets you start with free Coins first. You only need the full identity and tax flow later if you want to deposit USD, play with Balance, or cash out.</p>
           <div class="field">
             <label for="w-state">Your State</label>
             <select id="w-state" name="w-state" aria-describedby="w-state-error">

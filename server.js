@@ -157,28 +157,32 @@ const WINNER_PCT = 0.9; // winner receives 90% of total pot; 10% is the house cu
 const REFERRAL_BONUS_CREDITS    = 1500;  // coins both users earn on a qualifying referral
 const REFERRAL_MIN_DEPOSIT_CENTS = 1500; // $15 minimum first deposit to trigger bonus
 const VERIFICATION_TTL_MS = 1000 * 60 * 30;
-const MIN_GEM_PURCHASE_CENTS = 1000;
-const MAX_GEM_PURCHASE_CENTS = 100000;
+const MIN_BALANCE_PURCHASE_CENTS = 1000;
+const MAX_BALANCE_PURCHASE_CENTS = 100000;
 const MIN_CASHOUT_CENTS = 1000;
 const MAX_CASHOUT_CENTS = 100000;
-const MAX_WAGER_GEMS   = 500;  // maximum per-match gem wager
-const MAX_WAGER_COINS  = 500;  // maximum per-match coin wager
+const MAX_WAGER_BALANCE = 500;  // maximum per-match balance wager
+const MAX_WAGER_COINS   = 500;  // maximum per-match coin wager
+const BALANCE_TO_USD_RATE = 0.01; // 1 balance unit = 1 cent (0.01 USD)
 const WEEKLY_DEPOSIT_WINDOW_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
 const LEADERBOARD_TOP5_PRIZES = [1500, 1250, 1000, 750, 500];
-const COIN_TO_GEM_COINS = Number.parseInt(
-  process.env.COIN_GEM_EXCHANGE_COINS || "1000",
+const COIN_TO_BALANCE_COINS = Number.parseInt(
+  process.env.COIN_BALANCE_EXCHANGE_COINS || "1000",
   10
 );
-const COIN_TO_GEM_GEMS = Number.parseInt(
-  process.env.COIN_GEM_EXCHANGE_GEMS || "100",
+const COIN_TO_BALANCE_BALANCE = Number.parseInt(
+  process.env.COIN_BALANCE_EXCHANGE_BALANCE || "100",
   10
 );
+// Deprecated: use COIN_TO_BALANCE_* constants instead
+const COIN_TO_GEM_COINS = COIN_TO_BALANCE_COINS;
+const COIN_TO_GEM_GEMS = COIN_TO_BALANCE_BALANCE;
 const DAILY_REWARD_SCHEDULE = [
   { day: 1, currency: "coins", amount: 50 },
   { day: 2, currency: "coins", amount: 100 },
   { day: 3, currency: "coins", amount: 150 },
   { day: 4, currency: "coins", amount: 250 },
-  { day: 5, currency: "gems", amount: 50 },
+  { day: 5, currency: "balance", amount: 50 },
 ];
 const SESSION_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 7;
 const waitingQueue = [];
@@ -219,6 +223,7 @@ async function ensureDatabaseSchema() {
       tag TEXT,
       friend_link TEXT,
       credits INTEGER,
+      balance INTEGER,
       gems INTEGER,
       stats JSONB,
       active_match_id TEXT,
@@ -283,6 +288,14 @@ async function ensureDatabaseSchema() {
     ALTER TABLE users
     ADD COLUMN IF NOT EXISTS daily_reward_last_claim_at BIGINT
   `);
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS balance INTEGER
+  `);
+  // Migrate gems to balance if balance is NULL
+  await pool.query(`
+    UPDATE users SET balance = COALESCE(gems, 0) WHERE balance IS NULL
+  `);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS recorded_matches (
@@ -314,9 +327,18 @@ async function ensureDatabaseSchema() {
       session_id TEXT PRIMARY KEY,
       user_id TEXT,
       amount_cents INTEGER,
+      balance INTEGER,
       gems INTEGER,
       created_at BIGINT
     )
+  `);
+  await pool.query(`
+    ALTER TABLE purchases
+    ADD COLUMN IF NOT EXISTS balance INTEGER
+  `);
+  // Migrate gems to balance if balance is NULL
+  await pool.query(`
+    UPDATE purchases SET balance = COALESCE(gems, 0) WHERE balance IS NULL
   `);
 
   await pool.query(`
@@ -325,6 +347,7 @@ async function ensureDatabaseSchema() {
       user_id TEXT NOT NULL,
       stripe_transfer_id TEXT,
       stripe_account_id TEXT,
+      balance INTEGER NOT NULL,
       gems INTEGER NOT NULL,
       amount_cents INTEGER NOT NULL,
       status TEXT NOT NULL,
@@ -332,6 +355,14 @@ async function ensureDatabaseSchema() {
       created_at BIGINT,
       updated_at BIGINT
     )
+  `);
+  await pool.query(`
+    ALTER TABLE cashouts
+    ADD COLUMN IF NOT EXISTS balance INTEGER
+  `);
+  // Migrate gems to balance if balance is NULL
+  await pool.query(`
+    UPDATE cashouts SET balance = COALESCE(gems, 0) WHERE balance IS NULL
   `);
 
   await pool.query(`
@@ -434,22 +465,22 @@ app.post(
       if (session.payment_status === "paid") {
         const sessionId = session.id;
         const userId = session.metadata?.userId;
-        const gems = Number(session.metadata?.gems) || 0;
+        const balance = Number(session.metadata?.balance) || 0;
         const amountCents = Number(session.amount_total) || 0;
 
-        if (userId && gems > 0) {
+        if (userId && balance > 0) {
           const wasRecorded = await recordPurchase(
             sessionId,
             userId,
             amountCents,
-            gems
+            balance
           );
           if (!wasRecorded) {
             return res.json({ received: true });
           }
           const user = findUserById(userId);
           if (user) {
-            user.gems = Math.max(0, (user.gems || 0) + gems);
+            user.balance = Math.max(0, (user.balance || 0) + balance);
             user.updatedAt = Date.now();
 
             // Referral bonus: first deposit ≥ $15 by a referred user
@@ -563,7 +594,7 @@ async function loadStore() {
           friendLink: row.friend_link || "",
           credits:
             typeof row.credits === "number" ? row.credits : STARTING_CREDITS,
-          gems: typeof row.gems === "number" ? row.gems : 0,
+          gems: typeof row.balance === "number" ? row.balance : 0,
           stats: parseJsonValue(row.stats, null),
           activeMatchId: row.active_match_id,
           activeMatchUntil: row.active_match_until,
@@ -657,7 +688,7 @@ async function loadStore() {
           userId: row.user_id,
           stripeTransferId: row.stripe_transfer_id,
           stripeAccountId: row.stripe_account_id,
-          gems: row.gems,
+          gems: row.balance,
           amountCents: row.amount_cents,
           status: row.status,
           error: row.error,
@@ -857,7 +888,7 @@ function saveStore() {
             user.tag || "",
             user.friendLink || "",
             Number.isFinite(user.credits) ? user.credits : STARTING_CREDITS,
-            Number.isFinite(user.gems) ? user.gems : 0,
+            Number.isFinite(user.balance) ? user.balance : 0,
             user.stats || {},
             user.activeMatchId || null,
             user.activeMatchUntil || null,
@@ -985,17 +1016,17 @@ function saveStore() {
   return writeChain;
 }
 
-async function recordPurchase(sessionId, userId, amountCents, gems) {
+async function recordPurchase(sessionId, userId, amountCents, balance) {
   if (!sessionId) return false;
   if (pool) {
     try {
       const result = await pool.query(
         `
-        INSERT INTO purchases (session_id, user_id, amount_cents, gems, created_at)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO purchases (session_id, user_id, amount_cents, balance, gems, created_at)
+        VALUES ($1, $2, $3, $4, $4, $5)
         ON CONFLICT (session_id) DO NOTHING
         `,
-        [sessionId, userId || null, amountCents || 0, gems || 0, Date.now()]
+        [sessionId, userId || null, amountCents || 0, balance || 0, Date.now()]
       );
       return result.rowCount > 0;
     } catch (err) {
@@ -1011,7 +1042,8 @@ async function recordPurchase(sessionId, userId, amountCents, gems) {
     sessionId,
     userId,
     amountCents,
-    gems,
+    balance,
+    gems: balance, // For backwards compatibility
     createdAt: Date.now(),
   };
   await saveStore();
@@ -1029,6 +1061,7 @@ async function recordCashout(cashout) {
           user_id,
           stripe_transfer_id,
           stripe_account_id,
+          balance,
           gems,
           amount_cents,
           status,
@@ -1036,10 +1069,11 @@ async function recordCashout(cashout) {
           created_at,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        VALUES ($1, $2, $3, $4, $5, $5, $6, $7, $8, $9, $10)
         ON CONFLICT (id) DO UPDATE SET
           stripe_transfer_id = EXCLUDED.stripe_transfer_id,
           stripe_account_id = EXCLUDED.stripe_account_id,
+          balance = EXCLUDED.balance,
           gems = EXCLUDED.gems,
           amount_cents = EXCLUDED.amount_cents,
           status = EXCLUDED.status,
@@ -1051,7 +1085,7 @@ async function recordCashout(cashout) {
           cashout.userId,
           cashout.stripeTransferId || null,
           cashout.stripeAccountId || null,
-          Number.isFinite(cashout.gems) ? cashout.gems : 0,
+          Number.isFinite(cashout.balance) ? cashout.balance : 0,
           Number.isFinite(cashout.amountCents) ? cashout.amountCents : 0,
           cashout.status || "pending",
           cashout.error || null,
@@ -1092,7 +1126,7 @@ async function listCashoutsForUser(userId, limit = 10) {
         userId: row.user_id,
         stripeTransferId: row.stripe_transfer_id,
         stripeAccountId: row.stripe_account_id,
-        gems: row.gems,
+        gems: row.balance,
         amountCents: row.amount_cents,
         status: row.status,
         error: row.error,
@@ -1341,8 +1375,8 @@ function ensureUserDefaults(user) {
     user.credits = STARTING_CREDITS;
     changed = true;
   }
-  if (typeof user.gems !== "number" || !Number.isFinite(user.gems)) {
-    user.gems = 0;
+  if (typeof user.balance !== "number" || !Number.isFinite(user.balance)) {
+    user.balance = 0;
     changed = true;
   }
   if (!("activeMatchId" in user)) {
@@ -1491,7 +1525,8 @@ function publicUser(user) {
     friendLink: user.friendLink,
     credits: user.credits,
     coins: user.credits,
-    gems: user.gems,
+    balance: user.balance,
+    gems: user.balance, // Deprecated, use balance
     stats: user.stats,
     playerProfile: user.playerProfile,
     isVerified: user.isVerified,
@@ -1510,7 +1545,7 @@ function publicUser(user) {
   };
 }
 
-async function addGemsToUser({ username, email, amount }) {
+async function addBalanceToUser({ username, email, amount }) {
   const cleanUsername = String(username || "").trim();
   const cleanEmail = normalizeEmail(email || "");
   const delta = Number(amount);
@@ -1525,9 +1560,9 @@ async function addGemsToUser({ username, email, amount }) {
     const updateResult = await pool.query(
       `
       UPDATE users
-      SET gems = COALESCE(gems, 0) + $1, updated_at = $2
+      SET balance = COALESCE(balance, 0) + $1, gems = COALESCE(gems, 0) + $1, updated_at = $2
       WHERE ($3 <> '' AND username = $3) OR ($4 <> '' AND email = $4)
-      RETURNING id, username, email, gems
+      RETURNING id, username, email, balance, gems
       `,
       [delta, Date.now(), cleanUsername, cleanEmail]
     );
@@ -1535,7 +1570,8 @@ async function addGemsToUser({ username, email, amount }) {
     if (!row) return null;
     const localUser = store.users.find((u) => u.id === row.id);
     if (localUser) {
-      localUser.gems = row.gems;
+      localUser.balance = row.balance;
+      localUser.balance = row.balance;
       localUser.updatedAt = Date.now();
     }
     return row;
@@ -1547,10 +1583,11 @@ async function addGemsToUser({ username, email, amount }) {
     return false;
   });
   if (!user) return null;
-  user.gems = Math.max(0, (user.gems || 0) + delta);
+  user.balance = Math.max(0, (user.balance || 0) + delta);
+  user.balance = Math.max(0, (user.balance || 0) + delta);
   user.updatedAt = Date.now();
   await saveStore();
-  return { id: user.id, username: user.username, email: user.email, gems: user.gems };
+  return { id: user.id, username: user.username, email: user.email, balance: user.balance, gems: user.balance };
 }
 
 function requireAuth(req, res) {
@@ -2550,7 +2587,7 @@ function getWeekWindowFromKey(weekKey) {
 }
 
 function getPrizeSchedule(currency) {
-  const rewardCurrency = currency === "gems" ? "gems" : "coins";
+  const rewardCurrency = currency === "balance" ? "gems" : "coins";
   return LEADERBOARD_TOP5_PRIZES.map((amount, index) => ({
     rank: index + 1,
     amount,
@@ -2689,7 +2726,7 @@ function getUserWalletSummary(user) {
     (sum, cashout) => sum + Math.max(0, Number(cashout.gems) || 0),
     0
   );
-  const cashableGems = Math.max(0, Number(user.gems) || 0);
+  const cashableGems = Math.max(0, Number(user.balance) || 0);
 
   return {
     coinsWon: Math.floor(coinsWon),
@@ -2704,7 +2741,7 @@ function getUserWalletSummary(user) {
 }
 
 function buildLeaderboardEntries(currency = "coins", period = "month", options = {}) {
-  const normalizedCurrency = currency === "gems" ? "gems" : "coins";
+  const normalizedCurrency = currency === "balance" ? "gems" : "coins";
   const window = options.window || getPeriodWindow(period);
   const totals = new Map();
 
@@ -2901,7 +2938,7 @@ function getPendingLeaderboardRewardsForUser(user) {
 }
 
 function buildQueueInsights(entries, requestedCurrency, requestedWager) {
-  const normalizedCurrency = requestedCurrency === "gems" ? "gems" : "coins";
+  const normalizedCurrency = requestedCurrency === "balance" ? "balance" : "coins";
   const safeWager = Math.max(0, Math.floor(Number(requestedWager) || 0));
   const competingEntries = entries.filter((entry) => !entry.isYou);
   const sameCurrencyEntries = competingEntries.filter(
@@ -2948,7 +2985,7 @@ function buildQueueInsights(entries, requestedCurrency, requestedWager) {
     tip = `Try ${suggestedWager} ${normalizedCurrency} for a faster match.`;
   } else if (sameCurrencyEntries.length > 0) {
     tip = `${sameCurrencyEntries.length} player${sameCurrencyEntries.length === 1 ? "" : "s"} already waiting in ${normalizedCurrency}.`;
-  } else if (normalizedCurrency === "gems") {
+  } else if (normalizedCurrency === "balance") {
     tip = "Coin queues usually fill faster than gem queues.";
   }
 
@@ -3293,13 +3330,13 @@ app.post("/api/shop/checkout", async (req, res) => {
     return res.status(400).json({ error: "Enter a valid USD amount." });
   }
   if (
-    amountCents < MIN_GEM_PURCHASE_CENTS ||
-    amountCents > MAX_GEM_PURCHASE_CENTS
+    amountCents < MIN_BALANCE_PURCHASE_CENTS ||
+    amountCents > MAX_BALANCE_PURCHASE_CENTS
   ) {
     return res.status(400).json({
       error: `Amount must be between $${(
-        MIN_GEM_PURCHASE_CENTS / 100
-      ).toFixed(2)} and $${(MAX_GEM_PURCHASE_CENTS / 100).toFixed(2)}.`,
+        MIN_BALANCE_PURCHASE_CENTS / 100
+      ).toFixed(2)} and $${(MAX_BALANCE_PURCHASE_CENTS / 100).toFixed(2)}.`,
     });
   }
 
@@ -3317,7 +3354,7 @@ app.post("/api/shop/checkout", async (req, res) => {
     }
   }
 
-  const gems = amountCents;
+  const balance = amountCents;
   const idempotencyKey = `checkout:${user.id}:${amountCents}:${Math.floor(
     Date.now() / 30000
   )}`;
@@ -3329,7 +3366,8 @@ app.post("/api/shop/checkout", async (req, res) => {
         customer_email: user.email,
         metadata: {
           userId: user.id,
-          gems: String(gems),
+          balance: String(balance),
+          gems: String(balance), // Deprecated, use balance
         },
         line_items: [
           {
@@ -3338,8 +3376,8 @@ app.post("/api/shop/checkout", async (req, res) => {
               currency: "usd",
               unit_amount: amountCents,
               product_data: {
-                name: `${gems} Gems`,
-                description: "BetRoyale gem purchase",
+                name: `${balance} Balance Units`,
+                description: "BetRoyale balance purchase",
               },
             },
           },
@@ -3391,12 +3429,12 @@ app.post("/api/shop/confirm", async (req, res) => {
     }
 
     const amountCents = Number(checkoutSession.amount_total) || 0;
-    const gems = Number(checkoutSession.metadata?.gems) || amountCents;
-    if (!Number.isFinite(gems) || gems <= 0) {
-      return res.status(400).json({ error: "This checkout session has no gem amount." });
+    const balance = Number(checkoutSession.metadata?.balance || checkoutSession.metadata?.gems) || amountCents;
+    if (!Number.isFinite(balance) || balance <= 0) {
+      return res.status(400).json({ error: "This checkout session has no balance amount." });
     }
 
-    const inserted = await recordPurchase(sessionId, user.id, amountCents, gems);
+    const inserted = await recordPurchase(sessionId, user.id, amountCents, balance);
     if (!inserted) {
       return res.json({
         ok: true,
@@ -3406,7 +3444,7 @@ app.post("/api/shop/confirm", async (req, res) => {
       });
     }
 
-    user.gems = Math.max(0, (user.gems || 0) + gems);
+    user.balance = Math.max(0, (user.balance || 0) + gems);
     user.updatedAt = Date.now();
 
     // Referral bonus: first deposit ≥ $15 by a referred user
@@ -3430,7 +3468,7 @@ app.post("/api/shop/confirm", async (req, res) => {
       ok: true,
       credited: true,
       user: publicUser(user),
-      message: `${gems} gems were added to your account.`,
+      message: `${balance} balance units were added to your account.`,
     });
   } catch (err) {
     return res.status(400).json({
@@ -3451,26 +3489,26 @@ app.post("/api/shop/exchange", async (req, res) => {
   if (!user) return;
 
   const rateCoins =
-    Number.isFinite(COIN_TO_GEM_COINS) && COIN_TO_GEM_COINS > 0 ? COIN_TO_GEM_COINS : 1000;
-  const rateGems =
-    Number.isFinite(COIN_TO_GEM_GEMS) && COIN_TO_GEM_GEMS > 0 ? COIN_TO_GEM_GEMS : 100;
+    Number.isFinite(COIN_TO_BALANCE_COINS) && COIN_TO_BALANCE_COINS > 0 ? COIN_TO_BALANCE_COINS : 1000;
+  const rateBalance =
+    Number.isFinite(COIN_TO_BALANCE_BALANCE) && COIN_TO_BALANCE_BALANCE > 0 ? COIN_TO_BALANCE_BALANCE : 100;
 
   const coins = Number(user.credits) || 0;
   if (coins < rateCoins) {
     return res.status(400).json({
-      error: `You need at least ${rateCoins} coins to trade for gems.`,
+      error: `You need at least ${rateCoins} coins to trade for balance.`,
     });
   }
 
   user.credits = Math.max(0, coins - rateCoins);
-  user.gems = Math.max(0, (user.gems || 0) + rateGems);
+  user.balance = Math.max(0, (user.balance || 0) + rateBalance);
   user.updatedAt = Date.now();
   await saveStore();
 
   return res.json({
     ok: true,
     user: publicUser(user),
-    message: `Traded ${rateCoins} coins for ${rateGems} gems.`,
+    message: `Traded ${rateCoins} coins for ${rateBalance} balance units.`,
   });
 });
 
@@ -3491,8 +3529,8 @@ app.post("/api/shop/daily-rewards/claim", async (req, res) => {
     return res.status(500).json({ error: "Daily reward schedule unavailable." });
   }
 
-  if (reward.currency === "gems") {
-    user.gems = Math.max(0, (user.gems || 0) + reward.amount);
+  if (reward.currency === "balance") {
+    user.balance = Math.max(0, (user.balance || 0) + reward.amount);
   } else {
     user.credits = Math.max(0, (user.credits || 0) + reward.amount);
   }
@@ -3513,6 +3551,24 @@ app.post("/api/shop/daily-rewards/claim", async (req, res) => {
   });
 });
 
+app.post("/api/admin/balance", async (req, res) => {
+  const secret = String(req.headers["x-admin-secret"] || "");
+  if (!ADMIN_SECRET || secret !== ADMIN_SECRET) {
+    return res.status(403).json({ error: "Forbidden." });
+  }
+  try {
+    const { username, email, amount } = req.body || {};
+    const updated = await addBalanceToUser({ username, email, amount });
+    if (!updated) {
+      return res.status(404).json({ error: "User not found." });
+    }
+    return res.json({ ok: true, user: updated });
+  } catch (err) {
+    return res.status(400).json({ error: err.message || "Unable to update balance." });
+  }
+});
+
+// Deprecated alias for backwards compatibility
 app.post("/api/admin/gems", async (req, res) => {
   const secret = String(req.headers["x-admin-secret"] || "");
   if (!ADMIN_SECRET || secret !== ADMIN_SECRET) {
@@ -3520,13 +3576,13 @@ app.post("/api/admin/gems", async (req, res) => {
   }
   try {
     const { username, email, amount } = req.body || {};
-    const updated = await addGemsToUser({ username, email, amount });
+    const updated = await addBalanceToUser({ username, email, amount });
     if (!updated) {
       return res.status(404).json({ error: "User not found." });
     }
     return res.json({ ok: true, user: updated });
   } catch (err) {
-    return res.status(400).json({ error: err.message || "Unable to update gems." });
+    return res.status(400).json({ error: err.message || "Unable to update balance." });
   }
 });
 
@@ -3642,10 +3698,10 @@ app.post("/api/shop/cashout", async (req, res) => {
     });
   }
 
-  const gemsRequired = amountCents;
-  if ((user.gems || 0) < gemsRequired) {
+  const balanceRequired = amountCents;
+  if ((user.balance || 0) < balanceRequired) {
     return res.status(400).json({
-      error: "Not enough gems for that cash out amount.",
+      error: "Not enough balance for that cash out amount.",
     });
   }
   if (!user.stripeConnectAccountId) {
@@ -3670,16 +3726,17 @@ app.post("/api/shop/cashout", async (req, res) => {
         amount: amountCents,
         currency: "usd",
         destination: user.stripeConnectAccountId,
-        description: `BetRoyale cash out (${gemsRequired} gems)`,
+        description: `BetRoyale cash out (${balanceRequired} balance units)`,
         metadata: {
           userId: user.id,
-          gems: String(gemsRequired),
+          balance: String(balanceRequired),
+          gems: String(balanceRequired), // Deprecated, use balance
         },
       },
       { idempotencyKey }
     );
 
-    user.gems = Math.max(0, (user.gems || 0) - gemsRequired);
+    user.balance = Math.max(0, (user.balance || 0) - balanceRequired);
     user.updatedAt = Date.now();
     await saveStore();
 
@@ -3689,7 +3746,8 @@ app.post("/api/shop/cashout", async (req, res) => {
       userId: user.id,
       stripeTransferId: transfer.id,
       stripeAccountId: user.stripeConnectAccountId,
-      gems: gemsRequired,
+      balance: balanceRequired,
+      gems: balanceRequired, // Deprecated, use balance
       amountCents,
       status: "sent",
       error: null,
@@ -3768,7 +3826,7 @@ app.get("/api/leaderboards", async (req, res) => {
   const user = requireAuth(req, res);
   if (!user) return;
 
-  const currency = req.query.currency === "gems" ? "gems" : "coins";
+  const currency = req.query.currency === "balance" ? "gems" : "coins";
   const requestedPeriod = String(req.query.period || "month").trim().toLowerCase();
   const period = ["week", "month", "year", "all"].includes(requestedPeriod)
     ? requestedPeriod
@@ -3779,7 +3837,7 @@ app.get("/api/leaderboards", async (req, res) => {
   const window = getPeriodWindow(period);
   const entries = buildLeaderboardEntries(currency, period, { window }).slice(0, 25);
   const prizeSchedule =
-    (period === "month" && currency === "gems") ||
+    (period === "month" && currency === "balance") ||
     (period === "week" && currency === "coins")
       ? getPrizeSchedule(currency)
       : [];
@@ -3815,8 +3873,8 @@ app.post("/api/leaderboards/claim", async (req, res) => {
     );
     if (!winner || winner.claimedAt) return;
 
-    if (winner.currency === "gems") {
-      user.gems = Math.max(0, (user.gems || 0) + Number(winner.amount || 0));
+    if (winner.currency === "balance") {
+      user.balance = Math.max(0, (user.balance || 0) + Number(winner.amount || 0));
     } else {
       user.credits = Math.max(0, (user.credits || 0) + Number(winner.amount || 0));
     }
@@ -3889,11 +3947,11 @@ app.post("/api/queue/join", (req, res) => {
   if (!currency) {
     return res.status(400).json({ error: "Choose coins or gems to wager." });
   }
-  const maxWager = currency === "gems" ? MAX_WAGER_GEMS : MAX_WAGER_COINS;
+  const maxWager = currency === "balance" ? MAX_WAGER_BALANCE : MAX_WAGER_COINS;
   if (wager > maxWager) {
     return res.status(400).json({ error: `Maximum wager is ${maxWager} ${currency} per match.` });
   }
-  const balance = currency === "gems" ? user.gems : user.credits;
+  const balance = currency === "balance" ? user.balance : user.credits;
   if (wager > balance) {
     return res
       .status(400)
@@ -3976,7 +4034,7 @@ app.post("/api/queue/accept", async (req, res) => {
 
   const targetWager = Math.max(0, Math.floor(targetTicket.wager || 0));
   const targetCurrency = targetTicket.currency || "coins";
-  const balance = targetCurrency === "gems" ? user.gems : user.credits;
+  const balance = targetCurrency === "gems" ? user.balance : user.credits;
   if (targetWager > balance) {
     return res
       .status(400)
@@ -4053,7 +4111,7 @@ app.get("/api/queue/list", (req, res) => {
 
   const user = requireAuth(req, res);
   if (!user) return;
-  const requestedCurrency = req.query.currency === "gems" ? "gems" : "coins";
+  const requestedCurrency = req.query.currency === "balance" ? "gems" : "coins";
   const requestedWager = Math.max(0, Math.floor(Number(req.query.wager) || 0));
 
   const entries = [];
@@ -4229,8 +4287,8 @@ app.get("/api/matches/:matchId/track", async (req, res) => {
           const payout  = Math.floor(pot * WINNER_PCT);
           const net     = payout - wWager; // winner already holds their own stake
           if (wCurrency === "gems") {
-            winner.gems   = Math.max(0, (winner.gems   || 0) + net);
-            loser.gems    = Math.max(0, (loser.gems    || 0) - lWager);
+            winner.balance   = Math.max(0, (winner.balance   || 0) + net);
+            loser.balance    = Math.max(0, (loser.balance    || 0) - lWager);
           } else {
             winner.credits = Math.max(0, (winner.credits || 0) + net);
             loser.credits  = Math.max(0, (loser.credits  || 0) - lWager);
@@ -4239,8 +4297,8 @@ app.get("/api/matches/:matchId/track", async (req, res) => {
           // Mixed currencies: 95% of loser's wager goes to winner (in loser's currency)
           const loserPays = Math.floor(lWager * WINNER_PCT);
           if (lCurrency === "gems") {
-            winner.gems  = Math.max(0, (winner.gems  || 0) + loserPays);
-            loser.gems   = Math.max(0, (loser.gems   || 0) - lWager);
+            winner.balance  = Math.max(0, (winner.balance  || 0) + loserPays);
+            loser.balance   = Math.max(0, (loser.balance   || 0) - lWager);
           } else {
             winner.credits = Math.max(0, (winner.credits || 0) + loserPays);
             loser.credits  = Math.max(0, (loser.credits  || 0) - lWager);

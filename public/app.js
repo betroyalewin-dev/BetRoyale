@@ -38,28 +38,28 @@ const verifyDisplay = document.getElementById("verify-display");
 
 const statMatches = document.getElementById("stat-matches");
 const statCoins = document.getElementById("stat-coins");
-const statGems = document.getElementById("stat-gems");
+const statBalance = document.getElementById("stat-balance");
 const statWins = document.getElementById("stat-wins");
 const statLosses = document.getElementById("stat-losses");
 const statDraws = document.getElementById("stat-draws");
 const balanceCoins = document.getElementById("balance-coins");
-const balanceGems = document.getElementById("balance-gems");
+const balanceBalance = document.getElementById("balance-balance");
 const shopMessageEl = document.getElementById("shop-message");
 const shopCoinsEl = document.getElementById("shop-coins");
-const shopGemsEl = document.getElementById("shop-gems");
+const shopBalanceEl = document.getElementById("shop-balance");
 const shopAmountInput = document.getElementById("shop-amount");
 const shopCheckoutBtn = document.getElementById("shop-checkout");
-const shopGemsPreview = document.getElementById("shop-gems-preview");
+const shopBalancePreview = document.getElementById("shop-balance-preview");
 const shopAmountChips = Array.from(document.querySelectorAll(".shop-amount-chip"));
 const shopMobileAmount = document.getElementById("shop-mobile-amount");
-const shopMobileGemsPreview = document.getElementById("shop-mobile-gems-preview");
+const shopMobileBalancePreview = document.getElementById("shop-mobile-balance-preview");
 const shopOpenKeypadBtn = document.getElementById("shop-open-keypad");
 const coinGemTradeBtn = document.getElementById("coin-gem-trade");
 const coinGemMessageEl = document.getElementById("coin-gem-message");
 const exchangeCoinsEl = document.getElementById("exchange-coins");
-const exchangeGemsEl = document.getElementById("exchange-gems");
+const exchangeBalanceEl = document.getElementById("exchange-balance");
 const exchangeCtaCoinsEl = document.getElementById("exchange-cta-coins");
-const exchangeCtaGemsEl = document.getElementById("exchange-cta-gems");
+const exchangeCtaBalanceEl = document.getElementById("exchange-cta-balance");
 const dailyRewardsTrackEl = document.getElementById("daily-rewards-track");
 const dailyRewardStreakEl = document.getElementById("daily-reward-streak");
 const dailyRewardStatusEl = document.getElementById("daily-reward-status");
@@ -68,8 +68,8 @@ const dailyRewardNextSubtextEl = document.getElementById("daily-reward-next-subt
 const dailyRewardClaimBtn = document.getElementById("daily-reward-claim");
 const dailyRewardMessageEl = document.getElementById("daily-reward-message");
 const walletCoinsWonEl = document.getElementById("wallet-coins-won");
-const walletGemsWonEl = document.getElementById("wallet-gems-won");
-const walletGemsCashedOutEl = document.getElementById("wallet-gems-cashed-out");
+const walletBalanceWonEl = document.getElementById("wallet-balance-won");
+const walletBalanceCashedOutEl = document.getElementById("wallet-balance-cashed-out");
 const walletFeesPaidEl = document.getElementById("wallet-fees-paid");
 const walletCashableEl = document.getElementById("wallet-cashable");
 const walletCashableSubtextEl = document.getElementById("wallet-cashable-subtext");
@@ -77,9 +77,9 @@ const walletAlertEl = document.getElementById("wallet-alert");
 const mobileDepositSheet = document.getElementById("mobile-deposit-sheet");
 const mobileDepositCloseBtn = document.getElementById("mobile-deposit-close");
 const mobileDepositAmountEl = document.getElementById("mobile-deposit-amount");
-const mobileDepositGemsEl = document.getElementById("mobile-deposit-gems");
+const mobileDepositBalanceEl = document.getElementById("mobile-deposit-balance");
 const mobileWalletCoinsEl = document.getElementById("mobile-wallet-coins");
-const mobileWalletGemsEl = document.getElementById("mobile-wallet-gems");
+const mobileWalletBalanceEl = document.getElementById("mobile-wallet-balance");
 const mobileDepositPayBtn = document.getElementById("mobile-deposit-pay");
 const mobileKeypadMessageEl = document.getElementById("mobile-keypad-message");
 const mobileKeypadKeys = Array.from(document.querySelectorAll(".keypad-key"));
@@ -97,21 +97,25 @@ const onboardingBackBtn = document.getElementById("onboarding-back");
 const onboardingNextBtn = document.getElementById("onboarding-next");
 const onboardingSkipBtn = document.getElementById("onboarding-skip");
 const cashoutAmountInput = document.getElementById("cashout-amount");
-const cashoutGemsPreview = document.getElementById("cashout-gems-preview");
+const cashoutBalancePreview = document.getElementById("cashout-balance-preview");
 const cashoutUsdPreview = document.getElementById("cashout-usd-preview");
 const cashoutStatusEl = document.getElementById("cashout-status");
 const cashoutMessageEl = document.getElementById("cashout-message");
 const cashoutConnectBtn = document.getElementById("cashout-connect");
 const cashoutSubmitBtn = document.getElementById("cashout-submit");
 const cashoutHistoryEl = document.getElementById("cashout-history");
-let COIN_TO_GEM_COINS = 1000;
-let COIN_TO_GEM_GEMS = 100;
+let COIN_TO_BALANCE_COINS = 1000;
+let COIN_TO_BALANCE_BALANCE = 100;
+// Deprecated constants for backwards compatibility
+let COIN_TO_GEM_COINS = COIN_TO_BALANCE_COINS;
+let COIN_TO_GEM_GEMS = COIN_TO_BALANCE_BALANCE;
+const BALANCE_TO_USD_RATE = 0.01; // 1 balance unit = 1 cent (0.01 USD)
 const DAILY_REWARD_SCHEDULE = [
   { day: 1, currency: "coins", amount: 50 },
   { day: 2, currency: "coins", amount: 100 },
   { day: 3, currency: "coins", amount: 150 },
   { day: 4, currency: "coins", amount: 250 },
-  { day: 5, currency: "gems", amount: 50 },
+  { day: 5, currency: "balance", amount: 50 },
 ];
 const joinQueueBtn = document.getElementById("join-queue");
 const wagerInput = document.getElementById("wager-amount");
@@ -204,13 +208,13 @@ let selectedCurrency = "coins";
 const MIN_SHOP_CENTS = 1000;
 const MIN_CASHOUT_CENTS = 1000;
 const MAX_CASHOUT_CENTS = 100000;
-const MAX_WAGER_GEMS  = 500;
+const MAX_WAGER_BALANCE  = 500;
 const MAX_WAGER_COINS = 500;
 let cashoutReady = false;
 let mobileDepositValue = (MIN_SHOP_CENTS / 100).toFixed(2);
 let onboardingStepIndex = 0;
 let onboardingUserId = null;
-let leaderboardCurrency = "gems";
+let leaderboardCurrency = "balance";
 let leaderboardPeriod = "month";
 
 const ONBOARDING_STEPS = [
@@ -223,7 +227,7 @@ const ONBOARDING_STEPS = [
     body: "Go to Profile and enter your Clash Royale player tag and friend link. Opponents need your friend link to send you a friendly battle.",
   },
   {
-    title: "Deposit money for gems",
+    title: "Deposit money for balance",
     body: "Head to the Shop and deposit USD. Every cent becomes one gem you can wager in real matches.",
   },
   {
@@ -232,7 +236,7 @@ const ONBOARDING_STEPS = [
   },
   {
     title: "Cash out your winnings",
-    body: "Back in the Shop, convert your gems to USD and cash out through your connected Stripe payout account.",
+    body: "Back in the Shop, convert your balance to USD and cash out through your connected Stripe payout account.",
   },
 ];
 
@@ -379,12 +383,12 @@ const LEGAL_CONTENT = {
     sections: [
       { heading: "1. Eligibility", body: "You must be at least 18 years of age and physically located in a state or jurisdiction where skill-based wagering is lawful to use BetRoyale. By creating an account and providing your date of birth you represent and warrant that you meet these requirements. BetRoyale currently blocks registrations from AZ, AR, HI, ID, IL, IA, LA, MT, ND, NV, NY, PA, TN, TX, and WA." },
       { heading: "2. Skill-Based Wagering", body: "BetRoyale facilitates wagers on the outcome of Clash Royale friendly duels between consenting players. Outcomes are determined solely by player skill and are verified through the official Clash Royale API battle log. BetRoyale does not participate in or influence match outcomes. The platform charges a 10% fee on each wagered pot (winner receives 90% of the combined pot)." },
-      { heading: "3. Coins & Gems", body: "Coins are free starter currency with no monetary value; they cannot be cashed out. Gems are purchased with real USD at a rate of 1¢ = 1 gem and may be withdrawn subject to identity verification and these Terms. Minimum deposit: $10.00. Maximum deposit: $1,000.00 per transaction." },
+      { heading: "3. Coins & Balance", body: "Coins are free starter currency with no monetary value; they cannot be cashed out. Balance are purchased with real USD at a rate of 1¢ = 1 gem and may be withdrawn subject to identity verification and these Terms. Minimum deposit: $10.00. Maximum deposit: $1,000.00 per transaction." },
       { heading: "4. Deposits, Fees & Cash Outs", body: "Deposits are processed by Stripe and are subject to Stripe's terms and fees. BetRoyale charges a 10% fee on wager pots only — there are no fees on deposits or cash outs. Cash outs require completion of Stripe identity verification and may take 1–3 business days for Stripe to approve your account, then 1–2 additional business days for the transfer to arrive. BetRoyale reserves the right to delay or deny cash outs pending fraud review or legal compliance." },
       { heading: "5. Prohibited Conduct", body: "The following are strictly prohibited and will result in immediate account suspension and forfeiture of account balance: (a) collusion or match-fixing between players; (b) use of bots, macros, or automation tools; (c) multi-accounting (operating more than one account); (d) initiating fraudulent chargebacks; (e) exploiting platform bugs for financial gain; (f) providing false identity information; (g) allowing minors to access your account." },
       { heading: "6. Dispute Resolution", body: "If you believe a match result was recorded incorrectly, contact support@betroyale.win within 72 hours of the match with your match ID and a description of the issue. BetRoyale will review the Clash Royale API battle log and respond within 5 business days. By agreeing to these Terms you consent to binding arbitration for any unresolved disputes and waive your right to participate in a class action lawsuit against BetRoyale." },
       { heading: "7. Responsible Gaming & Self-Exclusion", body: "BetRoyale provides deposit limits and a self-exclusion tool accessible from your account settings. Self-exclusion is effective immediately and remains in place for a minimum of 30 days; reinstatement requires written request to support@betroyale.win and a 30-day cooling-off period. For help with problem gambling, contact the National Council on Problem Gambling at 1-800-522-4700 or ncpgambling.org." },
-      { heading: "8. Refunds", body: "Deposits are non-refundable once converted to gems, except in cases of proven technical error on our part. Unspent gems may be cashed out via the normal withdrawal process. Wager results are final once the Clash Royale battle log confirms the outcome." },
+      { heading: "8. Refunds", body: "Deposits are non-refundable once converted to balance, except in cases of proven technical error on our part. Unspent balance may be cashed out via the normal withdrawal process. Wager results are final once the Clash Royale battle log confirms the outcome." },
       { heading: "9. Termination", body: "BetRoyale may suspend or terminate accounts at any time for violation of these Terms. You may close your account at any time by emailing support@betroyale.win; any pending gem balance will be processed for withdrawal within 14 business days after identity verification." },
       { heading: "10. Limitation of Liability", body: "BetRoyale is not liable for losses arising from platform downtime, Clash Royale API delays, Stripe service failures, or other third-party failures beyond our control. Total liability to any user is limited to the gem balance in their account at the time of the claim." },
       { heading: "11. Governing Law & Arbitration", body: "These Terms are governed by the laws of the State of California, USA, without regard to conflict-of-law principles. Any dispute not resolved by BetRoyale support shall be settled by binding arbitration administered by JAMS in Los Angeles, California, under its Streamlined Arbitration Rules. You waive any right to a jury trial or class action." },
@@ -523,11 +527,11 @@ function updateMobileChipActive(cents) {
 function syncDepositDisplays(cents) {
   const safeCents = Math.max(0, Math.floor(Number(cents) || 0));
   const amountText = centsToAmountString(safeCents);
-  if (shopGemsPreview) shopGemsPreview.textContent = String(safeCents);
+  if (shopBalancePreview) shopBalancePreview.textContent = String(safeCents);
   if (shopMobileAmount) shopMobileAmount.textContent = amountText;
-  if (shopMobileGemsPreview) shopMobileGemsPreview.textContent = String(safeCents);
+  if (shopMobileBalancePreview) shopMobileBalancePreview.textContent = String(safeCents);
   if (mobileDepositAmountEl) mobileDepositAmountEl.textContent = amountText;
-  if (mobileDepositGemsEl) mobileDepositGemsEl.textContent = String(safeCents);
+  if (mobileDepositBalanceEl) mobileDepositBalanceEl.textContent = String(safeCents);
   updateMobileChipActive(safeCents);
 }
 
@@ -587,7 +591,7 @@ function handleMobileKeyInput(key) {
 }
 
 function setCurrency(currency) {
-  selectedCurrency = currency === "gems" ? "gems" : "coins";
+  selectedCurrency = currency === "balance" ? "balance" : "coins";
   currencyButtons.forEach((button) => {
     button.classList.toggle(
       "active",
@@ -611,7 +615,7 @@ function updateWinPreview() {
   }
   const pot     = wager * 2;
   const payout  = Math.floor(pot * WINNER_PCT_CLIENT);
-  const label   = selectedCurrency === "gems" ? "Gems" : "Coins";
+  const label   = selectedCurrency === "balance" ? "Balance" : "Coins";
   el.innerHTML =
     `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>` +
     `Win <strong>${payout.toLocaleString()} ${label}</strong> if your opponent matches`;
@@ -623,9 +627,9 @@ function updateQueueBalance() {
   if (!el) return;
   if (!currentUser) { el.textContent = ""; return; }
   const coins = currentUser.coins ?? currentUser.credits ?? 0;
-  const gems  = currentUser.gems ?? 0;
-  const bal   = selectedCurrency === "gems" ? gems : coins;
-  const label = selectedCurrency === "gems" ? "Gems" : "Coins";
+  const balance  = currentUser.balance ?? 0;
+  const bal   = selectedCurrency === "balance" ? balance : coins;
+  const label = selectedCurrency === "balance" ? "Balance" : "Coins";
   el.innerHTML = `Balance: <strong>${bal.toLocaleString()} ${label}</strong>`;
 }
 
@@ -919,7 +923,7 @@ function setAuthState(user) {
     profileLink.value = "";
     statMatches.textContent = "0";
     if (statCoins) statCoins.textContent = "0";
-    if (statGems) statGems.textContent = "0";
+    if (statBalance) statBalance.textContent = "0";
     statWins.textContent = "0";
     statLosses.textContent = "0";
     statDraws.textContent = "0";
@@ -942,27 +946,27 @@ function setAuthState(user) {
     if (queueCountEl) queueCountEl.textContent = "0 waiting";
     if (queueEmptyEl) queueEmptyEl.classList.remove("hidden");
     if (balanceCoins) balanceCoins.textContent = "0";
-    if (balanceGems) balanceGems.textContent = "0";
+    if (balanceBalance) balanceBalance.textContent = "0";
     if (shopCoinsEl) shopCoinsEl.textContent = "0";
-    if (shopGemsEl) shopGemsEl.textContent = "0";
+    if (shopBalanceEl) shopBalanceEl.textContent = "0";
     if (mobileWalletCoinsEl) mobileWalletCoinsEl.textContent = "0";
-    if (mobileWalletGemsEl) mobileWalletGemsEl.textContent = "0";
+    if (mobileWalletBalanceEl) mobileWalletBalanceEl.textContent = "0";
     if (shopMessageEl) shopMessageEl.textContent = "";
     if (coinGemMessageEl) coinGemMessageEl.textContent = "";
     if (dailyRewardMessageEl) dailyRewardMessageEl.textContent = "";
     if (shopAmountInput) shopAmountInput.value = "";
-    if (shopGemsPreview) shopGemsPreview.textContent = "0";
+    if (shopBalancePreview) shopBalancePreview.textContent = "0";
     if (shopMobileAmount) shopMobileAmount.textContent = "10.00";
-    if (shopMobileGemsPreview) shopMobileGemsPreview.textContent = "1000";
+    if (shopMobileBalancePreview) shopMobileBalancePreview.textContent = "1000";
     if (mobileDepositAmountEl) mobileDepositAmountEl.textContent = "10.00";
-    if (mobileDepositGemsEl) mobileDepositGemsEl.textContent = "1000";
+    if (mobileDepositBalanceEl) mobileDepositBalanceEl.textContent = "1000";
     if (mobileKeypadMessageEl) {
       mobileKeypadMessageEl.textContent = "Minimum deposit: $10.00.";
       mobileKeypadMessageEl.classList.remove("error");
     }
     closeMobileDepositSheet();
     if (cashoutAmountInput) cashoutAmountInput.value = "";
-    if (cashoutGemsPreview) cashoutGemsPreview.textContent = "0";
+    if (cashoutBalancePreview) cashoutBalancePreview.textContent = "0";
     if (cashoutUsdPreview) cashoutUsdPreview.textContent = "0.00";
     if (cashoutStatusEl) {
       cashoutStatusEl.textContent = "Connect your Stripe payout account to enable cash outs.";
@@ -997,13 +1001,13 @@ function updateProfileUI(user) {
   statMatches.textContent = stats.matchesPlayed || 0;
   const coins = user.coins ?? user.credits ?? 0;
   if (statCoins) statCoins.textContent = coins;
-  if (statGems) statGems.textContent = user.gems ?? 0;
+  if (statBalance) statBalance.textContent = user.balance ?? 0;
   if (balanceCoins) balanceCoins.textContent = coins;
-  if (balanceGems) balanceGems.textContent = user.gems ?? 0;
+  if (balanceBalance) balanceBalance.textContent = user.balance ?? 0;
   if (shopCoinsEl) shopCoinsEl.textContent = coins;
-  if (shopGemsEl) shopGemsEl.textContent = user.gems ?? 0;
+  if (shopBalanceEl) shopBalanceEl.textContent = user.balance ?? 0;
   if (mobileWalletCoinsEl) mobileWalletCoinsEl.textContent = coins;
-  if (mobileWalletGemsEl) mobileWalletGemsEl.textContent = user.gems ?? 0;
+  if (mobileWalletBalanceEl) mobileWalletBalanceEl.textContent = user.balance ?? 0;
   updateCoinGemTradeState(user);
   renderProfileReadiness(user);
   renderWalletSummary(user);
@@ -1120,17 +1124,17 @@ function updateShopPreview() {
 function updateCashoutPreview() {
   const cents = parseAmountToCents(cashoutAmountInput?.value);
   const safeCents = cents && cents > 0 ? cents : 0;
-  if (cashoutGemsPreview) cashoutGemsPreview.textContent = String(safeCents);
+  if (cashoutBalancePreview) cashoutBalancePreview.textContent = String(safeCents);
   if (cashoutUsdPreview) cashoutUsdPreview.textContent = (safeCents / 100).toFixed(2);
 }
 
 function updateCoinGemTradeState(user) {
   if (!coinGemTradeBtn) return;
   const coins = user?.coins ?? user?.credits ?? 0;
-  const canTrade = Boolean(user) && coins >= COIN_TO_GEM_COINS;
+  const canTrade = Boolean(user) && coins >= COIN_TO_BALANCE_COINS;
   coinGemTradeBtn.disabled = !canTrade;
   if (!canTrade && coinGemMessageEl && !coinGemMessageEl.textContent) {
-    coinGemMessageEl.textContent = `You need ${COIN_TO_GEM_COINS} coins to trade.`;
+    coinGemMessageEl.textContent = `You need ${COIN_TO_BALANCE_COINS} coins to trade.`;
   }
   if (canTrade && coinGemMessageEl && /need \d+ coins/i.test(coinGemMessageEl.textContent)) {
     coinGemMessageEl.textContent = "";
@@ -1140,7 +1144,7 @@ function updateCoinGemTradeState(user) {
 function formatRewardLabel(reward) {
   if (!reward) return "—";
   const amount = Number(reward.amount || 0).toLocaleString("en-US");
-  const unit = reward.currency === "gems" ? "gems" : "coins";
+  const unit = reward.currency === "balance" ? "balance" : "coins";
   return `${amount} ${unit}`;
 }
 
@@ -1237,21 +1241,21 @@ function renderWalletSummary(user) {
   if (walletCoinsWonEl) {
     walletCoinsWonEl.textContent = formatNumber(summary.coinsWon || 0);
   }
-  if (walletGemsWonEl) {
-    walletGemsWonEl.textContent = formatNumber(summary.gemsWon || 0);
+  if (walletBalanceWonEl) {
+    walletBalanceWonEl.textContent = formatNumber(summary.balanceWon || 0);
   }
-  if (walletGemsCashedOutEl) {
-    walletGemsCashedOutEl.textContent = formatNumber(summary.gemsCashedOut || 0);
+  if (walletBalanceCashedOutEl) {
+    walletBalanceCashedOutEl.textContent = formatNumber(summary.balanceCashedOut || 0);
   }
   if (walletFeesPaidEl) {
-    walletFeesPaidEl.textContent = `${formatNumber(summary.feesPaidCoins || 0)} coins · ${formatNumber(summary.feesPaidGems || 0)} gems`;
+    walletFeesPaidEl.textContent = `${formatNumber(summary.feesPaidCoins || 0)} coins · ${formatNumber(summary.feesPaidBalance || 0)} balance`;
   }
   if (walletCashableEl) {
     walletCashableEl.textContent = formatUsd(summary.cashableUsdCents || 0);
   }
   if (walletCashableSubtextEl) {
     walletCashableSubtextEl.textContent = summary.readyToCashOut
-      ? `${formatNumber(summary.cashableGems || 0)} gems are ready to cash out.`
+      ? `${formatNumber(summary.cashableBalance || 0)} balance are ready to cash out.`
       : `Build to ${formatUsd(MIN_CASHOUT_CENTS)} to unlock cash out.`;
   }
   if (walletAlertEl) {
@@ -1300,16 +1304,22 @@ function renderQueueInsights(meta = {}) {
 async function loadExchangeRate() {
   try {
     const data = await apiRequest("/api/shop/exchange/rate", { method: "GET" });
-    if (Number.isFinite(data?.coins) && data.coins > 0) COIN_TO_GEM_COINS = data.coins;
-    if (Number.isFinite(data?.gems) && data.gems > 0) COIN_TO_GEM_GEMS = data.gems;
+    if (Number.isFinite(data?.coins) && data.coins > 0) {
+      COIN_TO_BALANCE_COINS = data.coins;
+      COIN_TO_GEM_COINS = data.coins;
+    }
+    if (Number.isFinite(data?.balance) && data.balance > 0) {
+      COIN_TO_BALANCE_BALANCE = data.balance;
+      COIN_TO_GEM_GEMS = data.balance;
+    }
   } catch (err) {
     // Keep defaults if unavailable
   }
-  if (exchangeCoinsEl) exchangeCoinsEl.textContent = formatNumber(COIN_TO_GEM_COINS);
-  if (exchangeGemsEl) exchangeGemsEl.textContent = formatNumber(COIN_TO_GEM_GEMS);
-  if (exchangeCtaCoinsEl) exchangeCtaCoinsEl.textContent = formatNumber(COIN_TO_GEM_COINS);
-  if (exchangeCtaGemsEl) exchangeCtaGemsEl.textContent = formatNumber(COIN_TO_GEM_GEMS);
-  updateCoinGemTradeState(currentUser);
+  if (exchangeCoinsEl) exchangeCoinsEl.textContent = formatNumber(COIN_TO_BALANCE_COINS);
+  if (exchangeBalanceEl) exchangeBalanceEl.textContent = formatNumber(COIN_TO_BALANCE_BALANCE);
+  if (exchangeCtaCoinsEl) exchangeCtaCoinsEl.textContent = formatNumber(COIN_TO_BALANCE_COINS);
+  if (exchangeCtaBalanceEl) exchangeCtaBalanceEl.textContent = formatNumber(COIN_TO_BALANCE_BALANCE);
+  updateCoinBalanceTradeState(currentUser);
 }
 
 function formatUsd(amountCents) {
@@ -1334,7 +1344,7 @@ function renderCashoutHistory(entries) {
     const row = document.createElement("div");
     row.className = "cashout-history-item";
     const amount = document.createElement("span");
-    amount.textContent = `${formatUsd(entry.amountCents)} (${entry.gems} gems)`;
+    amount.textContent = `${formatUsd(entry.amountCents)} (${entry.balance} balance)`;
     const status = document.createElement("span");
     status.textContent = (entry.status || "pending").toUpperCase();
     row.appendChild(amount);
@@ -1456,7 +1466,7 @@ async function handleShopRedirectState() {
   if (shopState === "success") {
     const sessionId = String(params.get("session_id") || "").trim();
     if (!currentUser) {
-      showStatus("Payment completed. Log in to sync your gems.", true);
+      showStatus("Payment completed. Log in to sync your balance.", true);
       clearShopQueryParams();
       return;
     }
@@ -1478,7 +1488,7 @@ async function handleShopRedirectState() {
       }
       if (shopMessageEl) {
         shopMessageEl.textContent =
-          data?.message || "Payment confirmed and gems were updated.";
+          data?.message || "Payment confirmed and balance were updated.";
       }
     } catch (err) {
       if (shopMessageEl) shopMessageEl.textContent = err.message;
@@ -1489,7 +1499,7 @@ async function handleShopRedirectState() {
 
 async function startCheckoutWithCents(cents) {
   if (!currentUser) {
-    showStatus("Log in to purchase gems.", true);
+    showStatus("Log in to purchase balance.", true);
     return;
   }
   if (!cents) {
@@ -1538,7 +1548,7 @@ async function startCheckoutWithCents(cents) {
 
 async function startCheckout() {
   if (!currentUser) {
-    showStatus("Log in to purchase gems.", true);
+    showStatus("Log in to purchase balance.", true);
     return;
   }
   if (isMobileViewport()) {
@@ -1551,7 +1561,7 @@ async function startCheckout() {
 
 async function startCashoutConnect() {
   if (!currentUser) {
-    showStatus("Log in to cash out gems.", true);
+    showStatus("Log in to cash out balance.", true);
     return;
   }
   if (cashoutMessageEl) {
@@ -1579,7 +1589,7 @@ async function startCashoutConnect() {
 
 async function startCashout() {
   if (!currentUser) {
-    showStatus("Log in to cash out gems.", true);
+    showStatus("Log in to cash out balance.", true);
     return;
   }
   const cents = parseAmountToCents(cashoutAmountInput?.value);
@@ -1595,8 +1605,8 @@ async function startCashout() {
     }
     return;
   }
-  if ((currentUser?.gems || 0) < cents) {
-    if (cashoutMessageEl) cashoutMessageEl.textContent = "Not enough gems for that cash out.";
+  if ((currentUser?.balance || 0) < cents) {
+    if (cashoutMessageEl) cashoutMessageEl.textContent = "Not enough balance for that cash out.";
     return;
   }
   if (!cashoutReady) {
@@ -1631,9 +1641,9 @@ async function startCashout() {
   }
 }
 
-async function tradeCoinsForGems() {
+async function tradeCoinsForBalance() {
   if (!currentUser) {
-    showStatus("Log in to trade coins for gems.", true);
+    showStatus("Log in to trade coins for balance.", true);
     return;
   }
   const coins = currentUser.coins ?? currentUser.credits ?? 0;
@@ -1656,7 +1666,7 @@ async function tradeCoinsForGems() {
     }
     if (coinGemMessageEl) {
       coinGemMessageEl.textContent =
-        data?.message || `Traded ${COIN_TO_GEM_COINS} coins for ${COIN_TO_GEM_GEMS} gems.`;
+        data?.message || `Traded ${COIN_TO_GEM_COINS} coins for ${COIN_TO_GEM_GEMS} balance.`;
     }
   } catch (err) {
     if (coinGemMessageEl) coinGemMessageEl.textContent = err.message;
@@ -1761,18 +1771,18 @@ function formatRewardSummary(rewards = []) {
   if (!Array.isArray(rewards) || rewards.length === 0) return "";
   const totals = rewards.reduce(
     (acc, reward) => {
-      if (reward?.currency === "gems") {
-        acc.gems += Number(reward.amount || 0);
+      if (reward?.currency === "balance") {
+        acc.balance += Number(reward.amount || 0);
       } else {
         acc.coins += Number(reward.amount || 0);
       }
       return acc;
     },
-    { coins: 0, gems: 0 }
+    { coins: 0, balance: 0 }
   );
   const parts = [];
   if (totals.coins > 0) parts.push(`${formatNumber(totals.coins)} coins`);
-  if (totals.gems > 0) parts.push(`${formatNumber(totals.gems)} gems`);
+  if (totals.balance > 0) parts.push(`${formatNumber(totals.balance)} balance`);
   return parts.join(" + ");
 }
 
@@ -1808,12 +1818,12 @@ function renderLeaderboardRewardClaim(pendingRewards = []) {
 function renderLeaderboards(data) {
   if (!leaderboardsBodyEl) return;
   leaderboardsBodyEl.innerHTML = "";
-  const currency = data?.currency === "gems" ? "gems" : "coins";
+  const currency = data?.currency === "balance" ? "balance" : "coins";
   const period = data?.period || "month";
   const entries = Array.isArray(data?.entries) ? data.entries : [];
   const prizeSchedule = Array.isArray(data?.prizeSchedule) ? data.prizeSchedule : [];
   const showWinningsColumn = !(
-    currency === "gems" && (period === "year" || period === "all")
+    currency === "balance" && (period === "year" || period === "all")
   );
   renderLeaderboardRewardClaim(data?.pendingRewards || []);
   if (leaderboardsLabelEl) {
@@ -1827,7 +1837,7 @@ function renderLeaderboards(data) {
   if (leaderboardWinningsHeaderEl) {
     leaderboardWinningsHeaderEl.hidden = !showWinningsColumn;
     leaderboardWinningsHeaderEl.textContent =
-      currency === "gems" ? "Gems Won" : "Coins Won";
+      currency === "balance" ? "Balance Won" : "Coins Won";
   }
   renderLeaderboardPrizeSchedule(currency, prizeSchedule);
 
@@ -2762,9 +2772,9 @@ async function joinQueue() {
   }
   const wager = Math.floor(wagerValue);
   const availableCoins = currentUser.coins ?? currentUser.credits ?? 0;
-  const availableGems = currentUser.gems ?? 0;
+  const availableBalance = currentUser.balance ?? 0;
   const availableBalance =
-    selectedCurrency === "gems" ? availableGems : availableCoins;
+    selectedCurrency === "balance" ? availableBalance : availableCoins;
   if (wager > availableBalance) {
     showStatus(`You don't have enough ${selectedCurrency} for that wager.`, true);
     return;
@@ -3025,7 +3035,7 @@ if (shopCheckoutBtn) {
   });
 }
 if (coinGemTradeBtn) {
-  coinGemTradeBtn.addEventListener("click", tradeCoinsForGems);
+  coinGemTradeBtn.addEventListener("click", tradeCoinsForBalance);
 }
 if (dailyRewardClaimBtn) {
   dailyRewardClaimBtn.addEventListener("click", claimDailyReward);
@@ -3087,7 +3097,7 @@ if (leaderboardCurrencyButtons.length) {
   leaderboardCurrencyButtons.forEach((button) => {
     button.addEventListener("click", () => {
       leaderboardCurrency =
-        button.dataset.leaderboardCurrency === "gems" ? "gems" : "coins";
+        button.dataset.leaderboardCurrency === "balance" ? "balance" : "coins";
       leaderboardCurrencyButtons.forEach((candidate) => {
         candidate.classList.toggle(
           "active",
