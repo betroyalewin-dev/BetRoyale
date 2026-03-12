@@ -180,7 +180,7 @@ let cashoutReady = false;
 let mobileDepositValue = (MIN_SHOP_CENTS / 100).toFixed(2);
 let onboardingStepIndex = 0;
 let onboardingUserId = null;
-let leaderboardCurrency = "coins";
+let leaderboardCurrency = "gems";
 let leaderboardPeriod = "month";
 
 const ONBOARDING_STEPS = [
@@ -1460,7 +1460,9 @@ function renderLeaderboardPrizeSchedule(currency, prizes = []) {
   prizes.forEach((prize) => {
     const pill = document.createElement("div");
     pill.className = "leaderboard-prize-pill";
-    pill.textContent = `#${prize.rank} ${prize.gems.toLocaleString()} gems`;
+    pill.innerHTML =
+      `<span class="prize-rank">#${prize.rank}</span>` +
+      `<span class="prize-amount">${prize.gems.toLocaleString()} gems</span>`;
     leaderboardPrizesEl.appendChild(pill);
   });
 }
@@ -1470,6 +1472,7 @@ function renderLeaderboards(data) {
   leaderboardsBodyEl.innerHTML = "";
   const currency = data?.currency === "gems" ? "gems" : "coins";
   const entries = Array.isArray(data?.entries) ? data.entries : [];
+  const prizeSchedule = Array.isArray(data?.prizeSchedule) ? data.prizeSchedule : [];
   if (leaderboardsLabelEl) {
     leaderboardsLabelEl.textContent = data?.label || "This month";
   }
@@ -1482,7 +1485,7 @@ function renderLeaderboards(data) {
     leaderboardWinningsHeaderEl.textContent =
       currency === "gems" ? "Gems Won" : "Coins Won";
   }
-  renderLeaderboardPrizeSchedule(currency, data?.prizeSchedule || []);
+  renderLeaderboardPrizeSchedule(currency, prizeSchedule);
 
   entries.forEach((entry) => {
     const row = document.createElement("tr");
@@ -1495,6 +1498,23 @@ function renderLeaderboards(data) {
     `;
     leaderboardsBodyEl.appendChild(row);
   });
+
+  if (currency === "gems" && prizeSchedule.length) {
+    const existingRanks = new Set(entries.map((entry) => Number(entry.rank)));
+    prizeSchedule.forEach((prize) => {
+      if (existingRanks.has(prize.rank)) return;
+      const row = document.createElement("tr");
+      row.className = "leaderboard-placeholder-row";
+      row.innerHTML = `
+        <td>${prize.rank}</td>
+        <td>--</td>
+        <td>--</td>
+        <td>--</td>
+        <td>Win ${Number(prize.gems || 0).toLocaleString()} gems</td>
+      `;
+      leaderboardsBodyEl.appendChild(row);
+    });
+  }
 }
 
 async function loadLeaderboards() {

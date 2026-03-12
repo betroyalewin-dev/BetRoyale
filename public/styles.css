@@ -2215,13 +2215,25 @@ body.in-queue::after {
 }
 
 .leaderboard-prize-pill {
-  padding: 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
   border-radius: 999px;
   border: 1px solid rgba(245, 158, 11, 0.28);
   background: rgba(245, 158, 11, 0.12);
-  color: #ffd27d;
-  font-size: 0.86rem;
+  font-size: 0.84rem;
   font-weight: 700;
+  white-space: nowrap;
+}
+.prize-rank {
+  color: rgba(255, 210, 125, 0.55);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.prize-amount {
+  color: #ffd27d;
 }
 
 .leaderboard-table-wrap {
@@ -2258,6 +2270,15 @@ body.in-queue::after {
 
 .leaderboard-table tbody tr:last-child td {
   border-bottom: none;
+}
+
+.leaderboard-placeholder-row {
+  color: var(--muted);
+}
+
+.leaderboard-placeholder-row td:last-child {
+  color: #ffd27d;
+  font-weight: 700;
 }
 
 .match-header {
