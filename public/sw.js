@@ -1,7 +1,7 @@
 // BetRoyale Service Worker
 // Cache-first for static assets · Network-first for API calls
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const CACHE_NAME = `betroyale-${CACHE_VERSION}`;
 
 const STATIC_ASSETS = [
@@ -50,6 +50,22 @@ self.addEventListener('fetch', (event) => {
 
   // API calls: network-only (never serve stale auth/game data from cache)
   if (url.pathname.startsWith('/api/')) {
+    return;
+  }
+
+  // HTML shell/navigation: network-first so menu and layout changes appear promptly.
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.ok && response.type === 'basic') {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put('/', clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match('/') || Response.error())
+    );
     return;
   }
 
