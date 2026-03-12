@@ -3538,9 +3538,9 @@ body.in-queue::after {
   }
 
   .hero {
-    gap: 10px;
-    margin-bottom: 14px;
-    padding: 16px 14px;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding: 20px 16px;
     border-radius: 8px;
     border: 1px solid var(--border);
     background: linear-gradient(180deg, rgba(17, 26, 42, 0.94), rgba(12, 19, 33, 0.94));
@@ -3549,14 +3549,14 @@ body.in-queue::after {
 
   h1 {
     font-size: clamp(1.9rem, 8.3vw, 2.7rem);
-    line-height: 1.08;
+    line-height: 1.15;
     max-width: none;
   }
 
   .subhead {
     max-width: 100%;
-    font-size: 0.95rem;
-    line-height: 1.5;
+    font-size: 0.98rem;
+    line-height: 1.65;
   }
 
   .hero-layout {
@@ -3565,12 +3565,12 @@ body.in-queue::after {
   }
 
   .hero-copy {
-    gap: 12px;
+    gap: 16px;
   }
 
   .hero-highlight-row,
   .hero-proof-pills {
-    gap: 8px;
+    gap: 12px;
   }
 
   .hero-highlight-pill,
@@ -3586,6 +3586,8 @@ body.in-queue::after {
   .hero-action-primary,
   .hero-action-secondary {
     width: 100%;
+    min-height: 52px;
+    font-size: 1rem;
   }
 
   .hero-progress-card {
@@ -3613,11 +3615,27 @@ body.in-queue::after {
 
   .landing-signals {
     grid-template-columns: 1fr;
-    margin-bottom: 16px;
+    margin-bottom: 24px;
+    gap: 12px;
   }
 
   .signal-card {
-    padding: 16px 14px;
+    padding: 18px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: rgba(17, 26, 42, 0.6);
+    gap: 12px;
+  }
+
+  .signal-card-label {
+    font-weight: 600;
+    font-size: 1rem;
+  }
+
+  .signal-card-copy {
+    line-height: 1.6;
+    font-size: 0.95rem;
+    color: var(--muted);
   }
 
   .floating-signup-cta {
@@ -3625,12 +3643,27 @@ body.in-queue::after {
   }
 
   .payout-explainer {
-    margin-bottom: 16px;
-    gap: 16px;
+    margin-bottom: 24px;
+    gap: 20px;
+    padding: 18px 16px;
+  }
+
+  .payout-explainer-copy {
+    gap: 12px;
+  }
+
+  .payout-explainer-copy h2 {
+    line-height: 1.2;
+  }
+
+  .payout-explainer-subhead {
+    line-height: 1.65;
+    font-size: 0.98rem;
   }
 
   .payout-ladder {
     grid-template-columns: 1fr;
+    gap: 14px;
   }
 
   .menu {
@@ -3817,19 +3850,36 @@ body.in-queue::after {
 
   .panel {
     border-radius: 8px;
-    padding: 16px 14px;
+    padding: 20px 16px;
     box-shadow: 0 2px 8px var(--shadow);
     width: 100%;
     margin-left: 0;
     margin-right: 0;
+    margin-bottom: 24px;
+  }
+
+  .panel h2 {
+    line-height: 1.2;
+    margin-bottom: 12px;
   }
 
   .field {
-    gap: 6px;
+    gap: 8px;
+    margin-bottom: 12px;
   }
 
   label {
-    font-size: 0.9rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+    display: block;
+  }
+
+  input,
+  textarea,
+  select {
+    font-size: 1rem;
+    padding: 12px;
+    line-height: 1.5;
   }
 
   input[type="text"],
@@ -3854,12 +3904,28 @@ body.in-queue::after {
   }
 
   .auth-form {
-    gap: 12px;
-    padding: 16px 14px;
+    gap: 14px;
+    padding: 18px 16px;
+    border-radius: 8px;
+    background: rgba(17, 26, 42, 0.6);
+    border: 1px solid var(--border);
+  }
+
+  .auth-form h2 {
+    line-height: 1.2;
+    margin-bottom: 8px;
+  }
+
+  .auth-form-note {
+    line-height: 1.6;
+    font-size: 0.95rem;
+    margin-bottom: 8px;
   }
 
   .auth-footer {
     grid-template-columns: 1fr;
+    margin-top: 24px;
+    gap: 16px;
   }
 
   .faq-panel {
@@ -3896,6 +3962,8 @@ body.in-queue::after {
   .match-actions button {
     width: 100%;
     justify-content: center;
+    min-height: 48px;
+    font-size: 1rem;
   }
 
   .queue-form {
