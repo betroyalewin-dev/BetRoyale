@@ -882,6 +882,10 @@ function updateNavAuthState(user) {
   if (navAuthBtns)   navAuthBtns.classList.toggle("hidden", loggedIn);
   if (navProfileBtn) navProfileBtn.classList.toggle("hidden", !loggedIn);
   if (navMenuBalance) navMenuBalance.classList.toggle("hidden", !loggedIn);
+  document.body.classList.toggle("landing-mobile-nav-hidden", !loggedIn);
+  if (!loggedIn) {
+    closeMenuDrawer();
+  }
 }
 
 document.getElementById("nav-login-btn")?.addEventListener("click", () => {

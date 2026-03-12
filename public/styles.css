@@ -3275,6 +3275,15 @@ body.in-queue::after {
 }
 
 @media (max-width: 900px) {
+  body.landing-mobile-nav-hidden .page {
+    padding-bottom: calc(32px + var(--safe-bottom));
+  }
+
+  body.landing-mobile-nav-hidden .menu-links,
+  body.landing-mobile-nav-hidden .menu-scrim {
+    display: none !important;
+  }
+
   .page {
     width: 100%;
     max-width: none;
