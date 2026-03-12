@@ -683,7 +683,7 @@ function getProfileReadinessState(user) {
   const percent = Math.round((completed / checklist.length) * 100);
   let copy = "Verify your email, then add your player tag and friend link to unlock the queue.";
   if (percent === 100) {
-    copy = "Queue unlocked. Your 1,000 starter coins are ready for practice wagers.";
+    copy = "";
   } else if (completed === 2) {
     copy = "One step left. Finish the last item to become queue-ready.";
   } else if (completed === 1) {
