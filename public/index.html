@@ -52,71 +52,71 @@
     <div class="bg-orb orb-1"></div>
     <div class="bg-orb orb-2"></div>
     <div class="bg-grid"></div>
+    <nav class="menu">
+      <div class="menu-left">
+        <button
+          type="button"
+          class="menu-toggle"
+          id="menu-toggle"
+          aria-label="Open menu"
+          aria-controls="menu-drawer"
+          aria-expanded="false"
+        >
+          <span class="icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M4 7h16"></path>
+              <path d="M4 12h16"></path>
+              <path d="M4 17h16"></path>
+            </svg>
+          </span>
+        </button>
+        <div class="menu-brand">BetRoyale</div>
+      </div>
+      <div class="menu-right">
+        <div class="nav-auth-btns" id="nav-auth-btns">
+          <button type="button" class="nav-login-btn" id="nav-login-btn">Log In</button>
+          <button type="button" class="nav-signup-btn" id="nav-signup-btn">Sign Up</button>
+        </div>
+        <div class="menu-balance" id="menu-balance">
+          <div class="balance-item">
+            <span class="icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="8"></circle>
+                <circle cx="12" cy="12" r="4"></circle>
+              </svg>
+            </span>
+            <span class="balance-label">Coins</span>
+            <span id="balance-coins" class="balance-value">0</span>
+          </div>
+          <div class="balance-item">
+            <span class="icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M12 3l7 9-7 9-7-9 7-9z"></path>
+                <path d="M5 12h14"></path>
+              </svg>
+            </span>
+            <span class="balance-label">Gems</span>
+            <span id="balance-gems" class="balance-value">0</span>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="menu-button profile-avatar profile-button hidden"
+          id="nav-profile-btn"
+          data-section="profile"
+          aria-label="Open profile"
+          title="Profile"
+        >
+          <span class="icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="8" r="3"></circle>
+              <path d="M4 20c1.6-3 4.5-5 8-5s6.4 2 8 5"></path>
+            </svg>
+          </span>
+        </button>
+      </div>
+    </nav>
     <div class="page">
-      <nav class="menu">
-        <div class="menu-left">
-          <button
-            type="button"
-            class="menu-toggle"
-            id="menu-toggle"
-            aria-label="Open menu"
-            aria-controls="menu-drawer"
-            aria-expanded="false"
-          >
-            <span class="icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24">
-                <path d="M4 7h16"></path>
-                <path d="M4 12h16"></path>
-                <path d="M4 17h16"></path>
-              </svg>
-            </span>
-          </button>
-          <div class="menu-brand">BetRoyale</div>
-        </div>
-        <div class="menu-right">
-          <div class="nav-auth-btns" id="nav-auth-btns">
-            <button type="button" class="nav-login-btn" id="nav-login-btn">Log In</button>
-            <button type="button" class="nav-signup-btn" id="nav-signup-btn">Sign Up</button>
-          </div>
-          <div class="menu-balance" id="menu-balance">
-            <div class="balance-item">
-              <span class="icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="8"></circle>
-                  <circle cx="12" cy="12" r="4"></circle>
-                </svg>
-              </span>
-              <span class="balance-label">Coins</span>
-              <span id="balance-coins" class="balance-value">0</span>
-            </div>
-            <div class="balance-item">
-              <span class="icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24">
-                  <path d="M12 3l7 9-7 9-7-9 7-9z"></path>
-                  <path d="M5 12h14"></path>
-                </svg>
-              </span>
-              <span class="balance-label">Gems</span>
-              <span id="balance-gems" class="balance-value">0</span>
-            </div>
-          </div>
-          <button
-            type="button"
-            class="menu-button profile-avatar profile-button hidden"
-            id="nav-profile-btn"
-            data-section="profile"
-            aria-label="Open profile"
-            title="Profile"
-          >
-            <span class="icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24">
-                <circle cx="12" cy="8" r="3"></circle>
-                <path d="M4 20c1.6-3 4.5-5 8-5s6.4 2 8 5"></path>
-              </svg>
-            </span>
-          </button>
-        </div>
-      </nav>
       <button type="button" id="menu-scrim" class="menu-scrim hidden" aria-label="Close menu"></button>
       <aside id="menu-drawer" class="menu-links menu-drawer" aria-label="Main menu">
         <div class="menu-drawer-top">
@@ -222,7 +222,7 @@
         <p class="eyebrow">BetRoyale Arena</p>
         <h1>Win Duels, Win Cash.</h1>
         <p class="subhead">
-          Real wagers on real friendlies. Load up practice coins or gems, play
+          Real wagers on real friendlies. Load up free starter coins or gems, play
           the duel, and we pull the winner straight from Supercell's API data.
         </p>
         <div class="hero-actions">
@@ -252,7 +252,7 @@
         <div class="hero-steps">
           <div class="step-card">
             <p class="step-label">Step 1</p>
-            <p>Make the account and grab your 1,000 practice coins.</p>
+            <p>Make the account and grab your 1,000 free starter coins.</p>
           </div>
           <div class="step-card">
             <p class="step-label">Step 2</p>
@@ -299,7 +299,7 @@
             <p class="eyebrow">Start safely</p>
             <h2 class="auth-intro-title">Get in, get set, then wager.</h2>
             <p class="auth-intro-copy">
-              Start on practice coins first. Email plus Clash Royale setup gets you
+              Start on free starter coins first. Email plus Clash Royale setup gets you
               into the queue. Identity and tax steps only show up when you want real-money deposits or cash outs.
             </p>
           </div>
@@ -325,10 +325,10 @@
             <p class="auth-kicker">New to BetRoyale</p>
             <h2>Create Account</h2>
             <p class="auth-form-note">
-              Start with 1,000 practice coins first. Real-money deposits and cash outs unlock later after identity verification.
+              Start with 1,000 free starter coins first. Real-money deposits and cash outs unlock later after identity verification.
             </p>
             <ul class="signup-entry-list">
-              <li><span class="auth-trust-icon">✓</span> Quick setup to unlock practice coins</li>
+              <li><span class="auth-trust-icon">✓</span> Quick setup to unlock free starter coins</li>
               <li><span class="auth-trust-icon">✓</span> Queue access after email + Clash setup</li>
               <li><span class="auth-trust-icon">✓</span> Identity &amp; tax info only when you go real money</li>
               <li><span class="auth-trust-icon">✓</span> Stripe handles the money when you cash out</li>
