@@ -2236,6 +2236,54 @@ body.in-queue::after {
   color: #ffd27d;
 }
 
+/* Rank-specific prize pill colors */
+.leaderboard-prize-pill.rank-1 {
+  border-color: rgba(255, 215, 0, 0.45);
+  background: rgba(255, 215, 0, 0.14);
+}
+.leaderboard-prize-pill.rank-1 .prize-rank {
+  color: rgba(255, 215, 0, 0.6);
+}
+.leaderboard-prize-pill.rank-1 .prize-amount {
+  color: #ffd700;
+}
+
+.leaderboard-prize-pill.rank-2 {
+  border-color: rgba(192, 192, 192, 0.4);
+  background: rgba(192, 192, 192, 0.1);
+}
+.leaderboard-prize-pill.rank-2 .prize-rank {
+  color: rgba(192, 192, 192, 0.6);
+}
+.leaderboard-prize-pill.rank-2 .prize-amount {
+  color: #c0c0c0;
+}
+
+.leaderboard-prize-pill.rank-3 {
+  border-color: rgba(180, 100, 30, 0.45);
+  background: rgba(180, 100, 30, 0.13);
+}
+.leaderboard-prize-pill.rank-3 .prize-rank {
+  color: rgba(205, 127, 50, 0.65);
+}
+.leaderboard-prize-pill.rank-3 .prize-amount {
+  color: #cd7f32;
+}
+
+.leaderboard-prize-pill.rank-4,
+.leaderboard-prize-pill.rank-5 {
+  border-color: rgba(80, 120, 180, 0.35);
+  background: rgba(80, 120, 180, 0.1);
+}
+.leaderboard-prize-pill.rank-4 .prize-rank,
+.leaderboard-prize-pill.rank-5 .prize-rank {
+  color: rgba(120, 160, 210, 0.6);
+}
+.leaderboard-prize-pill.rank-4 .prize-amount,
+.leaderboard-prize-pill.rank-5 .prize-amount {
+  color: #7aa0c8;
+}
+
 .leaderboard-table-wrap {
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -2279,6 +2327,19 @@ body.in-queue::after {
 .leaderboard-placeholder-row td:last-child {
   color: #ffd27d;
   font-weight: 700;
+}
+.leaderboard-placeholder-row.rank-1 td:last-child {
+  color: #ffd700;
+}
+.leaderboard-placeholder-row.rank-2 td:last-child {
+  color: #c0c0c0;
+}
+.leaderboard-placeholder-row.rank-3 td:last-child {
+  color: #cd7f32;
+}
+.leaderboard-placeholder-row.rank-4 td:last-child,
+.leaderboard-placeholder-row.rank-5 td:last-child {
+  color: #7aa0c8;
 }
 
 .match-header {

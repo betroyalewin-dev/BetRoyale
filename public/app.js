@@ -1459,7 +1459,7 @@ function renderLeaderboardPrizeSchedule(currency, prizes = []) {
   leaderboardPrizesEl.classList.remove("hidden");
   prizes.forEach((prize) => {
     const pill = document.createElement("div");
-    pill.className = "leaderboard-prize-pill";
+    pill.className = `leaderboard-prize-pill rank-${prize.rank}`;
     pill.innerHTML =
       `<span class="prize-rank">#${prize.rank}</span>` +
       `<span class="prize-amount">${prize.gems.toLocaleString()} gems</span>`;
@@ -1504,7 +1504,7 @@ function renderLeaderboards(data) {
     prizeSchedule.forEach((prize) => {
       if (existingRanks.has(prize.rank)) return;
       const row = document.createElement("tr");
-      row.className = "leaderboard-placeholder-row";
+      row.className = `leaderboard-placeholder-row rank-${prize.rank}`;
       row.innerHTML = `
         <td>${prize.rank}</td>
         <td>--</td>
