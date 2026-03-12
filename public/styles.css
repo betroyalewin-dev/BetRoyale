@@ -3810,7 +3810,7 @@ body.in-queue::after {
     background: rgba(10, 18, 32, 0.95);
     backdrop-filter: blur(14px);
     box-shadow: 0 4px 12px rgba(11, 15, 19, 0.16);
-    display: none;
+    display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 6px;
     transform: translateZ(0) !important;
