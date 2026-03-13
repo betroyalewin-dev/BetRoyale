@@ -2253,6 +2253,7 @@ input:focus-visible,
   color: var(--muted);
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   font-weight: 500;
 }
@@ -2269,6 +2270,7 @@ input:focus-visible,
   font-weight: 700;
   font-family: "Manrope", sans-serif;
   line-height: 1;
+  text-align: center;
 }
 
 /* Color-coded stats */
