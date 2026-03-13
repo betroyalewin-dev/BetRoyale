@@ -3379,7 +3379,7 @@ wPasswordInput?.addEventListener("input", () => {
   if (/[0-9]/.test(pw)) score++;
   if (/[^A-Za-z0-9]/.test(pw)) score++;
   const pcts  = ["0%", "25%", "50%", "75%", "100%"];
-  const colors = ["", "#ef4444", "#f97316", "#eab308", "#2fd093"];
+  const colors = ["", "#ef4444", "#f97316", "#eab308", "#f59e0b"];
   const labels = ["", "Weak", "Fair", "Good", "Strong"];
   if (wStrengthFill) { wStrengthFill.style.width = pcts[score]; wStrengthFill.style.background = colors[score]; }
   if (wStrengthLabel) wStrengthLabel.textContent = pw.length ? labels[score] : "";

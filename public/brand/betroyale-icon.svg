@@ -1,22 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <!-- Background -->
-  <rect x="1" y="1" width="510" height="510" rx="96" fill="#090f1c" stroke="#1e2f4a" stroke-width="1.5"/>
+  <rect x="1" y="1" width="510" height="510" rx="96" fill="#0d1117" stroke="#2b3542" stroke-width="1.5"/>
 
   <!-- Crown silhouette — taller spikes, shallower valleys, visible band -->
   <path
     d="M116,370 L116,260 L192,182 L232,238 L256,162 L280,238 L320,182 L396,260 L396,370 Z"
-    fill="#2fd093"
+    fill="#f59e0b"
   />
 
   <!-- Left gem: background ring → white dot -->
-  <circle cx="192" cy="182" r="15" fill="#090f1c"/>
-  <circle cx="192" cy="182" r="7"  fill="#f4f8ff"/>
+  <circle cx="192" cy="182" r="15" fill="#0d1117"/>
+  <circle cx="192" cy="182" r="7"  fill="#f8fafc"/>
 
   <!-- Center gem (tallest spike) -->
-  <circle cx="256" cy="162" r="17" fill="#090f1c"/>
-  <circle cx="256" cy="162" r="8"  fill="#f4f8ff"/>
+  <circle cx="256" cy="162" r="17" fill="#0d1117"/>
+  <circle cx="256" cy="162" r="8"  fill="#f8fafc"/>
 
   <!-- Right gem -->
-  <circle cx="320" cy="182" r="15" fill="#090f1c"/>
-  <circle cx="320" cy="182" r="7"  fill="#f4f8ff"/>
+  <circle cx="320" cy="182" r="15" fill="#0d1117"/>
+  <circle cx="320" cy="182" r="7"  fill="#f8fafc"/>
 </svg>

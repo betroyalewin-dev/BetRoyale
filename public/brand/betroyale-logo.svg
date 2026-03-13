@@ -1,23 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200">
   <!-- Background -->
-  <rect x="1" y="1" width="798" height="198" rx="32" fill="#090f1c" stroke="#1e2f4a" stroke-width="1.5"/>
+  <rect x="1" y="1" width="798" height="198" rx="32" fill="#0d1117" stroke="#2b3542" stroke-width="1.5"/>
 
   <!-- Crown icon: scaled 0.5x, centered vertically -->
   <g transform="translate(28,52) scale(0.5) translate(-116,-162)">
     <path
       d="M116,370 L116,260 L192,182 L232,238 L256,162 L280,238 L320,182 L396,260 L396,370 Z"
-      fill="#2fd093"
+      fill="#f59e0b"
     />
-    <circle cx="192" cy="182" r="15" fill="#090f1c"/>
-    <circle cx="192" cy="182" r="7"  fill="#f4f8ff"/>
-    <circle cx="256" cy="162" r="17" fill="#090f1c"/>
-    <circle cx="256" cy="162" r="8"  fill="#f4f8ff"/>
-    <circle cx="320" cy="182" r="15" fill="#090f1c"/>
-    <circle cx="320" cy="182" r="7"  fill="#f4f8ff"/>
+    <circle cx="192" cy="182" r="15" fill="#0d1117"/>
+    <circle cx="192" cy="182" r="7"  fill="#f8fafc"/>
+    <circle cx="256" cy="162" r="17" fill="#0d1117"/>
+    <circle cx="256" cy="162" r="8"  fill="#f8fafc"/>
+    <circle cx="320" cy="182" r="15" fill="#0d1117"/>
+    <circle cx="320" cy="182" r="7"  fill="#f8fafc"/>
   </g>
 
   <!-- Divider -->
-  <line x1="190" y1="38" x2="190" y2="162" stroke="#22314a" stroke-width="1.5"/>
+  <line x1="190" y1="38" x2="190" y2="162" stroke="#2b3542" stroke-width="1.5"/>
 
   <!--
     Two-color wordmark trick: render full text in teal first,
@@ -28,13 +28,13 @@
     x="210" y="120"
     font-family="'IBM Plex Mono','SF Mono','Menlo','Courier New',monospace"
     font-size="70" font-weight="700" letter-spacing="11"
-    fill="#2fd093"
+    fill="#f59e0b"
   >BETROYALE</text>
 
   <text
     x="210" y="120"
     font-family="'IBM Plex Mono','SF Mono','Menlo','Courier New',monospace"
     font-size="70" font-weight="700" letter-spacing="11"
-    fill="#f4f8ff"
+    fill="#f8fafc"
   >BET</text>
 </svg>

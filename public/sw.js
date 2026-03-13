@@ -1,7 +1,7 @@
 // BetRoyale Service Worker
 // Cache-first for static assets · Network-first for API calls
 
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const CACHE_NAME = `betroyale-${CACHE_VERSION}`;
 
 const STATIC_ASSETS = [
