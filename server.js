@@ -560,7 +560,14 @@ app.use(
   "/.well-known",
   express.static(path.join(__dirname, "public/.well-known"), { dotfiles: "allow" })
 );
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(__dirname, "public"), {
+  etag: false,
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith(".css") || filePath.endsWith(".js")) {
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    }
+  },
+}));
 app.use((err, req, res, next) => {
   if (err && String(err.message || "").startsWith("Not allowed by CORS")) {
     return res.status(403).json({ error: "Origin not allowed." });

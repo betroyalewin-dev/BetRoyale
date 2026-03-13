@@ -526,7 +526,7 @@ body.menu-drawer-open .menu-links {
   display: grid;
   grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.82fr);
   gap: 24px;
-  align-items: stretch;
+  align-items: center;
 }
 
 .hero-copy {
@@ -840,6 +840,7 @@ h2 {
   position: relative;
   width: 100%;
   height: 440px;
+  overflow: visible;
 }
 
 .phone {
@@ -1241,17 +1242,17 @@ h2 {
 }
 
 @media (max-width: 900px) {
-  .hero-phones { min-height: 280px; }
-  .phone-scene { height: 280px; }
+  .hero-phones { min-height: 340px; }
+  .phone-scene { height: 340px; }
 
   @keyframes phoneFloatBack {
-    0%, 100% { transform: rotate(-5deg) scale(0.72) translateY(0px); }
-    50%       { transform: rotate(-5deg) scale(0.72) translateY(-8px); }
+    0%, 100% { transform: rotate(-5deg) scale(0.76) translateY(0px); }
+    50%       { transform: rotate(-5deg) scale(0.76) translateY(-8px); }
   }
 
   @keyframes phoneFloatFront {
-    0%, 100% { transform: rotate(2deg) scale(0.84) translateY(0px); }
-    50%       { transform: rotate(2deg) scale(0.84) translateY(-10px); }
+    0%, 100% { transform: rotate(2deg) scale(0.88) translateY(0px); }
+    50%       { transform: rotate(2deg) scale(0.88) translateY(-10px); }
   }
 
   .phone--back  { animation: phoneFloatBack  5.8s ease-in-out infinite; }
