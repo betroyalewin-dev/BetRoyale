@@ -70,6 +70,8 @@
             </svg>
           </span>
         </button>
+      </div>
+      <div class="menu-center">
         <div class="menu-brand">BetRoyale</div>
       </div>
       <div class="menu-right">
@@ -85,7 +87,6 @@
                 <circle cx="12" cy="12" r="4"></circle>
               </svg>
             </span>
-            <span class="balance-label">Coins</span>
             <span id="balance-coins" class="balance-value">0</span>
           </div>
           <div class="balance-item">
@@ -95,7 +96,6 @@
                 <path d="M17 7.5c0-1.9-2.2-3.5-5-3.5S7 5.6 7 7.5 9.2 11 12 11s5 1.6 5 3.5S14.8 18 12 18s-5-1.6-5-3.5"></path>
               </svg>
             </span>
-            <span class="balance-label">Balance</span>
             <span id="balance-balance" class="balance-value">0</span>
           </div>
         </div>
@@ -1274,6 +1274,67 @@
         </p>
       </footer>
     </div>
+
+    <!-- Mobile Bottom Navigation -->
+    <nav class="mobile-bottom-nav auth-only hidden" id="mobile-bottom-nav" aria-label="Mobile navigation">
+      <button type="button" class="mobile-nav-item" data-section="queue" aria-label="Queue" title="Queue">
+        <span class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M8 6h12"></path>
+            <path d="M8 12h12"></path>
+            <path d="M8 18h12"></path>
+            <circle cx="4" cy="6" r="1"></circle>
+            <circle cx="4" cy="12" r="1"></circle>
+            <circle cx="4" cy="18" r="1"></circle>
+          </svg>
+        </span>
+        <span class="label">Queue</span>
+      </button>
+      <button type="button" class="mobile-nav-item" data-section="match" aria-label="Match Found" title="Match Found">
+        <span class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M5 4l6 6"></path>
+            <path d="M11 4L5 10"></path>
+            <path d="M13 14l6 6"></path>
+            <path d="M19 14l-6 6"></path>
+          </svg>
+        </span>
+        <span class="label">Match</span>
+      </button>
+      <button type="button" class="mobile-nav-item" data-section="results" aria-label="Battle Log" title="Battle Log">
+        <span class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M8 4h8v3a4 4 0 0 1-8 0V4z"></path>
+            <path d="M6 6H4a2 2 0 0 0 2 2"></path>
+            <path d="M18 6h2a2 2 0 0 1-2 2"></path>
+            <path d="M12 11v3"></path>
+            <path d="M9 20h6"></path>
+            <path d="M10 20v-3h4v3"></path>
+          </svg>
+        </span>
+        <span class="label">Log</span>
+      </button>
+      <button type="button" class="mobile-nav-item" data-section="leaderboards" aria-label="Leaderboard" title="Leaderboard">
+        <span class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M7 18V10"></path>
+            <path d="M12 18V6"></path>
+            <path d="M17 18v-4"></path>
+            <path d="M5 20h14"></path>
+          </svg>
+        </span>
+        <span class="label">Leaderboard</span>
+      </button>
+      <button type="button" class="mobile-nav-item" data-section="profile" aria-label="Profile" title="Profile">
+        <span class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="8" r="3"></circle>
+            <path d="M4 20c1.6-3 4.5-5 8-5s6.4 2 8 5"></path>
+          </svg>
+        </span>
+        <span class="label">Profile</span>
+      </button>
+    </nav>
     <div id="match-transition" class="match-transition hidden" aria-live="polite">
       <div class="match-transition-card">
         <div class="match-transition-pulse" aria-hidden="true"></div>

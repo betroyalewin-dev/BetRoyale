@@ -747,6 +747,11 @@ function setActiveSection(section, options = {}) {
   menuButtons.forEach((button) => {
     button.classList.toggle("active", button.dataset.section === target);
   });
+  // Update mobile nav active state
+  const mobileNavItems = Array.from(document.querySelectorAll(".mobile-nav-item"));
+  mobileNavItems.forEach((button) => {
+    button.classList.toggle("active", button.dataset.section === target);
+  });
   activeSection = target;
   syncFloatingSignupVisibility();
   if (target === "match" && !currentMatchId) {
@@ -803,6 +808,16 @@ function updateMenuState(user) {
       }
     }
   });
+
+  // Update mobile bottom nav visibility
+  const mobileBottomNav = document.getElementById("mobile-bottom-nav");
+  if (mobileBottomNav) {
+    if (isLoggedIn) {
+      mobileBottomNav.classList.remove("hidden");
+    } else {
+      mobileBottomNav.classList.add("hidden");
+    }
+  }
 
   if (!isLoggedIn) {
     setActiveSection("auth");
@@ -2948,6 +2963,21 @@ menuButtons.forEach((button) => {
     }
     setActiveSection(section);
     closeMenuDrawer();
+  });
+});
+
+// Mobile bottom nav items
+const mobileNavItems = Array.from(document.querySelectorAll(".mobile-nav-item"));
+mobileNavItems.forEach((button) => {
+  button.addEventListener("click", () => {
+    const section = button.dataset.section;
+    if (!section) return;
+    if (!currentUser && section !== "auth") {
+      showStatus("Log in to access that section.", true);
+      setActiveSection("auth");
+      return;
+    }
+    setActiveSection(section);
   });
 });
 

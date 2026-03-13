@@ -4981,3 +4981,127 @@ button:active:not(:disabled) {
     text-align: center;
   }
 }
+
+/* ── Mobile Bottom Navigation ── */
+.mobile-bottom-nav {
+  display: none;
+}
+
+.mobile-bottom-nav.hidden {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  /* Update page padding to account for bottom nav */
+  .page {
+    padding-bottom: calc(80px + var(--safe-bottom)) !important;
+  }
+
+  /* Update menu layout for mobile */
+  .menu {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    padding: calc(12px + var(--safe-top)) 10px 12px;
+    margin-bottom: 20px;
+    gap: 8px;
+  }
+
+  .menu-left {
+    display: flex;
+    gap: 8px;
+  }
+
+  .menu-center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .menu-brand {
+    font-size: 1rem;
+  }
+
+  .menu-balance {
+    display: flex;
+    gap: 8px;
+    width: auto;
+  }
+
+  .balance-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.7rem;
+  }
+
+  .balance-label {
+    display: none;
+  }
+
+  .balance-value {
+    font-size: 0.75rem;
+  }
+
+  /* Mobile Bottom Navigation Bar */
+  .mobile-bottom-nav:not(.hidden) {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    gap: 0;
+    padding: 0 0 var(--safe-bottom) 0;
+    background: #0e1728;
+    border-top: 1px solid var(--border);
+    z-index: 101;
+    height: 80px;
+    box-shadow: 0 -4px 12px rgba(2, 8, 20, 0.3);
+  }
+
+  .mobile-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 8px 4px;
+    font-size: 0.65rem;
+    font-weight: 500;
+    transition: color 0.2s, background 0.2s;
+    border-radius: 8px;
+    margin: 4px;
+  }
+
+  .mobile-nav-item:hover,
+  .mobile-nav-item:focus-visible {
+    color: var(--ink);
+    background: rgba(47, 208, 147, 0.1);
+    outline: none;
+  }
+
+  .mobile-nav-item.active {
+    color: var(--accent);
+    background: rgba(47, 208, 147, 0.15);
+  }
+
+  .mobile-nav-item .icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .mobile-nav-item .icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .mobile-nav-item .label {
+    text-transform: capitalize;
+    font-size: 0.65rem;
+    line-height: 1;
+  }
+}
