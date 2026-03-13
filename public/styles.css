@@ -5105,3 +5105,130 @@ button:active:not(:disabled) {
     line-height: 1;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOTION — parallax, microinteractions, scroll effects (motion.js)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Scroll Progress Bar ───────────────────────────────────────────────────*/
+#scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  z-index: 300;
+  pointer-events: none;
+  border-radius: 0 2px 2px 0;
+  transition: width 0.08s linear;
+}
+
+/* ── Nav Scroll Shrink ─────────────────────────────────────────────────────*/
+.menu {
+  transition: padding 0.25s ease, background 0.25s ease, backdrop-filter 0.25s ease;
+}
+
+.menu.scrolled {
+  padding-top: calc(12px + var(--safe-top));
+  padding-bottom: 12px;
+  background: rgba(8, 15, 27, 0.97);
+  backdrop-filter: blur(18px);
+}
+
+/* ── Scroll Reveal ─────────────────────────────────────────────────────────*/
+.reveal-hidden {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.42s ease, transform 0.42s ease;
+}
+
+.reveal-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Signal Card — hover lift ──────────────────────────────────────────────*/
+.signal-card {
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+}
+
+.signal-card:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 16px 40px rgba(47, 208, 147, 0.1),
+    0 10px 30px rgba(2, 8, 20, 0.3);
+  border-color: rgba(47, 208, 147, 0.26);
+}
+
+/* ── Payout Step — hover lift ──────────────────────────────────────────────*/
+.payout-step {
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+}
+
+.payout-step:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 16px 40px rgba(92, 140, 255, 0.1),
+    0 2px 8px rgba(2, 8, 20, 0.24);
+  border-color: rgba(92, 140, 255, 0.32);
+}
+
+/* ── Hero Progress Card — parallax target ──────────────────────────────────*/
+.hero-progress-card {
+  will-change: transform;
+}
+
+/* ── Hero CTA — magnetic + ripple ──────────────────────────────────────────*/
+.hero-action-primary,
+.hero-action-secondary {
+  overflow: hidden;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.2s ease;
+}
+
+/* ── Secondary action buttons that get ripple ──────────────────────────────*/
+#auth-signup-btn,
+#hero-signup-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── Hero Checklist — staggered entrance ───────────────────────────────────*/
+.hero-check-item {
+  opacity: 0;
+  transform: translateY(10px);
+  animation: fadeUp 0.38s ease forwards;
+}
+
+.hero-check-item:nth-child(1) { animation-delay: 180ms; }
+.hero-check-item:nth-child(2) { animation-delay: 270ms; }
+.hero-check-item:nth-child(3) { animation-delay: 360ms; }
+
+/* ── Input Focus Glow ──────────────────────────────────────────────────────*/
+input[type="text"]:focus,
+input[type="url"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus {
+  outline: none;
+  border-color: rgba(47, 208, 147, 0.5);
+  box-shadow: 0 0 0 3px rgba(47, 208, 147, 0.13);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+/* ── Button Ripple ─────────────────────────────────────────────────────────*/
+.btn-ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(0);
+  animation: ripple-expand 0.6s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes ripple-expand {
+  to {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
