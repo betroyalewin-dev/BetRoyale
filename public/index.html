@@ -258,68 +258,98 @@
               <span class="hero-proof-pill">No manual payout chasing</span>
             </div>
           </div>
-          <aside class="hero-progress-card" aria-labelledby="hero-progress-title">
-            <div class="hero-progress-header">
-              <p class="hero-progress-kicker">New player setup</p>
-              <div class="hero-progress-meta" aria-label="Setup effort">
-                <span>3 steps</span>
-                <span>About 2 min</span>
+          <!-- Floating dual-phone visual -->
+          <aside class="hero-phones" aria-label="BetRoyale in action">
+            <div class="phone-scene">
+
+              <!-- Phone 1: Clash Royale gameplay (back, left) -->
+              <div class="phone phone--back" aria-hidden="true">
+                <div class="phone-frame">
+                  <div class="phone-pill"></div>
+                  <div class="phone-screen">
+                    <img src="/brand/cr-screen.png" alt="" class="phone-screen-img" onerror="this.style.display='none'" />
+                    <div class="phone-screen-cr" id="cr-css-fallback">
+                      <div class="cr-top-bar">
+                        <div class="cr-hp cr-hp--left">
+                          <div class="cr-hp-bar"><div class="cr-hp-fill" style="width:72%"></div></div>
+                          <span class="cr-hp-label">YOU</span>
+                        </div>
+                        <div class="cr-timer">1:04</div>
+                        <div class="cr-hp cr-hp--right">
+                          <div class="cr-hp-bar"><div class="cr-hp-fill cr-hp-fill--enemy" style="width:58%"></div></div>
+                          <span class="cr-hp-label">OPP</span>
+                        </div>
+                      </div>
+                      <div class="cr-arena">
+                        <div class="cr-arena-divider"></div>
+                        <div class="cr-tower cr-tower--tl"></div>
+                        <div class="cr-tower cr-tower--tr"></div>
+                        <div class="cr-tower cr-tower--bl"></div>
+                        <div class="cr-tower cr-tower--br"></div>
+                        <div class="cr-card-row">
+                          <div class="cr-card"></div>
+                          <div class="cr-card"></div>
+                          <div class="cr-card cr-card--active"></div>
+                          <div class="cr-card"></div>
+                        </div>
+                      </div>
+                      <div class="cr-elixir-bar">
+                        <div class="cr-elixir-fill" style="width:60%"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <p class="phone-label">Playing now</p>
               </div>
+
+              <!-- Phone 2: BetRoyale win result (front, right) -->
+              <div class="phone phone--front" aria-hidden="true">
+                <div class="phone-frame phone-frame--win">
+                  <div class="phone-pill"></div>
+                  <div class="phone-screen">
+                    <!-- Swap src for real screenshot: <img src="/brand/br-win-screen.png" alt="" /> -->
+                    <div class="phone-screen-br">
+                      <div class="br-result-header">
+                        <div class="br-brand-mark">BR</div>
+                        <div class="br-vs-pill">1v1 Duel</div>
+                      </div>
+                      <div class="br-result-body">
+                        <div class="br-trophy">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M8 4h8v3a4 4 0 0 1-8 0V4z"></path>
+                            <path d="M6 6H4a2 2 0 0 0 2 2"></path>
+                            <path d="M18 6h2a2 2 0 0 1-2 2"></path>
+                            <path d="M12 11v3"></path>
+                            <path d="M9 20h6"></path>
+                            <path d="M10 20v-3h4v3"></path>
+                          </svg>
+                        </div>
+                        <p class="br-victory-label">VICTORY</p>
+                        <p class="br-winnings">+$18.00</p>
+                        <p class="br-winnings-sub">settled via API</p>
+                      </div>
+                      <div class="br-result-details">
+                        <div class="br-detail-row">
+                          <span class="br-detail-label">Wager</span>
+                          <span class="br-detail-val">$10.00 each</span>
+                        </div>
+                        <div class="br-detail-row">
+                          <span class="br-detail-label">Winner gets</span>
+                          <span class="br-detail-val br-detail-val--green">$18.00</span>
+                        </div>
+                        <div class="br-detail-row">
+                          <span class="br-detail-label">Platform fee</span>
+                          <span class="br-detail-val">$2.00 (10%)</span>
+                        </div>
+                      </div>
+                      <button class="br-cashout-btn" tabindex="-1">Cash Out Now</button>
+                    </div>
+                  </div>
+                </div>
+                <p class="phone-label phone-label--win">You just won</p>
+              </div>
+
             </div>
-            <h2 id="hero-progress-title">Start wagering in 3 quick steps.</h2>
-            <p class="hero-progress-copy">
-              Clear effort, no guessing: finish these once and you are ready for real matches.
-            </p>
-            <div class="hero-progress-meter" aria-hidden="true">
-              <span class="hero-progress-segment"></span>
-              <span class="hero-progress-segment"></span>
-              <span class="hero-progress-segment"></span>
-            </div>
-            <ol class="hero-checklist">
-              <li class="hero-check-item">
-                <span class="hero-check-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="8"></circle>
-                    <path d="M12 8v8"></path>
-                    <path d="M8 12h8"></path>
-                  </svg>
-                </span>
-                <div class="hero-check-body">
-                  <p>Create account</p>
-                  <span>Claim your 1,000 starter coins.</span>
-                </div>
-                <span class="hero-check-time">30 sec</span>
-              </li>
-              <li class="hero-check-item">
-                <span class="hero-check-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24">
-                    <path d="M5 12l4 4 10-10"></path>
-                  </svg>
-                </span>
-                <div class="hero-check-body">
-                  <p>Verify email</p>
-                  <span>Confirm you are ready to wager for real.</span>
-                </div>
-                <span class="hero-check-time">1 min</span>
-              </li>
-              <li class="hero-check-item">
-                <span class="hero-check-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24">
-                    <path d="M9 11a3 3 0 1 1 6 0c0 2-3 5-3 5s-3-3-3-5z"></path>
-                    <circle cx="12" cy="11" r="1"></circle>
-                    <path d="M5 20c1.8-2.5 4.2-3.7 7-3.7s5.2 1.2 7 3.7"></path>
-                  </svg>
-                </span>
-                <div class="hero-check-body">
-                  <p>Add player tag</p>
-                  <span>Unlock queue-ready Clash Royale matchups.</span>
-                </div>
-                <span class="hero-check-time">30 sec</span>
-              </li>
-            </ol>
-            <p class="hero-progress-note">
-              Deposit only when you are ready. Verification and your player tag are the only blockers for live wagers.
-            </p>
           </aside>
         </div>
       </header>
@@ -1747,24 +1777,6 @@
         </div>
       </div>
     </div>
-
-    <button
-      type="button"
-      id="floating-signup-btn"
-      class="floating-signup-cta auth-only hidden"
-      aria-label="Create account and start in about two minutes"
-    >
-      <span class="floating-signup-copy">
-        <span class="floating-signup-title">Create account</span>
-        <span class="floating-signup-meta">Start in about 2 minutes</span>
-      </span>
-      <span class="icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24">
-          <path d="M5 12h14"></path>
-          <path d="M13 6l6 6-6 6"></path>
-        </svg>
-      </span>
-    </button>
 
     <script src="app.js"></script>
     <script src="motion.js" defer></script>
