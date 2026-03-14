@@ -38,6 +38,12 @@ const EMAIL_PASS = process.env.EMAIL_PASS;
 const EMAIL_FROM = process.env.EMAIL_FROM || EMAIL_USER || "no-reply@betroyale.win";
 const CR_API_PROXY_URL_RAW =
   process.env.CR_API_PROXY_URL || process.env.QUOTAGUARDSTATIC_URL || "";
+const IPINFO_TOKEN = process.env.IPINFO_TOKEN || "";
+
+// States where skill-based wagering is prohibited
+const BLOCKED_STATE_CODES = new Set([
+  "AZ", "AR", "HI", "ID", "IL", "IA", "LA", "MT", "ND", "NV", "NY", "PA", "TN", "TX", "WA",
+]);
 
 function resolveProxyConfig(rawProxyValue) {
   const trimmed = String(rawProxyValue || "").trim();
@@ -69,6 +75,28 @@ function resolveProxyConfig(rawProxyValue) {
 const { url: CR_API_PROXY_URL, agent: crApiAgent } = resolveProxyConfig(
   CR_API_PROXY_URL_RAW
 );
+
+// ── IP Geo-blocking ───────────────────────────────────────────────────────
+async function getStateFromIP(ip) {
+  if (!IPINFO_TOKEN || !ip) return null;
+  try {
+    const cleanIp = String(ip).replace(/^::ffff:/, "");
+    // Skip lookup for loopback/private addresses in dev
+    if (/^(127\.|10\.|192\.168\.|::1$)/.test(cleanIp)) return null;
+    const res = await fetch(
+      `https://ipinfo.io/${encodeURIComponent(cleanIp)}?token=${IPINFO_TOKEN}`
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.country === "US" ? (data.region || null) : null;
+  } catch {
+    return null; // fail open — never block on lookup error
+  }
+}
+
+function isBlockedState(stateCode) {
+  return typeof stateCode === "string" && BLOCKED_STATE_CODES.has(stateCode.toUpperCase());
+}
 
 const STORE_PATH =
   process.env.STORE_PATH || path.join(__dirname, "data", "store.json");
@@ -296,6 +324,14 @@ async function ensureDatabaseSchema() {
     ALTER TABLE users
     ADD COLUMN IF NOT EXISTS gift_balance INTEGER DEFAULT 0
   `);
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS password_reset_code TEXT
+  `);
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS password_reset_expires_at BIGINT
+  `);
   // Migrate gems to balance if balance is NULL
   await pool.query(`
     UPDATE users SET balance = COALESCE(gems, 0) WHERE balance IS NULL
@@ -505,6 +541,35 @@ app.post(
 
             await saveStore();
           }
+        }
+      }
+    }
+
+    if (event.type === "identity.verification_session.verified") {
+      const vs = event.data.object;
+      const userId = vs.metadata?.userId;
+      if (userId) {
+        const verifiedUser = findUserById(userId);
+        if (verifiedUser) {
+          verifiedUser.kycStatus = "verified";
+          verifiedUser.idVerificationStatus = "verified";
+          verifiedUser.kycVerifiedAt = Date.now();
+          verifiedUser.updatedAt = Date.now();
+          await saveStore();
+        }
+      }
+    }
+
+    if (event.type === "identity.verification_session.requires_input") {
+      const vs = event.data.object;
+      const userId = vs.metadata?.userId;
+      if (userId) {
+        const failedUser = findUserById(userId);
+        if (failedUser && failedUser.kycStatus !== "verified") {
+          failedUser.kycStatus = "failed";
+          failedUser.idVerificationStatus = "failed";
+          failedUser.updatedAt = Date.now();
+          await saveStore();
         }
       }
     }
@@ -1220,6 +1285,35 @@ async function sendVerificationEmail({ email, username, code }) {
   });
 }
 
+async function sendPasswordResetEmail({ email, username, code }) {
+  if (!mailTransport) {
+    throw new Error("Email transport is not configured.");
+  }
+  const safeName = username ? ` ${username}` : "";
+  const subject = "BetRoyale password reset code";
+  const text = `Hi${safeName},\n\nYour BetRoyale password reset code is: ${code}\n\nEnter this code to reset your password. It expires in 30 minutes.\n\nIf you did not request this, you can ignore this email.`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; color: #111;">
+      <h2 style="margin: 0 0 12px;">BetRoyale password reset</h2>
+      <p>Hi${safeName},</p>
+      <p>Your password reset code is:</p>
+      <div style="font-size: 22px; font-weight: bold; letter-spacing: 3px; margin: 12px 0;">
+        ${code}
+      </div>
+      <p>Enter this code in the app to reset your password. It expires in 30 minutes.</p>
+      <p style="color: #666;">If you did not request this, you can ignore this email.</p>
+    </div>
+  `;
+
+  await mailTransport.sendMail({
+    from: EMAIL_FROM,
+    to: email,
+    subject,
+    text,
+    html,
+  });
+}
+
 function sanitizeTag(tag) {
   if (!tag) return "";
   const cleaned = tag.trim().toUpperCase().replace(/[^0-9A-Z]/g, "");
@@ -1668,6 +1762,7 @@ function publicUser(user) {
     playerProfile: user.playerProfile,
     isVerified: user.isVerified,
     kycStatus: user.kycStatus || "none",
+    kycVerifiedAt: user.kycVerifiedAt || null,
     idVerificationStatus: user.idVerificationStatus || "none",
     depositLimitWeekly: user.depositLimitWeekly ?? null,
     stripeConnectAccountId: user.stripeConnectAccountId || null,
@@ -3191,6 +3286,13 @@ app.get("/api/auth/session", (req, res) => {
   return res.json({ user: publicUser(user) });
 });
 
+// ── Geo eligibility check (called on page load) ───────────────────────────
+app.get("/api/geo-check", async (req, res) => {
+  const stateCode = await getStateFromIP(req.ip);
+  const blocked = isBlockedState(stateCode);
+  return res.json({ blocked, state: stateCode });
+});
+
 app.post("/api/auth/register", async (req, res) => {
   const email = normalizeEmail(req.body?.email);
   const password = req.body?.password || "";
@@ -3228,6 +3330,16 @@ app.post("/api/auth/register", async (req, res) => {
     if (referrer.email === email) {
       return res.status(400).json({ error: "You cannot use your own referral code." });
     }
+  }
+
+  // IP-based geo-block — reject registrations from prohibited states
+  const regStateCode = await getStateFromIP(req.ip);
+  if (isBlockedState(regStateCode)) {
+    return res.status(403).json({
+      error: `BetRoyale is not available in your state (${regStateCode}). Skill-based wagering is not permitted there.`,
+      blocked: true,
+      state: regStateCode,
+    });
   }
 
   try {
@@ -3381,6 +3493,82 @@ app.post("/api/auth/resend", async (req, res) => {
   });
 });
 
+app.post("/api/auth/forgot-password", async (req, res) => {
+  const email = normalizeEmail(req.body?.email || "");
+  if (!email) {
+    return res.status(400).json({ error: "Email is required." });
+  }
+
+  const user = findUserByEmail(email);
+  // Always return success to avoid user enumeration
+  if (!user) {
+    return res.json({ ok: true });
+  }
+
+  const code = generateVerificationCode();
+  const expiresAt = Date.now() + VERIFICATION_TTL_MS;
+  user.passwordResetCode = code;
+  user.passwordResetExpiresAt = expiresAt;
+  user.updatedAt = Date.now();
+
+  if (mailTransport) {
+    try {
+      await sendPasswordResetEmail({
+        email: user.email,
+        username: user.username,
+        code,
+      });
+    } catch (err) {
+      user.passwordResetCode = null;
+      user.passwordResetExpiresAt = null;
+      await saveStore();
+      return res.status(500).json({ error: "Unable to send reset email." });
+    }
+  }
+
+  await saveStore();
+  return res.json({
+    ok: true,
+    resetCode: mailTransport ? null : code,
+  });
+});
+
+app.post("/api/auth/reset-password", async (req, res) => {
+  const email = normalizeEmail(req.body?.email || "");
+  const code = String(req.body?.code || "").trim();
+  const newPassword = req.body?.password || "";
+
+  if (!email || !code || !newPassword) {
+    return res
+      .status(400)
+      .json({ error: "Email, code, and new password are required." });
+  }
+  if (newPassword.length < 6) {
+    return res
+      .status(400)
+      .json({ error: "Password must be at least 6 characters." });
+  }
+
+  const user = findUserByEmail(email);
+  if (!user || !user.passwordResetCode || !user.passwordResetExpiresAt) {
+    return res.status(400).json({ error: "Invalid or expired reset code." });
+  }
+  if (Date.now() > user.passwordResetExpiresAt) {
+    return res.status(400).json({ error: "Reset code has expired." });
+  }
+  if (code !== user.passwordResetCode) {
+    return res.status(400).json({ error: "Invalid reset code." });
+  }
+
+  user.passwordHash = await bcrypt.hash(newPassword, 10);
+  user.passwordResetCode = null;
+  user.passwordResetExpiresAt = null;
+  user.updatedAt = Date.now();
+  await saveStore();
+
+  return res.json({ ok: true });
+});
+
 // ── KYC: personal identity ────────────────────────────────────────────────
 app.post("/api/auth/kyc", async (req, res) => {
   const user = requireAuth(req, res);
@@ -3396,6 +3584,36 @@ app.post("/api/auth/kyc", async (req, res) => {
   user.updatedAt = Date.now();
   await saveStore();
   return res.json({ user: publicUser(user) });
+});
+
+// ── KYC: start Stripe Identity verification session ───────────────────────
+app.post("/api/auth/kyc/start", async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+  if (!stripe) return res.status(503).json({ error: "Payments not configured." });
+  if (user.kycStatus === "verified") {
+    return res.json({ alreadyVerified: true });
+  }
+  try {
+    const session = await stripe.identity.verificationSessions.create({
+      type: "document",
+      options: {
+        document: {
+          require_live_capture: true,
+          require_matching_selfie: true,
+        },
+      },
+      metadata: { userId: user.id },
+      return_url: `${PUBLIC_URL}/?kyc=complete`,
+    });
+    user.kycStatus = "submitted";
+    user.idVerificationStatus = "pending";
+    user.updatedAt = Date.now();
+    await saveStore();
+    return res.json({ url: session.url });
+  } catch (err) {
+    return res.status(500).json({ error: err?.message || "Unable to start identity verification." });
+  }
 });
 
 // ── Tax: SSN last 4 ───────────────────────────────────────────────────────
@@ -3494,6 +3712,23 @@ app.post("/api/shop/checkout", async (req, res) => {
   const user = requireAuth(req, res);
   if (!user) return;
 
+  // Re-check geo at deposit time — catches VPN users who registered elsewhere
+  const depositStateCode = await getStateFromIP(req.ip);
+  if (isBlockedState(depositStateCode)) {
+    return res.status(403).json({
+      error: `Deposits are not available from your current location (${depositStateCode}).`,
+      blocked: true,
+    });
+  }
+
+  // Require verified identity before accepting real-money deposits
+  if (user.kycStatus !== "verified") {
+    return res.status(403).json({
+      error: "Identity verification required before depositing. Complete KYC in your profile.",
+      kycRequired: true,
+    });
+  }
+
   if (!stripe) {
     return res.status(400).json({ error: "Stripe is not configured." });
   }
@@ -3529,7 +3764,7 @@ app.post("/api/shop/checkout", async (req, res) => {
 
   const balance = amountCents;
   const idempotencyKey = `checkout:${user.id}:${amountCents}:${Math.floor(
-    Date.now() / 30000
+    Date.now() / 600000
   )}`;
   try {
     const session = await stripe.checkout.sessions.create(
@@ -3855,6 +4090,22 @@ app.post("/api/shop/cashout", async (req, res) => {
   const user = requireAuth(req, res);
   if (!user) return;
 
+  // Require verified identity before paying out
+  if (user.kycStatus !== "verified") {
+    return res.status(403).json({
+      error: "Identity verification required before cashing out. Complete KYC in your profile.",
+      kycRequired: true,
+    });
+  }
+
+  // Block cashout while a match is active — prevents balance draining mid-match
+  const cashoutActiveMatch = getActiveMatchForUser(user);
+  if (cashoutActiveMatch) {
+    return res.status(400).json({
+      error: "Cannot cash out while a match is in progress. Please wait for your match to complete.",
+    });
+  }
+
   if (!stripe) {
     return res.status(400).json({ error: "Stripe is not configured." });
   }
@@ -3892,7 +4143,7 @@ app.post("/api/shop/cashout", async (req, res) => {
     }
 
     const idempotencyKey = `cashout:${user.id}:${amountCents}:${Math.floor(
-      Date.now() / 30000
+      Date.now() / 600000
     )}`;
     const transfer = await stripe.transfers.create(
       {
@@ -4459,77 +4710,11 @@ app.get("/api/matches/:matchId/track", async (req, res) => {
       if (userA && resultA) updateStatsForUser(userA, resultA, battle.battleTime);
       if (userB && resultB) updateStatsForUser(userB, resultB, battle.battleTime);
 
-      // Helper: apply wager transfer with house cut.
-      // Winner receives WINNER_PCT (95%) of the total pot.
-      // When both players use the same currency the pot is simply wagerA + wagerB.
-      // When currencies differ, the winner gets WINNER_PCT of the opponent's wager
-      // in the opponent's currency; the loser forfeits their full wager.
-      function applyWagerTransfer(
-        winner,
-        loser,
-        wWager,
-        wCurrency,
-        wFunding,
-        lWager,
-        lCurrency,
-        lFunding
-      ) {
-        if (!winner || !loser || lWager <= 0) return;
-        if (wCurrency === lCurrency) {
-          const pot = wWager + lWager;
-          const payout = Math.floor(pot * WINNER_PCT);
-          const net = payout - wWager; // winner already holds their own stake
-          if (wCurrency === "balance") {
-            addRegularBalance(winner, payout - Number(wFunding?.regular || 0));
-            addGiftBalance(winner, -Number(wFunding?.gift || 0));
-            addRegularBalance(loser, -Number(lFunding?.regular || 0));
-            addGiftBalance(loser, -Number(lFunding?.gift || 0));
-          } else {
-            winner.credits = Math.max(0, (winner.credits || 0) + net);
-            loser.credits = Math.max(0, (loser.credits || 0) - lWager);
-          }
-        } else {
-          // Mixed currencies: 95% of loser's wager goes to winner (in loser's currency)
-          const loserPays = Math.floor(lWager * WINNER_PCT);
-          if (lCurrency === "balance") {
-            addRegularBalance(winner, loserPays);
-            addRegularBalance(loser, -Number(lFunding?.regular || 0));
-            addGiftBalance(loser, -Number(lFunding?.gift || 0));
-          } else {
-            winner.credits = Math.max(0, (winner.credits || 0) + loserPays);
-            loser.credits = Math.max(0, (loser.credits || 0) - lWager);
-            if (wCurrency === "balance" && Number(wFunding?.gift || 0) > 0) {
-              addRegularBalance(winner, Number(wFunding.gift || 0));
-              addGiftBalance(winner, -Number(wFunding.gift || 0));
-            }
-          }
-        }
-      }
-
-      if (resultA === "win" && resultB === "loss") {
-        applyWagerTransfer(
-          userA,
-          userB,
-          wagerA,
-          currencyA,
-          fundingA,
-          wagerB,
-          currencyB,
-          fundingB
-        );
-      } else if (resultB === "win" && resultA === "loss") {
-        applyWagerTransfer(
-          userB,
-          userA,
-          wagerB,
-          currencyB,
-          fundingB,
-          wagerA,
-          currencyA,
-          fundingA
-        );
-      }
-
+      // FIX (race condition): Record the match BEFORE applying balance transfers.
+      // If the server crashes between recording and transferring, the match is
+      // preserved in history and the block is skipped on retry (matchKey already set).
+      // The settled flag lets us detect the rare case where recording succeeded
+      // but the transfer did not.
       store.recordedMatches[matchKey] = {
         matchId,
         tagA,
@@ -4558,7 +4743,94 @@ app.get("/api/matches/:matchId/track", async (req, res) => {
           opponent: summarizeBattlePlayers(battle.opponent),
         },
         recordedAt: new Date().toISOString(),
+        settled: false,
       };
+      await saveStore();
+
+      // Helper: apply wager transfer with house cut.
+      // Winner receives WINNER_PCT of the total pot (same currency) or of the
+      // loser's wager (mixed currency). The loser forfeits their full wager.
+      // FIX (null funding): if funding is null for a balance wager the user's
+      // balance dropped between queue time and settlement — skip the transfer
+      // for that side and log the anomaly rather than silently producing wrong math.
+      function applyWagerTransfer(
+        winner,
+        loser,
+        wWager,
+        wCurrency,
+        wFunding,
+        lWager,
+        lCurrency,
+        lFunding
+      ) {
+        if (!winner || !loser || lWager <= 0) return;
+
+        // FIX (null funding): abort if a balance-wager funding split is missing
+        if (wCurrency === "balance" && wFunding === null) {
+          console.error(`Settlement anomaly: winner funding null for match ${matchKey}. Transfer skipped.`);
+          return;
+        }
+        if (lCurrency === "balance" && lFunding === null) {
+          console.error(`Settlement anomaly: loser funding null for match ${matchKey}. Transfer skipped.`);
+          return;
+        }
+
+        if (wCurrency === lCurrency) {
+          const pot = wWager + lWager;
+          const payout = Math.floor(pot * WINNER_PCT);
+          const net = payout - wWager; // winner already holds their own stake
+          if (wCurrency === "balance") {
+            addRegularBalance(winner, payout - Number(wFunding.regular));
+            addGiftBalance(winner, -Number(wFunding.gift));
+            addRegularBalance(loser, -Number(lFunding.regular));
+            addGiftBalance(loser, -Number(lFunding.gift));
+          } else {
+            winner.credits = Math.max(0, (winner.credits || 0) + net);
+            loser.credits = Math.max(0, (loser.credits || 0) - lWager);
+          }
+        } else {
+          // Mixed currencies: winner earns WINNER_PCT of the loser's wager
+          // in the loser's currency. Each player's own wager is unaffected
+          // (winner keeps theirs; loser forfeits theirs only).
+          // FIX (gift leak): removed the block that incorrectly converted the
+          // winner's gift balance to regular balance in mixed-currency matches.
+          const loserPays = Math.floor(lWager * WINNER_PCT);
+          if (lCurrency === "balance") {
+            addRegularBalance(winner, loserPays);
+            addRegularBalance(loser, -Number(lFunding.regular));
+            addGiftBalance(loser, -Number(lFunding.gift));
+          } else {
+            winner.credits = Math.max(0, (winner.credits || 0) + loserPays);
+            loser.credits = Math.max(0, (loser.credits || 0) - lWager);
+          }
+        }
+      }
+
+      if (resultA === "win" && resultB === "loss") {
+        applyWagerTransfer(
+          userA,
+          userB,
+          wagerA,
+          currencyA,
+          fundingA,
+          wagerB,
+          currencyB,
+          fundingB
+        );
+      } else if (resultB === "win" && resultA === "loss") {
+        applyWagerTransfer(
+          userB,
+          userA,
+          wagerB,
+          currencyB,
+          fundingB,
+          wagerA,
+          currencyA,
+          fundingA
+        );
+      }
+
+      store.recordedMatches[matchKey].settled = true;
       await saveStore();
     }
 

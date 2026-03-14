@@ -16,6 +16,14 @@ const registerMessage = document.getElementById("register-message");
 const loginEmail = document.getElementById("login-email");
 const loginPassword = document.getElementById("login-password");
 const loginMessage = document.getElementById("login-message");
+const forgotForm = document.getElementById("forgot-form");
+const forgotEmailInput = document.getElementById("forgot-email");
+const forgotMessage = document.getElementById("forgot-message");
+const resetForm = document.getElementById("reset-form");
+const resetEmailInput = document.getElementById("reset-email");
+const resetCodeInput = document.getElementById("reset-code");
+const resetPasswordInput = document.getElementById("reset-password-input");
+const resetMessage = document.getElementById("reset-message");
 
 const profileEmail = document.getElementById("profile-email");
 const profileUsername = document.getElementById("profile-username");
@@ -2141,6 +2149,69 @@ loginForm.addEventListener("submit", async (event) => {
     loginForm.reset();
   } catch (err) {
     setFormMessage(loginMessage, err.message, true);
+  }
+});
+
+function showLoginForm() {
+  loginForm.classList.remove("hidden");
+  forgotForm?.classList.add("hidden");
+  resetForm?.classList.add("hidden");
+}
+
+function showForgotForm() {
+  loginForm.classList.add("hidden");
+  forgotForm?.classList.remove("hidden");
+  resetForm?.classList.add("hidden");
+  setFormMessage(forgotMessage, "");
+  if (loginEmail.value.includes("@")) {
+    forgotEmailInput.value = loginEmail.value;
+  }
+}
+
+document.getElementById("forgot-link")?.addEventListener("click", showForgotForm);
+document.getElementById("back-to-login-btn")?.addEventListener("click", showLoginForm);
+document.getElementById("back-to-login-btn-2")?.addEventListener("click", showLoginForm);
+
+forgotForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  setFormMessage(forgotMessage, "Sending reset code...");
+
+  try {
+    const data = await apiRequest("/api/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email: forgotEmailInput.value }),
+    });
+    resetEmailInput.value = forgotEmailInput.value;
+    if (data.resetCode) {
+      setFormMessage(resetMessage, `Reset code: ${data.resetCode}`);
+    } else {
+      setFormMessage(resetMessage, "");
+    }
+    forgotForm.classList.add("hidden");
+    resetForm?.classList.remove("hidden");
+  } catch (err) {
+    setFormMessage(forgotMessage, err.message, true);
+  }
+});
+
+resetForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  setFormMessage(resetMessage, "Resetting password...");
+
+  try {
+    await apiRequest("/api/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({
+        email: resetEmailInput.value,
+        code: resetCodeInput.value,
+        password: resetPasswordInput.value,
+      }),
+    });
+    resetForm.reset();
+    showLoginForm();
+    setFormMessage(loginMessage, "Password reset. Log in with your new password.");
+  } catch (err) {
+    setFormMessage(resetMessage, err.message, true);
   }
 });
 
