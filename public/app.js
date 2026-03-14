@@ -39,14 +39,20 @@ const verifyDisplay = document.getElementById("verify-display");
 const statMatches = document.getElementById("stat-matches");
 const statCoins = document.getElementById("stat-coins");
 const statBalance = document.getElementById("stat-balance");
+const statGiftRow = document.getElementById("stat-gift-row");
+const statGiftBalance = document.getElementById("stat-gift-balance");
 const statWins = document.getElementById("stat-wins");
 const statLosses = document.getElementById("stat-losses");
 const statDraws = document.getElementById("stat-draws");
 const balanceCoins = document.getElementById("balance-coins");
 const balanceBalance = document.getElementById("balance-balance");
+const balanceGiftRow = document.getElementById("balance-gift-row");
+const balanceGift = document.getElementById("balance-gift");
 const shopMessageEl = document.getElementById("shop-message");
 const shopCoinsEl = document.getElementById("shop-coins");
 const shopBalanceEl = document.getElementById("shop-balance");
+const shopGiftRow = document.getElementById("shop-gift-row");
+const shopGiftBalanceEl = document.getElementById("shop-gift-balance");
 const shopAmountInput = document.getElementById("shop-amount");
 const shopCheckoutBtn = document.getElementById("shop-checkout");
 const shopBalancePreview = document.getElementById("shop-balance-preview");
@@ -80,6 +86,8 @@ const mobileDepositAmountEl = document.getElementById("mobile-deposit-amount");
 const mobileDepositBalanceEl = document.getElementById("mobile-deposit-balance");
 const mobileWalletCoinsEl = document.getElementById("mobile-wallet-coins");
 const mobileWalletBalanceEl = document.getElementById("mobile-wallet-balance");
+const mobileWalletGiftRow = document.getElementById("mobile-wallet-gift-row");
+const mobileWalletGiftEl = document.getElementById("mobile-wallet-gift");
 const mobileDepositPayBtn = document.getElementById("mobile-deposit-pay");
 const mobileKeypadMessageEl = document.getElementById("mobile-keypad-message");
 const mobileKeypadKeys = Array.from(document.querySelectorAll(".keypad-key"));
@@ -711,11 +719,15 @@ function updateQueueBalance() {
   if (!el) return;
   if (!currentUser) { el.textContent = ""; return; }
   const coins = currentUser.coins ?? currentUser.credits ?? 0;
-  const balance  = currentUser.balance ?? 0;
-  const bal   = selectedCurrency === "balance" ? balance : coins;
-  const label = selectedCurrency === "balance" ? "Balance" : "Coins";
-  const displayVal = selectedCurrency === "balance" ? formatUsd(bal) : `${bal.toLocaleString()} ${label}`;
-  el.innerHTML = `Balance: <strong>${displayVal}</strong>`;
+  const wallet = getWalletBalances(currentUser);
+  if (selectedCurrency === "balance") {
+    const detail = wallet.gift > 0
+      ? ` <span class="queue-balance-breakdown">(${formatUsd(wallet.regular)} balance + ${formatUsd(wallet.gift)} gift)</span>`
+      : "";
+    el.innerHTML = `Available: <strong>${formatUsd(wallet.total)}</strong>${detail}`;
+    return;
+  }
+  el.innerHTML = `Available: <strong>${coins.toLocaleString()} Coins</strong>`;
 }
 
 // Show a green ✓ or amber ⚠ above the form based on profile readiness.
@@ -1066,7 +1078,8 @@ function setAuthState(user) {
     profileLink.value = "";
     statMatches.textContent = "0";
     if (statCoins) statCoins.textContent = "0";
-    if (statBalance) statBalance.textContent = "0";
+    if (statBalance) statBalance.textContent = formatUsd(0);
+    updateGiftBalanceRow(statGiftBalance, statGiftRow, 0);
     statWins.textContent = "0";
     statLosses.textContent = "0";
     statDraws.textContent = "0";
@@ -1089,11 +1102,14 @@ function setAuthState(user) {
     if (queueCountEl) queueCountEl.textContent = "0 waiting";
     if (queueEmptyEl) queueEmptyEl.classList.remove("hidden");
     if (balanceCoins) balanceCoins.textContent = "0";
-    if (balanceBalance) balanceBalance.textContent = "0";
+    if (balanceBalance) balanceBalance.textContent = formatUsd(0);
+    updateGiftBalanceRow(balanceGift, balanceGiftRow, 0);
     if (shopCoinsEl) shopCoinsEl.textContent = "0";
-    if (shopBalanceEl) shopBalanceEl.textContent = "0";
+    if (shopBalanceEl) shopBalanceEl.textContent = formatUsd(0);
+    updateGiftBalanceRow(shopGiftBalanceEl, shopGiftRow, 0);
     if (mobileWalletCoinsEl) mobileWalletCoinsEl.textContent = "0";
-    if (mobileWalletBalanceEl) mobileWalletBalanceEl.textContent = "0";
+    if (mobileWalletBalanceEl) mobileWalletBalanceEl.textContent = formatUsd(0);
+    updateGiftBalanceRow(mobileWalletGiftEl, mobileWalletGiftRow, 0);
     if (shopMessageEl) shopMessageEl.textContent = "";
     if (coinGemMessageEl) coinGemMessageEl.textContent = "";
     if (dailyRewardMessageEl) dailyRewardMessageEl.textContent = "";
@@ -1141,16 +1157,21 @@ function updateProfileUI(user) {
   profileTag.value = user.tag || "";
   profileLink.value = user.friendLink || "";
   const stats = user.stats || {};
+  const wallet = getWalletBalances(user);
   statMatches.textContent = stats.matchesPlayed || 0;
   const coins = user.coins ?? user.credits ?? 0;
   if (statCoins) statCoins.textContent = coins;
-  if (statBalance) statBalance.textContent = formatUsd(user.balance ?? 0);
+  if (statBalance) statBalance.textContent = formatUsd(wallet.regular);
+  updateGiftBalanceRow(statGiftBalance, statGiftRow, wallet.gift);
   if (balanceCoins) balanceCoins.textContent = coins;
-  if (balanceBalance) balanceBalance.textContent = formatUsd(user.balance ?? 0);
+  if (balanceBalance) balanceBalance.textContent = formatUsd(wallet.regular);
+  updateGiftBalanceRow(balanceGift, balanceGiftRow, wallet.gift);
   if (shopCoinsEl) shopCoinsEl.textContent = coins;
-  if (shopBalanceEl) shopBalanceEl.textContent = formatUsd(user.balance ?? 0);
+  if (shopBalanceEl) shopBalanceEl.textContent = formatUsd(wallet.regular);
+  updateGiftBalanceRow(shopGiftBalanceEl, shopGiftRow, wallet.gift);
   if (mobileWalletCoinsEl) mobileWalletCoinsEl.textContent = coins;
-  if (mobileWalletBalanceEl) mobileWalletBalanceEl.textContent = formatUsd(user.balance ?? 0);
+  if (mobileWalletBalanceEl) mobileWalletBalanceEl.textContent = formatUsd(wallet.regular);
+  updateGiftBalanceRow(mobileWalletGiftEl, mobileWalletGiftRow, wallet.gift);
   updateCoinGemTradeState(user);
   renderProfileReadiness(user);
   renderWalletSummary(user);
@@ -1408,40 +1429,7 @@ function renderWalletSummary(user) {
   }
 }
 
-function renderQueueInsights(meta = {}) {
-  if (!queueInsightsEl) return;
-  const activePlayers = Number(meta.activePlayers || 0);
-  const waitEstimate = meta.waitEstimate || "~8-10 min";
-  const exactWagerCount = Number(meta.exactWagerCount || 0);
-  const tip = meta.tip || "Post your challenge to get on the board.";
-  queueInsightsEl.innerHTML = "";
-
-  [
-    {
-      label: "Active now",
-      value: activePlayers > 0 ? formatNumber(activePlayers) : "0",
-      note: activePlayers === 1 ? "player in queue or a live match" : "players in queue or live matches",
-    },
-    {
-      label: "Est. wait",
-      value: waitEstimate,
-      note: exactWagerCount > 0 ? "based on players already near your wager" : "based on current queue activity",
-    },
-    {
-      label: "Queue tip",
-      value: exactWagerCount > 0 ? "Hot lobby" : "Adjustment",
-      note: tip,
-    },
-  ].forEach((item) => {
-    const card = document.createElement("div");
-    card.className = "queue-insight-card";
-    card.innerHTML =
-      `<p class="queue-insight-label">${item.label}</p>` +
-      `<p class="queue-insight-value">${item.value}</p>` +
-      `<p class="queue-insight-note">${item.note}</p>`;
-    queueInsightsEl.appendChild(card);
-  });
-}
+function renderQueueInsights() {}
 
 async function loadExchangeRate() {
   try {
@@ -1467,6 +1455,23 @@ async function loadExchangeRate() {
 function formatUsd(amountCents) {
   const numeric = Number(amountCents) || 0;
   return `$${(numeric / 100).toFixed(2)}`;
+}
+
+function getWalletBalances(user) {
+  const regular = Number(user?.balance) || 0;
+  const gift = Number(user?.giftBalance) || 0;
+  const total =
+    Number(user?.wagerableBalance) || Math.max(0, regular) + Math.max(0, gift);
+  return {
+    regular: Math.max(0, regular),
+    gift: Math.max(0, gift),
+    total: Math.max(0, total),
+  };
+}
+
+function updateGiftBalanceRow(valueEl, rowEl, giftAmount) {
+  if (valueEl) valueEl.textContent = formatUsd(giftAmount);
+  if (rowEl) rowEl.classList.toggle("hidden", !(giftAmount > 0));
 }
 
 function renderCashoutHistory(entries) {
@@ -2925,7 +2930,7 @@ async function joinQueue() {
   }
   const wager = Math.floor(wagerValue);
   const availableCoins = currentUser.coins ?? currentUser.credits ?? 0;
-  const availableBalance = currentUser.balance ?? 0;
+  const availableBalance = getWalletBalances(currentUser).total;
   const availableFunds =
     selectedCurrency === "balance" ? availableBalance : availableCoins;
   if (wager > availableFunds) {
