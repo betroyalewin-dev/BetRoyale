@@ -208,8 +208,8 @@ let selectedCurrency = "coins";
 const MIN_SHOP_CENTS = 1000;
 const MIN_CASHOUT_CENTS = 1000;
 const MAX_CASHOUT_CENTS = 100000;
-const MAX_WAGER_BALANCE  = 500;
-const MAX_WAGER_COINS = 500;
+const MAX_WAGER_BALANCE  = 100;
+const MAX_WAGER_COINS = 10000;
 let cashoutReady = false;
 let mobileDepositValue = (MIN_SHOP_CENTS / 100).toFixed(2);
 let onboardingStepIndex = 0;
@@ -465,9 +465,9 @@ const LEGAL_CONTENT = {
     effectiveDate: "March 11, 2026",
     sections: [
       { heading: "1. Eligibility", body: "You must be at least 18 years of age and physically located in a state or jurisdiction where skill-based wagering is lawful to use BetRoyale. By creating an account and providing your date of birth you represent and warrant that you meet these requirements. BetRoyale currently blocks registrations from AZ, AR, HI, ID, IL, IA, LA, MT, ND, NV, NY, PA, TN, TX, and WA." },
-      { heading: "2. Skill-Based Wagering", body: "BetRoyale facilitates wagers on the outcome of Clash Royale friendly duels between consenting players. Outcomes are determined solely by player skill and are verified through the official Clash Royale API battle log. BetRoyale does not participate in or influence match outcomes. The platform charges a 10% fee on each wagered pot (winner receives 90% of the combined pot)." },
+      { heading: "2. Skill-Based Wagering", body: "BetRoyale facilitates wagers on the outcome of Clash Royale friendly duels between consenting players. Outcomes are determined solely by player skill and are verified through the official Clash Royale API battle log. BetRoyale does not participate in or influence match outcomes. The platform charges a 7.25% fee on each wagered pot (winner receives 92.75% of the combined pot)." },
       { heading: "3. Coins & Balance", body: "Coins are free starter currency with no monetary value; they cannot be cashed out. Balance are purchased with real USD at a rate of 1¢ = 1 gem and may be withdrawn subject to identity verification and these Terms. Minimum deposit: $10.00. Maximum deposit: $1,000.00 per transaction." },
-      { heading: "4. Deposits, Fees & Cash Outs", body: "Deposits are processed by Stripe and are subject to Stripe's terms and fees. BetRoyale charges a 10% fee on wager pots only — there are no fees on deposits or cash outs. Cash outs require completion of Stripe identity verification and may take 1–3 business days for Stripe to approve your account, then 1–2 additional business days for the transfer to arrive. BetRoyale reserves the right to delay or deny cash outs pending fraud review or legal compliance." },
+      { heading: "4. Deposits, Fees & Cash Outs", body: "Deposits are processed by Stripe and are subject to Stripe's terms and fees. BetRoyale charges a 7.25% fee on wager pots only — there are no fees on deposits or cash outs. Cash outs require completion of Stripe identity verification and may take 1–3 business days for Stripe to approve your account, then 1–2 additional business days for the transfer to arrive. BetRoyale reserves the right to delay or deny cash outs pending fraud review or legal compliance." },
       { heading: "5. Prohibited Conduct", body: "The following are strictly prohibited and will result in immediate account suspension and forfeiture of account balance: (a) collusion or match-fixing between players; (b) use of bots, macros, or automation tools; (c) multi-accounting (operating more than one account); (d) initiating fraudulent chargebacks; (e) exploiting platform bugs for financial gain; (f) providing false identity information; (g) allowing minors to access your account." },
       { heading: "6. Dispute Resolution", body: "If you believe a match result was recorded incorrectly, contact support@betroyale.win within 72 hours of the match with your match ID and a description of the issue. BetRoyale will review the Clash Royale API battle log and respond within 5 business days. By agreeing to these Terms you consent to binding arbitration for any unresolved disputes and waive your right to participate in a class action lawsuit against BetRoyale." },
       { heading: "7. Responsible Gaming & Self-Exclusion", body: "BetRoyale provides deposit limits and a self-exclusion tool accessible from your account settings. Self-exclusion is effective immediately and remains in place for a minimum of 30 days; reinstatement requires written request to support@betroyale.win and a 30-day cooling-off period. For help with problem gambling, contact the National Council on Problem Gambling at 1-800-522-4700 or ncpgambling.org." },
@@ -687,7 +687,7 @@ function setCurrency(currency) {
 
 // Potential-winnings preview: shows what the player would receive if their
 // opponent matches the entered wager.
-const WINNER_PCT_CLIENT = 0.95;
+const WINNER_PCT_CLIENT = 0.9275;
 function updateWinPreview() {
   const el = document.getElementById("queue-win-preview");
   if (!el) return;
@@ -893,6 +893,7 @@ function setActiveSection(section, options = {}) {
 
 function openMenuDrawer() {
   document.body.classList.add("menu-drawer-open");
+  if (window.Haptics) Haptics.light();
   if (menuToggleButton) {
     menuToggleButton.setAttribute("aria-expanded", "true");
   }
@@ -903,6 +904,7 @@ function openMenuDrawer() {
 
 function closeMenuDrawer() {
   document.body.classList.remove("menu-drawer-open");
+  if (window.Haptics) Haptics.light();
   if (menuToggleButton) {
     menuToggleButton.setAttribute("aria-expanded", "false");
   }
@@ -1625,6 +1627,7 @@ async function handleShopRedirectState() {
       if (data?.user) {
         currentUser = data.user;
         updateProfileUI(currentUser);
+        if (window.Haptics) Haptics.win();
       }
       if (shopMessageEl) {
         shopMessageEl.textContent =
@@ -1632,6 +1635,7 @@ async function handleShopRedirectState() {
       }
     } catch (err) {
       if (shopMessageEl) shopMessageEl.textContent = err.message;
+      if (window.Haptics) Haptics.error();
     }
     clearShopQueryParams();
   }
@@ -1747,6 +1751,7 @@ async function startCashout() {
   }
   if ((currentUser?.balance || 0) < cents) {
     if (cashoutMessageEl) cashoutMessageEl.textContent = "Not enough balance for that cash out.";
+    if (window.Haptics) Haptics.error();
     return;
   }
   if (!cashoutReady) {
@@ -1766,6 +1771,7 @@ async function startCashout() {
     if (data?.user) {
       currentUser = data.user;
       updateProfileUI(currentUser);
+      if (window.Haptics) Haptics.win();
     }
     if (cashoutMessageEl) {
       cashoutMessageEl.textContent =
@@ -1776,6 +1782,7 @@ async function startCashout() {
     await refreshCashoutStatus();
   } catch (err) {
     if (cashoutMessageEl) cashoutMessageEl.textContent = err.message;
+    if (window.Haptics) Haptics.error();
   } finally {
     if (cashoutSubmitBtn) cashoutSubmitBtn.disabled = false;
   }
@@ -2282,7 +2289,12 @@ function extractUrlFromText(value) {
   if (!raw) return "";
   const match = raw.match(/https?:\/\/[^\s<>"']+/i);
   const candidate = match ? match[0] : raw;
-  return candidate.replace(/[),.;!?]+$/, "");
+  const trailingChars = "),.;!?";
+  let end = candidate.length;
+  while (end > 0 && trailingChars.includes(candidate[end - 1])) {
+    end -= 1;
+  }
+  return candidate.slice(0, end);
 }
 
 function renderBattle(battle, perspectiveTag) {

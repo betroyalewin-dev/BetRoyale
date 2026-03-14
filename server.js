@@ -153,7 +153,7 @@ const QUEUE_TTL_MS = 1000 * 60 * 30;
 const MATCH_TTL_MS = 1000 * 60 * 60 * 6;
 const MATCH_LOCK_MS = 1000 * 60 * 2;
 const STARTING_CREDITS = 1000;
-const WINNER_PCT = 0.9; // winner receives 90% of total pot; 10% is the house cut
+const WINNER_PCT = 0.9275; // winner receives 92.75% of total pot; 7.25% is the house cut
 const REFERRAL_BONUS_CREDITS    = 1500;  // coins both users earn on a qualifying referral
 const REFERRAL_MIN_DEPOSIT_CENTS = 1500; // $15 minimum first deposit to trigger bonus
 const VERIFICATION_TTL_MS = 1000 * 60 * 30;
@@ -161,8 +161,8 @@ const MIN_BALANCE_PURCHASE_CENTS = 1000;
 const MAX_BALANCE_PURCHASE_CENTS = 100000;
 const MIN_CASHOUT_CENTS = 1000;
 const MAX_CASHOUT_CENTS = 100000;
-const MAX_WAGER_BALANCE = 500;  // maximum per-match balance wager
-const MAX_WAGER_COINS   = 500;  // maximum per-match coin wager
+const MAX_WAGER_BALANCE = 100;    // maximum per-match balance wager
+const MAX_WAGER_COINS   = 10000;  // maximum per-match coin wager
 const BALANCE_TO_USD_RATE = 0.01; // 1 balance unit = 1 cent (0.01 USD)
 const WEEKLY_DEPOSIT_WINDOW_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
 const LEADERBOARD_TOP5_PRIZES = [1500, 1250, 1000, 750, 500];
@@ -291,6 +291,10 @@ async function ensureDatabaseSchema() {
   await pool.query(`
     ALTER TABLE users
     ADD COLUMN IF NOT EXISTS balance INTEGER
+  `);
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS gift_balance INTEGER DEFAULT 0
   `);
   // Migrate gems to balance if balance is NULL
   await pool.query(`
@@ -480,7 +484,7 @@ app.post(
           }
           const user = findUserById(userId);
           if (user) {
-            user.balance = Math.max(0, (user.balance || 0) + balance);
+            addRegularBalance(user, balance);
             user.updatedAt = Date.now();
 
             // Referral bonus: first deposit ≥ $15 by a referred user
@@ -601,7 +605,20 @@ async function loadStore() {
           friendLink: row.friend_link || "",
           credits:
             typeof row.credits === "number" ? row.credits : STARTING_CREDITS,
-          gems: typeof row.balance === "number" ? row.balance : 0,
+          balance:
+            typeof row.balance === "number"
+              ? row.balance
+              : typeof row.gems === "number"
+                ? row.gems
+                : 0,
+          giftBalance:
+            typeof row.gift_balance === "number" ? row.gift_balance : 0,
+          gems:
+            typeof row.balance === "number"
+              ? row.balance
+              : typeof row.gems === "number"
+                ? row.gems
+                : 0,
           stats: parseJsonValue(row.stats, null),
           activeMatchId: row.active_match_id,
           activeMatchUntil: row.active_match_until,
@@ -668,6 +685,14 @@ async function loadStore() {
           wagerB: row.wager_b,
           currencyA: row.currency_a,
           currencyB: row.currency_b,
+          fundingA:
+            details?.fundingA && typeof details.fundingA === "object"
+              ? details.fundingA
+              : null,
+          fundingB:
+            details?.fundingB && typeof details.fundingB === "object"
+              ? details.fundingB
+              : null,
           recordedAt: row.recorded_at,
           battleTime: details?.battleTime || null,
           battleType: details?.battleType || "",
@@ -827,6 +852,8 @@ function saveStore() {
             tag,
             friend_link,
             credits,
+            balance,
+            gift_balance,
             gems,
             stats,
             active_match_id,
@@ -852,9 +879,10 @@ function saveStore() {
             updated_at
           )
           VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9,
-            $10, $11, $12, $13, $14, $15, $16, $17, $18, $19,
-            $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+            $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
+            $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
+            $31, $32
           )
           ON CONFLICT (id) DO UPDATE SET
             email = EXCLUDED.email,
@@ -863,6 +891,8 @@ function saveStore() {
             tag = EXCLUDED.tag,
             friend_link = EXCLUDED.friend_link,
             credits = EXCLUDED.credits,
+            balance = EXCLUDED.balance,
+            gift_balance = EXCLUDED.gift_balance,
             gems = EXCLUDED.gems,
             stats = EXCLUDED.stats,
             active_match_id = EXCLUDED.active_match_id,
@@ -895,6 +925,8 @@ function saveStore() {
             user.tag || "",
             user.friendLink || "",
             Number.isFinite(user.credits) ? user.credits : STARTING_CREDITS,
+            Number.isFinite(user.balance) ? user.balance : 0,
+            Number.isFinite(user.giftBalance) ? user.giftBalance : 0,
             Number.isFinite(user.balance) ? user.balance : 0,
             user.stats || {},
             user.activeMatchId || null,
@@ -970,6 +1002,14 @@ function saveStore() {
               userIdB: record.userIdB || null,
               usernameA: record.usernameA || "",
               usernameB: record.usernameB || "",
+              fundingA:
+                record.fundingA && typeof record.fundingA === "object"
+                  ? record.fundingA
+                  : null,
+              fundingB:
+                record.fundingB && typeof record.fundingB === "object"
+                  ? record.fundingB
+                  : null,
               battleTime: record.battleTime || null,
               battleType: record.battleType || "",
               gameModeName: record.gameModeName || "",
@@ -1194,13 +1234,22 @@ function normalizeTagValue(tag) {
   return cleaned.startsWith("#") ? cleaned : `#${cleaned}`;
 }
 
+function stripTrailingUrlPunctuation(value) {
+  const trailingChars = "),.;!?";
+  let end = value.length;
+  while (end > 0 && trailingChars.includes(value[end - 1])) {
+    end -= 1;
+  }
+  return value.slice(0, end);
+}
+
 function sanitizeFriendLink(link) {
   if (!link) return "";
   const trimmed = link.trim();
   if (!trimmed) return "";
   const urlMatch = trimmed.match(/https?:\/\/[^\s<>"']+/i);
   const candidate = urlMatch ? urlMatch[0] : trimmed;
-  const cleaned = candidate.replace(/[),.;!?]+$/, "");
+  const cleaned = stripTrailingUrlPunctuation(candidate);
   return cleaned;
 }
 
@@ -1230,11 +1279,80 @@ function parseWager(value) {
   return wager;
 }
 
+function isBalanceCurrency(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized === "balance" || normalized === "gems" || normalized === "gem";
+}
+
+function normalizeCurrency(value) {
+  return isBalanceCurrency(value) ? "balance" : "coins";
+}
+
 function parseWagerCurrency(value) {
   const normalized = String(value || "coins").trim().toLowerCase();
   if (normalized === "coins" || normalized === "coin") return "coins";
-  if (normalized === "gems" || normalized === "gem") return "gems";
+  if (isBalanceCurrency(normalized)) return "balance";
   return null;
+}
+
+function getRegularBalance(user) {
+  const balance = Number(user?.balance);
+  return Number.isFinite(balance) ? Math.max(0, Math.floor(balance)) : 0;
+}
+
+function getGiftBalance(user) {
+  const balance = Number(user?.giftBalance);
+  return Number.isFinite(balance) ? Math.max(0, Math.floor(balance)) : 0;
+}
+
+function getTotalBalance(user) {
+  return getRegularBalance(user) + getGiftBalance(user);
+}
+
+function setRegularBalance(user, amount) {
+  const next = Number(amount);
+  user.balance = Number.isFinite(next) ? Math.max(0, Math.floor(next)) : 0;
+  user.gems = user.balance;
+  return user.balance;
+}
+
+function setGiftBalance(user, amount) {
+  const next = Number(amount);
+  user.giftBalance = Number.isFinite(next) ? Math.max(0, Math.floor(next)) : 0;
+  return user.giftBalance;
+}
+
+function addRegularBalance(user, delta) {
+  return setRegularBalance(user, getRegularBalance(user) + Number(delta || 0));
+}
+
+function addGiftBalance(user, delta) {
+  return setGiftBalance(user, getGiftBalance(user) + Number(delta || 0));
+}
+
+function getBalanceFunding(user, wager) {
+  const amount = Math.max(0, Math.floor(Number(wager) || 0));
+  const regular = Math.min(getRegularBalance(user), amount);
+  const gift = Math.max(0, amount - regular);
+  if (regular + gift !== amount || gift > getGiftBalance(user)) {
+    return null;
+  }
+  return { regular, gift };
+}
+
+function resolveBalanceFunding(funding, user, wager) {
+  const amount = Math.max(0, Math.floor(Number(wager) || 0));
+  const regular = Math.max(0, Math.floor(Number(funding?.regular) || 0));
+  const gift = Math.max(0, Math.floor(Number(funding?.gift) || 0));
+  if (regular + gift === amount) {
+    return { regular, gift };
+  }
+  return (
+    getBalanceFunding(user, amount) || {
+      regular: Math.min(getRegularBalance(user), amount),
+      gift: Math.max(0, amount - Math.min(getRegularBalance(user), amount)),
+    }
+  );
 }
 
 function normalizeEmail(email) {
@@ -1386,6 +1504,14 @@ function ensureUserDefaults(user) {
     user.balance = 0;
     changed = true;
   }
+  if (typeof user.giftBalance !== "number" || !Number.isFinite(user.giftBalance)) {
+    user.giftBalance = 0;
+    changed = true;
+  }
+  if (user.gems !== user.balance) {
+    user.gems = user.balance;
+    changed = true;
+  }
   if (!("activeMatchId" in user)) {
     user.activeMatchId = null;
     changed = true;
@@ -1477,6 +1603,8 @@ function createUser(email, passwordHash) {
     tag: "",
     friendLink: "",
     credits: STARTING_CREDITS,
+    balance: 0,
+    giftBalance: 0,
     gems: 0,
     stats: {
       matchesPlayed: 0,
@@ -1532,8 +1660,10 @@ function publicUser(user) {
     friendLink: user.friendLink,
     credits: user.credits,
     coins: user.credits,
-    balance: user.balance,
-    gems: user.balance, // Deprecated, use balance
+    balance: getRegularBalance(user),
+    giftBalance: getGiftBalance(user),
+    wagerableBalance: getTotalBalance(user),
+    gems: getRegularBalance(user), // Deprecated, use balance
     stats: user.stats,
     playerProfile: user.playerProfile,
     isVerified: user.isVerified,
@@ -1552,10 +1682,11 @@ function publicUser(user) {
   };
 }
 
-async function addBalanceToUser({ username, email, amount }) {
+async function addBalanceToUser({ username, email, amount, type = "gift" }) {
   const cleanUsername = String(username || "").trim();
   const cleanEmail = normalizeEmail(email || "");
   const delta = Number(amount);
+  const balanceType = type === "regular" ? "regular" : "gift";
   if (!Number.isFinite(delta) || delta === 0) {
     throw new Error("Amount must be a non-zero number.");
   }
@@ -1564,21 +1695,29 @@ async function addBalanceToUser({ username, email, amount }) {
   }
 
   if (pool) {
-    const updateResult = await pool.query(
-      `
+    const sql = balanceType === "regular"
+      ? `
       UPDATE users
       SET balance = COALESCE(balance, 0) + $1, gems = COALESCE(gems, 0) + $1, updated_at = $2
       WHERE ($3 <> '' AND username = $3) OR ($4 <> '' AND email = $4)
-      RETURNING id, username, email, balance, gems
-      `,
+      RETURNING id, username, email, balance, gift_balance, gems
+      `
+      : `
+      UPDATE users
+      SET gift_balance = COALESCE(gift_balance, 0) + $1, updated_at = $2
+      WHERE ($3 <> '' AND username = $3) OR ($4 <> '' AND email = $4)
+      RETURNING id, username, email, balance, gift_balance, gems
+      `;
+    const updateResult = await pool.query(
+      sql,
       [delta, Date.now(), cleanUsername, cleanEmail]
     );
     const row = updateResult.rows?.[0];
     if (!row) return null;
     const localUser = store.users.find((u) => u.id === row.id);
     if (localUser) {
-      localUser.balance = row.balance;
-      localUser.balance = row.balance;
+      setRegularBalance(localUser, row.balance);
+      setGiftBalance(localUser, row.gift_balance);
       localUser.updatedAt = Date.now();
     }
     return row;
@@ -1590,11 +1729,21 @@ async function addBalanceToUser({ username, email, amount }) {
     return false;
   });
   if (!user) return null;
-  user.balance = Math.max(0, (user.balance || 0) + delta);
-  user.balance = Math.max(0, (user.balance || 0) + delta);
+  if (balanceType === "regular") {
+    addRegularBalance(user, delta);
+  } else {
+    addGiftBalance(user, delta);
+  }
   user.updatedAt = Date.now();
   await saveStore();
-  return { id: user.id, username: user.username, email: user.email, balance: user.balance, gems: user.balance };
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    balance: getRegularBalance(user),
+    giftBalance: getGiftBalance(user),
+    gems: getRegularBalance(user),
+  };
 }
 
 function requireAuth(req, res) {
@@ -1736,13 +1885,16 @@ function dequeueOpponent(currentUserId, currency) {
 }
 
 function createTicket(user, wager, currency) {
+  const normalizedCurrency = normalizeCurrency(currency);
   const ticket = {
     id: createId(4),
     userId: user.id,
     tag: user.tag,
     friendLink: user.friendLink,
     wager,
-    currency,
+    currency: normalizedCurrency,
+    balanceFunding:
+      normalizedCurrency === "balance" ? getBalanceFunding(user, wager) : null,
     profile: user.playerProfile,
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -1757,8 +1909,8 @@ function createMatch(ticketA, ticketB) {
   removeFromQueue(ticketB.id);
   const lockUntil = Date.now() + MATCH_LOCK_MS;
   const currency =
-    ticketA.currency && ticketA.currency === ticketB.currency
-      ? ticketA.currency
+    normalizeCurrency(ticketA.currency) === normalizeCurrency(ticketB.currency)
+      ? normalizeCurrency(ticketA.currency)
       : "coins";
 
   const match = {
@@ -1770,7 +1922,8 @@ function createMatch(ticketA, ticketB) {
         ticketId: ticketA.id,
         friendLink: ticketA.friendLink,
         wager: ticketA.wager,
-        wagerCurrency: ticketA.currency || "coins",
+        wagerCurrency: normalizeCurrency(ticketA.currency),
+        balanceFunding: ticketA.balanceFunding || null,
         profile: ticketA.profile,
       },
       {
@@ -1779,7 +1932,8 @@ function createMatch(ticketA, ticketB) {
         ticketId: ticketB.id,
         friendLink: ticketB.friendLink,
         wager: ticketB.wager,
-        wagerCurrency: ticketB.currency || "coins",
+        wagerCurrency: normalizeCurrency(ticketB.currency),
+        balanceFunding: ticketB.balanceFunding || null,
         profile: ticketB.profile,
       },
     ],
@@ -2610,24 +2764,25 @@ function getWinningGainForRecord(record, normalizedTag, targetCurrency) {
   const resultB = record?.resultByTag?.[tagB] || null;
   const wagerA = Math.max(0, Math.floor(record?.wagerA || 0));
   const wagerB = Math.max(0, Math.floor(record?.wagerB || 0));
-  const currencyA = record?.currencyA || "coins";
-  const currencyB = record?.currencyB || "coins";
+  const currencyA = normalizeCurrency(record?.currencyA);
+  const currencyB = normalizeCurrency(record?.currencyB);
+  const normalizedTarget = normalizeCurrency(targetCurrency);
 
   if (normalizedTag === tagA && resultA === "win" && resultB === "loss") {
     if (currencyA === currencyB) {
-      if (currencyA !== targetCurrency) return 0;
+      if (currencyA !== normalizedTarget) return 0;
       return Math.max(0, Math.floor((wagerA + wagerB) * WINNER_PCT) - wagerA);
     }
-    if (currencyB !== targetCurrency) return 0;
+    if (currencyB !== normalizedTarget) return 0;
     return Math.max(0, Math.floor(wagerB * WINNER_PCT));
   }
 
   if (normalizedTag === tagB && resultB === "win" && resultA === "loss") {
     if (currencyA === currencyB) {
-      if (currencyB !== targetCurrency) return 0;
+      if (currencyB !== normalizedTarget) return 0;
       return Math.max(0, Math.floor((wagerA + wagerB) * WINNER_PCT) - wagerB);
     }
-    if (currencyA !== targetCurrency) return 0;
+    if (currencyA !== normalizedTarget) return 0;
     return Math.max(0, Math.floor(wagerA * WINNER_PCT));
   }
 
@@ -2636,18 +2791,18 @@ function getWinningGainForRecord(record, normalizedTag, targetCurrency) {
 
 function getFeeShareForRecord(record, normalizedTag) {
   if (!record || !normalizedTag) {
-    return { coins: 0, gems: 0 };
+    return { coins: 0, gems: 0, balance: 0 };
   }
 
   const tagA = normalizeTagValue(record.tagA);
   const tagB = normalizeTagValue(record.tagB);
   const wagerA = Math.max(0, Math.floor(record?.wagerA || 0));
   const wagerB = Math.max(0, Math.floor(record?.wagerB || 0));
-  const currencyA = record?.currencyA || "coins";
-  const currencyB = record?.currencyB || "coins";
+  const currencyA = normalizeCurrency(record?.currencyA);
+  const currencyB = normalizeCurrency(record?.currencyB);
   const resultA = record?.resultByTag?.[tagA] || null;
   const resultB = record?.resultByTag?.[tagB] || null;
-  const totals = { coins: 0, gems: 0 };
+  const totals = { coins: 0, gems: 0, balance: 0 };
 
   if (currencyA === currencyB) {
     const pot = wagerA + wagerB;
@@ -2661,23 +2816,26 @@ function getFeeShareForRecord(record, normalizedTag) {
     const fee = Math.max(0, pot - Math.floor(pot * WINNER_PCT));
     const shareA = fee * (wagerA / pot);
     const shareB = fee * (wagerB / pot);
-    const key = currencyA === "gems" ? "gems" : "coins";
+    const key = currencyA === "balance" ? "balance" : "coins";
     if (normalizedTag === tagA) totals[key] += shareA;
     if (normalizedTag === tagB) totals[key] += shareB;
+    if (key === "balance") totals.gems = totals.balance;
     return totals;
   }
 
   if (resultA === "win" && resultB === "loss") {
     const fee = Math.max(0, wagerB - Math.floor(wagerB * WINNER_PCT));
-    const key = currencyB === "gems" ? "gems" : "coins";
+    const key = currencyB === "balance" ? "balance" : "coins";
     if (normalizedTag === tagB) totals[key] += fee;
+    if (key === "balance") totals.gems = totals.balance;
     return totals;
   }
 
   if (resultB === "win" && resultA === "loss") {
     const fee = Math.max(0, wagerA - Math.floor(wagerA * WINNER_PCT));
-    const key = currencyA === "gems" ? "gems" : "coins";
+    const key = currencyA === "balance" ? "balance" : "coins";
     if (normalizedTag === tagA) totals[key] += fee;
+    if (key === "balance") totals.gems = totals.balance;
     return totals;
   }
 
@@ -2689,10 +2847,14 @@ function getUserWalletSummary(user) {
     return {
       coinsWon: 0,
       gemsWon: 0,
+      balanceWon: 0,
       gemsCashedOut: 0,
+      balanceCashedOut: 0,
       feesPaidCoins: 0,
       feesPaidGems: 0,
+      feesPaidBalance: 0,
       cashableGems: 0,
+      cashableBalance: 0,
       cashableUsdCents: 0,
       readyToCashOut: false,
     };
@@ -2733,15 +2895,19 @@ function getUserWalletSummary(user) {
     (sum, cashout) => sum + Math.max(0, Number(cashout.gems) || 0),
     0
   );
-  const cashableGems = Math.max(0, Number(user.balance) || 0);
+  const cashableGems = getRegularBalance(user);
 
   return {
     coinsWon: Math.floor(coinsWon),
     gemsWon: Math.floor(gemsWon),
+    balanceWon: Math.floor(gemsWon),
     gemsCashedOut: Math.floor(gemsCashedOut),
+    balanceCashedOut: Math.floor(gemsCashedOut),
     feesPaidCoins: Math.round(feesPaidCoins),
     feesPaidGems: Math.round(feesPaidGems),
+    feesPaidBalance: Math.round(feesPaidGems),
     cashableGems,
+    cashableBalance: cashableGems,
     cashableUsdCents: cashableGems,
     readyToCashOut: cashableGems >= MIN_CASHOUT_CENTS,
   };
@@ -2945,7 +3111,7 @@ function getPendingLeaderboardRewardsForUser(user) {
 }
 
 function buildQueueInsights(entries, requestedCurrency, requestedWager) {
-  const normalizedCurrency = requestedCurrency === "balance" ? "balance" : "coins";
+  const normalizedCurrency = normalizeCurrency(requestedCurrency);
   const safeWager = Math.max(0, Math.floor(Number(requestedWager) || 0));
   const competingEntries = entries.filter((entry) => !entry.isYou);
   const sameCurrencyEntries = competingEntries.filter(
@@ -2993,7 +3159,7 @@ function buildQueueInsights(entries, requestedCurrency, requestedWager) {
   } else if (sameCurrencyEntries.length > 0) {
     tip = `${sameCurrencyEntries.length} player${sameCurrencyEntries.length === 1 ? "" : "s"} already waiting in ${normalizedCurrency}.`;
   } else if (normalizedCurrency === "balance") {
-    tip = "Coin queues usually fill faster than gem queues.";
+    tip = "Coin queues usually fill faster than balance queues.";
   }
 
   return {
@@ -3451,7 +3617,7 @@ app.post("/api/shop/confirm", async (req, res) => {
       });
     }
 
-    user.balance = Math.max(0, (user.balance || 0) + gems);
+    addRegularBalance(user, balance);
     user.updatedAt = Date.now();
 
     // Referral bonus: first deposit ≥ $15 by a referred user
@@ -3508,7 +3674,7 @@ app.post("/api/shop/exchange", async (req, res) => {
   }
 
   user.credits = Math.max(0, coins - rateCoins);
-  user.balance = Math.max(0, (user.balance || 0) + rateBalance);
+  addRegularBalance(user, rateBalance);
   user.updatedAt = Date.now();
   await saveStore();
 
@@ -3537,7 +3703,7 @@ app.post("/api/shop/daily-rewards/claim", async (req, res) => {
   }
 
   if (reward.currency === "balance") {
-    user.balance = Math.max(0, (user.balance || 0) + reward.amount);
+    addGiftBalance(user, reward.amount);
   } else {
     user.credits = Math.max(0, (user.credits || 0) + reward.amount);
   }
@@ -3565,7 +3731,7 @@ app.post("/api/admin/balance", async (req, res) => {
   }
   try {
     const { username, email, amount } = req.body || {};
-    const updated = await addBalanceToUser({ username, email, amount });
+    const updated = await addBalanceToUser({ username, email, amount, type: "gift" });
     if (!updated) {
       return res.status(404).json({ error: "User not found." });
     }
@@ -3583,7 +3749,7 @@ app.post("/api/admin/gems", async (req, res) => {
   }
   try {
     const { username, email, amount } = req.body || {};
-    const updated = await addBalanceToUser({ username, email, amount });
+    const updated = await addBalanceToUser({ username, email, amount, type: "gift" });
     if (!updated) {
       return res.status(404).json({ error: "User not found." });
     }
@@ -3706,7 +3872,7 @@ app.post("/api/shop/cashout", async (req, res) => {
   }
 
   const balanceRequired = amountCents;
-  if ((user.balance || 0) < balanceRequired) {
+  if (getRegularBalance(user) < balanceRequired) {
     return res.status(400).json({
       error: "Not enough balance for that cash out amount.",
     });
@@ -3743,7 +3909,7 @@ app.post("/api/shop/cashout", async (req, res) => {
       { idempotencyKey }
     );
 
-    user.balance = Math.max(0, (user.balance || 0) - balanceRequired);
+    addRegularBalance(user, -balanceRequired);
     user.updatedAt = Date.now();
     await saveStore();
 
@@ -3881,7 +4047,7 @@ app.post("/api/leaderboards/claim", async (req, res) => {
     if (!winner || winner.claimedAt) return;
 
     if (winner.currency === "balance") {
-      user.balance = Math.max(0, (user.balance || 0) + Number(winner.amount || 0));
+      addGiftBalance(user, Number(winner.amount || 0));
     } else {
       user.credits = Math.max(0, (user.credits || 0) + Number(winner.amount || 0));
     }
@@ -3958,8 +4124,8 @@ app.post("/api/queue/join", (req, res) => {
   if (wager > maxWager) {
     return res.status(400).json({ error: `Maximum wager is ${maxWager} ${currency} per match.` });
   }
-  const balance = currency === "balance" ? user.balance : user.credits;
-  if (wager > balance) {
+  const availableFunds = currency === "balance" ? getTotalBalance(user) : user.credits;
+  if (wager > availableFunds) {
     return res
       .status(400)
       .json({ error: `Not enough ${currency} to wager.` });
@@ -3977,6 +4143,8 @@ app.post("/api/queue/join", (req, res) => {
         existing.friendLink = user.friendLink;
         existing.wager = wager;
         existing.currency = currency;
+        existing.balanceFunding =
+          currency === "balance" ? getBalanceFunding(user, wager) : null;
         existing.profile = profile;
         existing.updatedAt = Date.now();
         return res.json({ status: "waiting", ticketId: existing.id });
@@ -4040,9 +4208,10 @@ app.post("/api/queue/accept", async (req, res) => {
   }
 
   const targetWager = Math.max(0, Math.floor(targetTicket.wager || 0));
-  const targetCurrency = targetTicket.currency || "coins";
-  const balance = targetCurrency === "gems" ? user.balance : user.credits;
-  if (targetWager > balance) {
+  const targetCurrency = normalizeCurrency(targetTicket.currency);
+  const availableFunds =
+    targetCurrency === "balance" ? getTotalBalance(user) : user.credits;
+  if (targetWager > availableFunds) {
     return res
       .status(400)
       .json({ error: `Not enough ${targetCurrency} to accept this wager.` });
@@ -4118,7 +4287,7 @@ app.get("/api/queue/list", (req, res) => {
 
   const user = requireAuth(req, res);
   if (!user) return;
-  const requestedCurrency = req.query.currency === "balance" ? "gems" : "coins";
+  const requestedCurrency = normalizeCurrency(req.query.currency);
   const requestedWager = Math.max(0, Math.floor(Number(req.query.wager) || 0));
 
   const entries = [];
@@ -4134,7 +4303,7 @@ app.get("/api/queue/list", (req, res) => {
       username: queueUser?.username || "",
       tag: ticket.tag,
       wager: ticket.wager || 0,
-      currency: ticket.currency || "coins",
+      currency: normalizeCurrency(ticket.currency),
       profile: ticket.profile || queueUser?.playerProfile || null,
       stats: queueUser?.stats || null,
       joinedAt: ticket.createdAt,
@@ -4274,8 +4443,16 @@ app.get("/api/matches/:matchId/track", async (req, res) => {
       const userB = findUserById(playerB.userId);
       const wagerA = Math.max(0, Math.floor(playerA.wager || 0));
       const wagerB = Math.max(0, Math.floor(playerB.wager || 0));
-      const currencyA = playerA.wagerCurrency || "coins";
-      const currencyB = playerB.wagerCurrency || "coins";
+      const currencyA = normalizeCurrency(playerA.wagerCurrency);
+      const currencyB = normalizeCurrency(playerB.wagerCurrency);
+      const fundingA =
+        currencyA === "balance"
+          ? resolveBalanceFunding(playerA.balanceFunding, userA, wagerA)
+          : null;
+      const fundingB =
+        currencyB === "balance"
+          ? resolveBalanceFunding(playerB.balanceFunding, userB, wagerB)
+          : null;
       const resultA = getResultForTag(battle, playerA.tag);
       const resultB = getResultForTag(battle, playerB.tag);
 
@@ -4287,36 +4464,70 @@ app.get("/api/matches/:matchId/track", async (req, res) => {
       // When both players use the same currency the pot is simply wagerA + wagerB.
       // When currencies differ, the winner gets WINNER_PCT of the opponent's wager
       // in the opponent's currency; the loser forfeits their full wager.
-      function applyWagerTransfer(winner, loser, wWager, wCurrency, lWager, lCurrency) {
+      function applyWagerTransfer(
+        winner,
+        loser,
+        wWager,
+        wCurrency,
+        wFunding,
+        lWager,
+        lCurrency,
+        lFunding
+      ) {
         if (!winner || !loser || lWager <= 0) return;
         if (wCurrency === lCurrency) {
-          const pot     = wWager + lWager;
-          const payout  = Math.floor(pot * WINNER_PCT);
-          const net     = payout - wWager; // winner already holds their own stake
-          if (wCurrency === "gems") {
-            winner.balance   = Math.max(0, (winner.balance   || 0) + net);
-            loser.balance    = Math.max(0, (loser.balance    || 0) - lWager);
+          const pot = wWager + lWager;
+          const payout = Math.floor(pot * WINNER_PCT);
+          const net = payout - wWager; // winner already holds their own stake
+          if (wCurrency === "balance") {
+            addRegularBalance(winner, payout - Number(wFunding?.regular || 0));
+            addGiftBalance(winner, -Number(wFunding?.gift || 0));
+            addRegularBalance(loser, -Number(lFunding?.regular || 0));
+            addGiftBalance(loser, -Number(lFunding?.gift || 0));
           } else {
             winner.credits = Math.max(0, (winner.credits || 0) + net);
-            loser.credits  = Math.max(0, (loser.credits  || 0) - lWager);
+            loser.credits = Math.max(0, (loser.credits || 0) - lWager);
           }
         } else {
           // Mixed currencies: 95% of loser's wager goes to winner (in loser's currency)
           const loserPays = Math.floor(lWager * WINNER_PCT);
-          if (lCurrency === "gems") {
-            winner.balance  = Math.max(0, (winner.balance  || 0) + loserPays);
-            loser.balance   = Math.max(0, (loser.balance   || 0) - lWager);
+          if (lCurrency === "balance") {
+            addRegularBalance(winner, loserPays);
+            addRegularBalance(loser, -Number(lFunding?.regular || 0));
+            addGiftBalance(loser, -Number(lFunding?.gift || 0));
           } else {
             winner.credits = Math.max(0, (winner.credits || 0) + loserPays);
-            loser.credits  = Math.max(0, (loser.credits  || 0) - lWager);
+            loser.credits = Math.max(0, (loser.credits || 0) - lWager);
+            if (wCurrency === "balance" && Number(wFunding?.gift || 0) > 0) {
+              addRegularBalance(winner, Number(wFunding.gift || 0));
+              addGiftBalance(winner, -Number(wFunding.gift || 0));
+            }
           }
         }
       }
 
       if (resultA === "win" && resultB === "loss") {
-        applyWagerTransfer(userA, userB, wagerA, currencyA, wagerB, currencyB);
+        applyWagerTransfer(
+          userA,
+          userB,
+          wagerA,
+          currencyA,
+          fundingA,
+          wagerB,
+          currencyB,
+          fundingB
+        );
       } else if (resultB === "win" && resultA === "loss") {
-        applyWagerTransfer(userB, userA, wagerB, currencyB, wagerA, currencyA);
+        applyWagerTransfer(
+          userB,
+          userA,
+          wagerB,
+          currencyB,
+          fundingB,
+          wagerA,
+          currencyA,
+          fundingA
+        );
       }
 
       store.recordedMatches[matchKey] = {
@@ -4331,6 +4542,8 @@ app.get("/api/matches/:matchId/track", async (req, res) => {
         wagerB,
         currencyA,
         currencyB,
+        fundingA,
+        fundingB,
         battleTime: battle.battleTime || null,
         battleType: battle.type || "",
         gameModeName: battle.gameMode?.name || "",
