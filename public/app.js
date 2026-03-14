@@ -887,6 +887,7 @@ function setActiveSection(section, options = {}) {
     button.classList.toggle("active", button.dataset.section === target);
   });
   activeSection = target;
+  window.scrollTo(0, 0);
   if (target === "match" && !currentMatchId) {
     resetMatch();
   }
