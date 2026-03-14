@@ -2557,6 +2557,27 @@ input:focus-visible,
   background: linear-gradient(180deg, rgba(245, 158, 11, 0.08) 0%, rgba(125, 211, 252, 0.06) 100%);
   display: grid;
   gap: 14px;
+  overflow: hidden;
+  max-height: 600px;
+  transition:
+    opacity 0.45s ease,
+    max-height 0.5s ease,
+    padding 0.45s ease,
+    margin-top 0.45s ease,
+    border-width 0.45s ease;
+}
+
+.profile-readiness--dismissing {
+  opacity: 0;
+  max-height: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  margin-top: 0 !important;
+  border-width: 0 !important;
+}
+
+.profile-readiness--hidden {
+  display: none;
 }
 
 .profile-readiness-header {

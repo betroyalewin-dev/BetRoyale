@@ -701,7 +701,30 @@ function renderProfileReadiness(user) {
   ) {
     return;
   }
+
+  const container = document.getElementById("profile-readiness");
   const state = getProfileReadinessState(user);
+  const storageKey = `br_ready_dismissed_${currentUser?.id || ""}`;
+
+  // If the user drops below 100%, clear the dismissal so the widget reappears
+  // when they complete all steps again.
+  if (state.percent < 100) {
+    if (localStorage.getItem(storageKey)) {
+      localStorage.removeItem(storageKey);
+    }
+    if (container) {
+      container.classList.remove("profile-readiness--dismissing", "profile-readiness--hidden");
+      delete container.dataset.dismissTimer;
+    }
+  }
+
+  // Already dismissed at 100% — keep hidden without re-rendering.
+  if (state.percent === 100 && localStorage.getItem(storageKey)) {
+    if (container) container.classList.add("profile-readiness--hidden");
+    return;
+  }
+
+  // Render the widget normally.
   profileReadinessPercentEl.textContent = `${state.percent}%`;
   profileReadinessCopyEl.textContent = state.copy;
   profileReadinessFillEl.style.width = `${state.percent}%`;
@@ -715,6 +738,23 @@ function renderProfileReadiness(user) {
       `<span class="profile-readiness-note">${item.done ? item.doneText : item.pendingText}</span>`;
     profileReadinessChecklistEl.appendChild(node);
   });
+
+  // At 100% and not yet dismissed — wait 3 s then fade + slide the widget away.
+  if (state.percent === 100 && container && !container.dataset.dismissTimer) {
+    container.dataset.dismissTimer = "1";
+    setTimeout(() => {
+      container.classList.add("profile-readiness--dismissing");
+      container.addEventListener(
+        "transitionend",
+        () => {
+          container.classList.add("profile-readiness--hidden");
+          localStorage.setItem(storageKey, "1");
+          delete container.dataset.dismissTimer;
+        },
+        { once: true },
+      );
+    }, 3000);
+  }
 }
 
 function resolveSectionTarget(section, options = {}) {
