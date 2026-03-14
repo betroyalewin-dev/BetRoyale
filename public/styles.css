@@ -1710,6 +1710,7 @@ input:focus-visible,
 }
 
 .profile-profile {
+  margin-top: 16px;
   display: grid;
   gap: 8px;
 }
@@ -1732,15 +1733,16 @@ input:focus-visible,
 
 .profile-stats {
   display: grid;
-  gap: 8px;
+  gap: 0;
 }
 
 .profile-stat-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-top: 8px;
+  column-gap: 16px;
+  min-height: 56px;
+  padding: 12px 0;
   border-top: 1px solid #eef1f5;
 }
 
@@ -1750,6 +1752,7 @@ input:focus-visible,
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted);
+  line-height: 1.2;
 }
 
 .profile-stat-value {
@@ -1760,7 +1763,30 @@ input:focus-visible,
   display: inline-flex;
   justify-content: flex-end;
   align-items: center;
-  min-height: 24px;
+  min-height: 0;
+  line-height: 1.2;
+}
+
+.profile-stat-value .league-badge {
+  min-height: 34px;
+  padding: 3px 10px 3px 4px;
+  border-radius: 16px;
+}
+
+.profile-stat-value .league-badge-icon {
+  width: 28px;
+  height: 28px;
+  flex-basis: 28px;
+  border-radius: 10px;
+}
+
+.profile-stat-value .league-badge-art {
+  width: 24px;
+  height: 24px;
+}
+
+.profile-stat-value .league-badge-label {
+  font-size: 0.78rem;
 }
 
 .league-badge {
