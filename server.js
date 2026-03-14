@@ -4046,7 +4046,7 @@ app.post("/api/leaderboards/claim", async (req, res) => {
     );
     if (!winner || winner.claimedAt) return;
 
-    if (winner.currency === "balance") {
+    if (isBalanceCurrency(winner.currency)) {
       addGiftBalance(user, Number(winner.amount || 0));
     } else {
       user.credits = Math.max(0, (user.credits || 0) + Number(winner.amount || 0));
