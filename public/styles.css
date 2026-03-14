@@ -5895,6 +5895,18 @@ button:active:not(:disabled) {
   backdrop-filter: blur(18px);
 }
 
+@media (max-width: 640px) {
+  .menu {
+    padding-left: 12px;
+    padding-right: 18px;
+    gap: 8px;
+  }
+  .menu.scrolled {
+    padding-left: 12px;
+    padding-right: 18px;
+  }
+}
+
 /* ── Scroll Reveal ─────────────────────────────────────────────────────────*/
 .reveal-hidden {
   opacity: 0;
