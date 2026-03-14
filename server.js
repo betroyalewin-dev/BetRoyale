@@ -4395,6 +4395,48 @@ app.get("/api/battlelog", async (req, res) => {
   }
 });
 
+app.get("/api/cr-search", async (req, res) => {
+  if (!requireAuth(req, res)) return;
+
+  const name = String(req.query.name || "").trim();
+  if (name.length < 3) {
+    return res.status(400).json({ error: "Enter at least 3 characters to search." });
+  }
+
+  if (!API_TOKEN) {
+    return res.status(503).json({ error: "CR API unavailable." });
+  }
+
+  try {
+    const url = `https://api.clashroyale.com/v1/players?name=${encodeURIComponent(name)}&limit=10`;
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${API_TOKEN}`,
+        Accept: "application/json",
+      },
+      agent: crApiAgent || undefined,
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      return res.status(response.status).json({ error: data?.message || "Search failed." });
+    }
+
+    const players = (data.items || []).map((p) => ({
+      tag: p.tag,
+      name: p.name,
+      trophies: p.trophies,
+      expLevel: p.expLevel,
+      arena: p.arena?.name || null,
+    }));
+
+    return res.json({ players });
+  } catch (err) {
+    console.error("CR search error:", err);
+    return res.status(500).json({ error: "Search failed." });
+  }
+});
+
 app.get("/api/results", async (req, res) => {
   const user = requireAuth(req, res);
   if (!user) return;

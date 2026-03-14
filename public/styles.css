@@ -5391,6 +5391,77 @@ body.in-queue::after {
   cursor: wait;
 }
 
+/* CR Username Search */
+.cr-search-wrap {
+  position: relative;
+}
+
+.cr-search-results {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #1a2535;
+  border: 1px solid #2f3f54;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  z-index: 200;
+  overflow: hidden;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.cr-search-results.hidden {
+  display: none;
+}
+
+.cr-search-msg {
+  padding: 12px 14px;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.cr-search-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid #222f3f;
+  transition: background 0.12s;
+}
+
+.cr-search-item:last-child {
+  border-bottom: none;
+}
+
+.cr-search-item:hover {
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.cr-item-main {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.cr-item-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+
+.cr-item-tag {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.78rem;
+  color: var(--accent);
+}
+
+.cr-item-meta {
+  display: flex;
+  gap: 10px;
+  margin-top: 2px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
 /* Mobile adjustments */
 @media (max-width: 540px) {
   .signup-wizard { padding: 0; align-items: flex-end; }

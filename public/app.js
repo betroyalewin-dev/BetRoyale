@@ -3891,4 +3891,72 @@ async function selfExclude() {
 }
 document.getElementById("self-exclude-btn")?.addEventListener("click", selfExclude);
 
+// ── Wizard CR Username Search ──────────────────────────────────────────────
+(function initWizardCrSearch() {
+  const searchInput = document.getElementById("w-cr-search");
+  const resultsEl   = document.getElementById("w-cr-results");
+  const tagInput    = document.getElementById("w-cr-tag");
+  if (!searchInput || !resultsEl || !tagInput) return;
+
+  let debounceTimer = null;
+
+  searchInput.addEventListener("input", () => {
+    clearTimeout(debounceTimer);
+    const name = searchInput.value.trim();
+    if (name.length < 3) {
+      resultsEl.classList.add("hidden");
+      resultsEl.innerHTML = "";
+      return;
+    }
+    debounceTimer = setTimeout(() => doSearch(name), 400);
+  });
+
+  searchInput.addEventListener("blur", () => {
+    // Small delay so mousedown on a result fires first
+    setTimeout(() => resultsEl.classList.add("hidden"), 200);
+  });
+
+  searchInput.addEventListener("focus", () => {
+    if (resultsEl.innerHTML && searchInput.value.trim().length >= 3) {
+      resultsEl.classList.remove("hidden");
+    }
+  });
+
+  async function doSearch(name) {
+    resultsEl.innerHTML = '<div class="cr-search-msg">Searching…</div>';
+    resultsEl.classList.remove("hidden");
+    try {
+      const res  = await fetch(`/api/cr-search?name=${encodeURIComponent(name)}`);
+      const data = await res.json();
+      if (!res.ok || !data.players?.length) {
+        resultsEl.innerHTML = '<div class="cr-search-msg cr-search-empty">No accounts found.</div>';
+        return;
+      }
+      resultsEl.innerHTML = data.players.map((p) => `
+        <div class="cr-search-item" data-tag="${p.tag}">
+          <div class="cr-item-main">
+            <span class="cr-item-name">${p.name}</span>
+            <span class="cr-item-tag">${p.tag}</span>
+          </div>
+          <div class="cr-item-meta">
+            ${p.arena ? `<span>${p.arena}</span>` : ""}
+            <span>${(p.trophies ?? 0).toLocaleString()} 🏆</span>
+            <span>Lvl ${p.expLevel ?? "?"}</span>
+          </div>
+        </div>
+      `).join("");
+      resultsEl.querySelectorAll(".cr-search-item").forEach((item) => {
+        item.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+          tagInput.value = item.dataset.tag;
+          searchInput.value = item.querySelector(".cr-item-name").textContent;
+          resultsEl.classList.add("hidden");
+        });
+      });
+    } catch {
+      resultsEl.innerHTML = '<div class="cr-search-msg cr-search-empty">Search unavailable.</div>';
+    }
+  }
+})();
+
 // ══════════════════════════════════════════════════════════════════════════
