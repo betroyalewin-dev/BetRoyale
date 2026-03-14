@@ -2882,6 +2882,7 @@ async function acceptWager(entry) {
     });
     currentTicketId = data.ticketId || null;
     if (data.status === "matched" && data.match) {
+      if (window.Haptics) Haptics.confirm();
       await moveToMatch(
         data.match,
         "Match Locked In",
@@ -2928,6 +2929,7 @@ async function joinQueue() {
   const availableFunds =
     selectedCurrency === "balance" ? availableBalance : availableCoins;
   if (wager > availableFunds) {
+    if (window.Haptics) Haptics.error();
     showStatus(`You don't have enough ${selectedCurrency} for that wager.`, true);
     return;
   }
@@ -2946,6 +2948,7 @@ async function joinQueue() {
     currentTicketId = data.ticketId;
     refreshQueueList();
     if (data.status === "matched") {
+      if (window.Haptics) Haptics.confirm();
       await moveToMatch(data.match, "Match Found", "Opening your match page...");
       setWaitingState(false);
       stopPolling();
@@ -2953,6 +2956,7 @@ async function joinQueue() {
       return;
     }
 
+    if (window.Haptics) Haptics.confirm();
     showStatus("Challenge posted. Waiting for someone to accept.");
     startPolling();
   } catch (err) {
@@ -2960,6 +2964,7 @@ async function joinQueue() {
     if (err.status === 401) {
       setAuthState(null);
     }
+    if (window.Haptics) Haptics.error();
     showStatus(err.message, true);
   }
 }
@@ -3036,12 +3041,19 @@ async function trackFriendlyBattle() {
 
     const settlementHeadline =
       data?.battle?.settlement?.headline || "Friendly battle found. Loading full history...";
+    const settlementResult = data?.battle?.settlement?.result;
+    if (window.Haptics) {
+      if (settlementResult === "win") Haptics.win();
+      else if (settlementResult === "loss") Haptics.loss();
+      else Haptics.confirm();
+    }
     setActiveSection("results");
     await loadResultsHistory();
     refreshProfile();
     showStatus(settlementHeadline);
   } catch (err) {
     showStatus(err.message, true);
+    if (window.Haptics) Haptics.error();
   }
 }
 
@@ -3236,6 +3248,7 @@ if (mobileKeypadKeys.length) {
     keyButton.addEventListener("click", () => {
       const key = keyButton.dataset.key;
       if (!key) return;
+      if (window.Haptics) Haptics.tick();
       handleMobileKeyInput(key);
     });
   });

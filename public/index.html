@@ -90,9 +90,18 @@
             </span>
             <span id="balance-coins" class="balance-value">0</span>
           </div>
-          <div class="balance-item">
+          <div class="balance-item balance-item--money">
             <span aria-hidden="true">💵</span>
-            <span id="balance-balance" class="balance-value">0</span>
+            <div class="balance-stack">
+              <div class="balance-money-row">
+                <span class="balance-label">Balance</span>
+                <span id="balance-balance" class="balance-value">$0.00</span>
+              </div>
+              <div id="balance-gift-row" class="balance-money-row balance-money-row--gift hidden">
+                <span class="balance-label">Gift</span>
+                <span id="balance-gift" class="balance-value balance-value--gift">$0.00</span>
+              </div>
+            </div>
           </div>
         </div>
         <button
@@ -688,7 +697,13 @@
               <span aria-hidden="true">💵</span>
               Balance
             </p>
-            <p id="stat-balance" class="stat-value">0</p>
+            <div class="wallet-stat-stack">
+              <p id="stat-balance" class="stat-value">$0.00</p>
+              <p id="stat-gift-row" class="wallet-stat-sub hidden">
+                <span class="wallet-gift-tag">Gift</span>
+                <span id="stat-gift-balance">$0.00</span>
+              </p>
+            </div>
           </div>
           <div class="stat-card" data-stat="wins">
             <p class="stat-label">
@@ -875,11 +890,18 @@
             </p>
           </div>
           <div class="shop-balance">
-            <p class="shop-balance-label">Your Balance</p>
-            <p class="shop-balance-value">
-              <span id="shop-coins">0</span> coins ·
-              <span id="shop-balance">$0.00</span>
-            </p>
+            <p class="shop-balance-label">Wallet</p>
+            <div class="shop-balance-stack">
+              <p class="shop-balance-value"><span id="shop-coins">0</span> coins</p>
+              <p class="shop-balance-value shop-balance-value--money">
+                <span class="shop-balance-line-label">Balance</span>
+                <span id="shop-balance">$0.00</span>
+              </p>
+              <p id="shop-gift-row" class="shop-balance-value shop-balance-value--gift hidden">
+                <span class="shop-balance-line-label">Gift</span>
+                <span id="shop-gift-balance">$0.00</span>
+              </p>
+            </div>
           </div>
         </div>
 
@@ -1425,9 +1447,14 @@
         </div>
         <div class="mobile-deposit-balance">
           <p class="mobile-balance-label">Wallet</p>
-          <p class="mobile-balance-value">
-            <span id="mobile-wallet-coins">0</span> coins ·
+          <p class="mobile-balance-value"><span id="mobile-wallet-coins">0</span> coins</p>
+          <p class="mobile-balance-value mobile-balance-value--money">
+            <span class="mobile-balance-line-label">Balance</span>
             <span id="mobile-wallet-balance">$0.00</span>
+          </p>
+          <p id="mobile-wallet-gift-row" class="mobile-balance-value mobile-balance-value--gift hidden">
+            <span class="mobile-balance-line-label">Gift</span>
+            <span id="mobile-wallet-gift">$0.00</span>
           </p>
         </div>
         <div class="mobile-amount-display">
@@ -1758,6 +1785,7 @@
       </div>
     </div>
 
+    <script src="haptics.js"></script>
     <script src="app.js"></script>
     <script src="motion.js" defer></script>
 
