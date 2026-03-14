@@ -91,7 +91,7 @@
             <span id="balance-coins" class="balance-value">0</span>
           </div>
           <div class="balance-item balance-item--money">
-            <span aria-hidden="true">💵</span>
+            <span class="balance-money-icon" aria-hidden="true">💵</span>
             <div class="balance-stack">
               <div class="balance-money-row">
                 <span class="balance-label">Balance</span>
@@ -833,11 +833,11 @@
           <p class="eyebrow">Referral</p>
           <div class="referral-card">
             <div class="referral-card-left">
-              <h3 class="referral-heading">Invite Friends, Earn Coins</h3>
+              <h3 class="referral-heading">Invite Friends, Earn Free Balance</h3>
               <p class="referral-subtext">
                 When a friend signs up with your code and makes their first
                 deposit of $15 or more, you <em>both</em> get
-                <strong>1,500 bonus coins</strong>.
+                <strong>$15 free balance</strong>.
               </p>
               <div class="referral-stats-row">
                 <div class="referral-stat">
@@ -850,7 +850,7 @@
                 </div>
                 <div class="referral-stat">
                   <span id="referral-earned-count" class="referral-stat-value">0</span>
-                  <span class="referral-stat-label">Coins Earned</span>
+                  <span class="referral-stat-label">Balance Earned</span>
                 </div>
               </div>
             </div>
@@ -1120,7 +1120,7 @@
             step="1"
             value="0"
           />
-          <p class="wager-hint">Set to 0 for a friendly match with no wager. Max wager: 10,000 coins / 100 balance. Winner keeps 92.75% of the pot (7.25% platform fee).</p>
+          <p id="wager-hint" class="wager-hint">Set to 0 for a friendly match with no wager. Max wager: 10,000 coins. Winner keeps 92.75% of the pot (7.25% platform fee).</p>
 
           <!-- Preset quick-pick buttons -->
           <div class="wager-presets" role="group" aria-label="Wager presets">

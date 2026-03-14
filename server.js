@@ -154,7 +154,7 @@ const MATCH_TTL_MS = 1000 * 60 * 60 * 6;
 const MATCH_LOCK_MS = 1000 * 60 * 2;
 const STARTING_CREDITS = 1000;
 const WINNER_PCT = 0.9275; // winner receives 92.75% of total pot; 7.25% is the house cut
-const REFERRAL_BONUS_CREDITS    = 1500;  // coins both users earn on a qualifying referral
+const REFERRAL_BONUS_BALANCE    = 1500;  // $15 in balance units both users earn on a qualifying referral
 const REFERRAL_MIN_DEPOSIT_CENTS = 1500; // $15 minimum first deposit to trigger bonus
 const VERIFICATION_TTL_MS = 1000 * 60 * 30;
 const MIN_BALANCE_PURCHASE_CENTS = 1000;
@@ -495,11 +495,11 @@ app.post(
             ) {
               const referrer = findUserById(user.referredBy);
               if (referrer) {
-                referrer.credits = Math.max(0, (referrer.credits || 0) + REFERRAL_BONUS_CREDITS);
+                addGiftBalance(referrer, REFERRAL_BONUS_BALANCE);
                 referrer.referralCompletedCount = (referrer.referralCompletedCount || 0) + 1;
                 referrer.updatedAt = Date.now();
               }
-              user.credits = Math.max(0, (user.credits || 0) + REFERRAL_BONUS_CREDITS);
+              addGiftBalance(user, REFERRAL_BONUS_BALANCE);
               user.referralRewardPaid = true;
             }
 
@@ -3628,11 +3628,11 @@ app.post("/api/shop/confirm", async (req, res) => {
     ) {
       const referrer = findUserById(user.referredBy);
       if (referrer) {
-        referrer.credits = Math.max(0, (referrer.credits || 0) + REFERRAL_BONUS_CREDITS);
+        addGiftBalance(referrer, REFERRAL_BONUS_BALANCE);
         referrer.referralCompletedCount = (referrer.referralCompletedCount || 0) + 1;
         referrer.updatedAt = Date.now();
       }
-      user.credits = Math.max(0, (user.credits || 0) + REFERRAL_BONUS_CREDITS);
+      addGiftBalance(user, REFERRAL_BONUS_BALANCE);
       user.referralRewardPaid = true;
     }
 

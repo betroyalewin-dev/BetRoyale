@@ -1242,7 +1242,7 @@ function updateReferralUI(user) {
   if (linkEl) { linkEl.textContent = link || "—"; linkEl.dataset.link = link; }
   if (invited)   invited.textContent   = (user?.referralCount || 0).toLocaleString();
   if (completed) completed.textContent = (user?.referralCompletedCount || 0).toLocaleString();
-  if (earned)    earned.textContent    = ((user?.referralCompletedCount || 0) * 1500).toLocaleString();
+  if (earned)    earned.textContent    = formatUsd((user?.referralCompletedCount || 0) * 1500);
 }
 
 function copyReferralText(text, btn) {
