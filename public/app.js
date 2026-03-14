@@ -3455,8 +3455,7 @@ async function submitStep2() {
       referralCode: wData.referral || undefined,
     }),
   });
-  currentUser = data.user;
-  refreshUI();
+  setAuthState(data.user);
   // Show dev code if no email
   if (data.verificationCode) {
     setWizardError(3, `Dev mode — your code: ${data.verificationCode}`);
@@ -3489,8 +3488,7 @@ async function submitStep3() {
   });
   const data = await res.json();
   if (!res.ok) { setFieldError("w-verify-code-error", data.error || "Verification failed.", "w-verify-code"); return false; }
-  currentUser = data.user;
-  refreshUI();
+  setAuthState(data.user);
   return true;
 }
 
@@ -3530,8 +3528,7 @@ async function submitStep4() {
   });
   const data = await res.json();
   if (!res.ok) { setWizardError(4, data.error || "Could not save identity information."); return false; }
-  currentUser = data.user;
-  refreshUI();
+  setAuthState(data.user);
   return true;
 }
 
@@ -3604,8 +3601,7 @@ async function submitStep7() {
   });
   const data = await res.json();
   if (!res.ok) { setWizardError(7, data.error || "Could not complete setup."); return false; }
-  currentUser = data.user;
-  refreshUI();
+  setAuthState(data.user);
   return true;
 }
 
@@ -3696,8 +3692,7 @@ async function selfExclude() {
   if (!confirmed) return;
   try {
     await apiRequest("/api/auth/self-exclude", { method: "POST" });
-    currentUser = { ...currentUser, selfExcluded: true };
-    refreshUI();
+    setAuthState({ ...currentUser, selfExcluded: true });
     showStatus("Self-exclusion applied. Wagering is disabled for 30 days. Contact support@betroyale.win to request reinstatement.", false);
   } catch (err) {
     showStatus(err.message || "Could not apply self-exclusion.", true);
