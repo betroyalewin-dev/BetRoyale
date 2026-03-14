@@ -256,20 +256,107 @@ function formatProfileStat(value) {
   return text ? text : "—";
 }
 
-const LEAGUE_STYLES = {
-  "Master I":           { color: "#c084fc" },
-  "Master II":          { color: "#c084fc" },
-  "Master III":         { color: "#c084fc" },
-  "Champion":           { color: "#22d3ee" },
-  "Grand Champion":     { color: "#fbbf24" },
-  "Royal Champion":     { color: "#f87171" },
-  "Ultimate Champion":  { color: null, prestige: true },
+const LEAGUE_BADGE_CONFIG = {
+  "Master I": {
+    slug: "master-1",
+    image: "/brand/league-badges/master-1.png",
+    surface: "rgba(22, 82, 156, 0.86)",
+    surfaceAlt: "rgba(12, 24, 49, 0.96)",
+    border: "rgba(125, 211, 252, 0.36)",
+    glow: "rgba(59, 130, 246, 0.34)",
+    accent: "#7dd3fc",
+    text: "#eff8ff",
+  },
+  "Master II": {
+    slug: "master-2",
+    image: "/brand/league-badges/master-2.png",
+    surface: "rgba(86, 44, 151, 0.84)",
+    surfaceAlt: "rgba(24, 13, 46, 0.96)",
+    border: "rgba(196, 181, 253, 0.4)",
+    glow: "rgba(168, 85, 247, 0.32)",
+    accent: "#ddd6fe",
+    text: "#faf5ff",
+  },
+  "Master III": {
+    slug: "master-3",
+    image: "/brand/league-badges/master-3.png",
+    surface: "rgba(122, 35, 57, 0.84)",
+    surfaceAlt: "rgba(43, 11, 30, 0.96)",
+    border: "rgba(251, 113, 133, 0.36)",
+    glow: "rgba(244, 63, 94, 0.32)",
+    accent: "#fda4af",
+    text: "#fff1f2",
+  },
+  "Champion": {
+    slug: "champion",
+    image: "/brand/league-badges/champion.png",
+    surface: "rgba(136, 34, 68, 0.82)",
+    surfaceAlt: "rgba(59, 13, 25, 0.96)",
+    border: "rgba(251, 191, 36, 0.44)",
+    glow: "rgba(251, 146, 60, 0.34)",
+    accent: "#fbbf24",
+    text: "#fff7ed",
+  },
+  "Grand Champion": {
+    slug: "grand-champion",
+    image: "/brand/league-badges/grand-champion.png",
+    surface: "rgba(32, 94, 190, 0.84)",
+    surfaceAlt: "rgba(17, 39, 84, 0.96)",
+    border: "rgba(250, 204, 21, 0.42)",
+    glow: "rgba(96, 165, 250, 0.34)",
+    accent: "#facc15",
+    text: "#f8fbff",
+  },
+  "Royal Champion": {
+    slug: "royal-champion",
+    image: "/brand/league-badges/royal-champion.png",
+    surface: "rgba(25, 101, 196, 0.84)",
+    surfaceAlt: "rgba(22, 49, 114, 0.96)",
+    border: "rgba(251, 191, 36, 0.44)",
+    glow: "rgba(59, 130, 246, 0.36)",
+    accent: "#fcd34d",
+    text: "#fffbeb",
+  },
+  "Ultimate Champion": {
+    slug: "ultimate-champion",
+    image: "/brand/league-badges/ultimate-champion.png",
+    surface: "rgba(116, 52, 180, 0.86)",
+    surfaceAlt: "rgba(34, 19, 69, 0.96)",
+    border: "rgba(226, 232, 240, 0.48)",
+    glow: "rgba(192, 132, 252, 0.4)",
+    accent: "#e9d5ff",
+    text: "#faf5ff",
+  },
+  Unranked: {
+    slug: "unranked",
+    surface: "rgba(39, 50, 68, 0.86)",
+    surfaceAlt: "rgba(16, 23, 34, 0.96)",
+    border: "rgba(148, 163, 184, 0.26)",
+    glow: "rgba(15, 23, 42, 0.25)",
+    accent: "#cbd5e1",
+    text: "#e2e8f0",
+  },
 };
+
+const LEAGUE_NAME_ALIASES = new Map([
+  ["master i", "Master I"],
+  ["master 1", "Master I"],
+  ["master ii", "Master II"],
+  ["master 2", "Master II"],
+  ["master iii", "Master III"],
+  ["master 3", "Master III"],
+  ["champion", "Champion"],
+  ["grand champion", "Grand Champion"],
+  ["royal champion", "Royal Champion"],
+  ["ultimate champion", "Ultimate Champion"],
+  ["unranked", "Unranked"],
+]);
 
 function normalizeLeagueName(leagueName) {
   const raw = String(leagueName || "").trim();
   if (!raw) return "Unranked";
-  const lower = raw.toLowerCase();
+  const normalizedRaw = raw.replace(/\s+/g, " ");
+  const lower = normalizedRaw.toLowerCase();
   if (
     lower === "chamption" ||
     lower.includes("ultimate chamption") ||
@@ -281,51 +368,47 @@ function normalizeLeagueName(leagueName) {
   if (lower.startsWith("challenger")) {
     return "Master I";
   }
-  return raw;
-}
-
-function getLeagueIcon(leagueName) {
-  switch (leagueName) {
-    case "Master I":
-    case "Master II":
-    case "Master III":
-      return "◆";
-    case "Champion":
-      return "⬢";
-    case "Grand Champion":
-      return "♛";
-    case "Royal Champion":
-      return "✦";
-    case "Ultimate Champion":
-      // Crown icon — the highest prestige in Clash Royale
-      return '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M2 19h20v2H2zM2 13l4-8 6 5 4-7 4 8v4H2z"/></svg>';
-    default:
-      return "•";
-  }
+  return LEAGUE_NAME_ALIASES.get(lower) || normalizedRaw;
 }
 
 function createLeagueBadge(leagueName) {
-  const span = document.createElement("span");
-  span.className = "league-badge";
   const normalizedLeagueName = normalizeLeagueName(leagueName);
-  const style = LEAGUE_STYLES[normalizedLeagueName];
-  if (style?.prestige) {
-    span.classList.add("league-prestige");
-  } else if (style?.color) {
-    span.style.color = style.color;
-  }
+  const config =
+    LEAGUE_BADGE_CONFIG[normalizedLeagueName] || LEAGUE_BADGE_CONFIG.Unranked;
+  const span = document.createElement("span");
+  span.className = `league-badge league-badge--${config.slug}`;
+  span.setAttribute("aria-label", normalizedLeagueName);
+  span.title = normalizedLeagueName;
+  span.style.setProperty("--league-surface", config.surface);
+  span.style.setProperty("--league-surface-alt", config.surfaceAlt);
+  span.style.setProperty("--league-border", config.border);
+  span.style.setProperty("--league-glow", config.glow);
+  span.style.setProperty("--league-accent", config.accent);
+  span.style.setProperty("--league-text", config.text);
+
   const icon = document.createElement("span");
   icon.className = "league-badge-icon";
-  const iconContent = getLeagueIcon(normalizedLeagueName);
-  if (iconContent.startsWith("<")) {
-    icon.innerHTML = iconContent;
+  icon.setAttribute("aria-hidden", "true");
+  if (config.image) {
+    const art = document.createElement("img");
+    art.className = "league-badge-art";
+    art.src = config.image;
+    art.alt = "";
+    art.decoding = "async";
+    art.width = 36;
+    art.height = 36;
+    icon.appendChild(art);
   } else {
-    icon.textContent = iconContent;
+    icon.textContent = "•";
   }
+
+  const copy = document.createElement("span");
+  copy.className = "league-badge-copy";
   const label = document.createElement("span");
   label.className = "league-badge-label";
   label.textContent = normalizedLeagueName;
-  span.append(icon, label);
+  copy.appendChild(label);
+  span.append(icon, copy);
   return span;
 }
 
