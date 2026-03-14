@@ -205,6 +205,15 @@ const COIN_TO_BALANCE_BALANCE = Number.parseInt(
 // Deprecated: use COIN_TO_BALANCE_* constants instead
 const COIN_TO_GEM_COINS = COIN_TO_BALANCE_COINS;
 const COIN_TO_GEM_GEMS = COIN_TO_BALANCE_BALANCE;
+
+// ── Fraud & risk detection constants ─────────────────────────────────────────
+const CASHOUT_COOLDOWN_MS        = 24 * 60 * 60 * 1000;       // 1 cashout per 24 h
+const CASHOUT_WEEKLY_MAX_CENTS   = 50_000;                     // $500 rolling 7-day cap
+const DEPOSIT_CASHOUT_SUS_MS     = 60 * 60 * 1000;            // deposit→cashout < 1 h = flag
+const MIN_ACCOUNT_AGE_CASHOUT_MS = 7  * 24 * 60 * 60 * 1000; // accounts must be ≥7 days old
+const COLLUSION_LOOKBACK_MS      = 7  * 24 * 60 * 60 * 1000; // 7-day collusion window
+const COLLUSION_PAIR_THRESHOLD   = 3;                          // ≥3 matches between same pair = suspicious
+const COLLUSION_DOMINANCE_RATIO  = 0.85;                       // ≥85% same outcome = suspicious
 const DAILY_REWARD_SCHEDULE = [
   { day: 1, currency: "coins", amount: 50 },
   { day: 2, currency: "coins", amount: 100 },
@@ -413,6 +422,11 @@ async function ensureDatabaseSchema() {
       expires_at BIGINT
     )
   `);
+
+  // ── Fraud & risk detection columns ─────────────────────────────────────────
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS chargeback_count INTEGER DEFAULT 0`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS fraud_flags JSONB DEFAULT '[]'`);
+  await pool.query(`ALTER TABLE purchases ADD COLUMN IF NOT EXISTS payment_intent_id TEXT`);
 }
 
 if (!API_TOKEN) {
@@ -513,7 +527,8 @@ app.post(
             sessionId,
             userId,
             amountCents,
-            balance
+            balance,
+            session.payment_intent || null
           );
           if (!wasRecorded) {
             return res.json({ received: true });
@@ -569,6 +584,47 @@ app.post(
           failedUser.kycStatus = "failed";
           failedUser.idVerificationStatus = "failed";
           failedUser.updatedAt = Date.now();
+          await saveStore();
+        }
+      }
+    }
+
+    // ── Feature 3: Chargeback / dispute tracking ──────────────────────────────
+    if (event.type === "charge.dispute.created") {
+      const dispute = event.data.object;
+      let disputeUserId = null;
+
+      // Look up user via payment_intent_id stored on the purchase record
+      if (dispute.payment_intent) {
+        if (pool) {
+          try {
+            const result = await pool.query(
+              "SELECT user_id FROM purchases WHERE payment_intent_id = $1 LIMIT 1",
+              [dispute.payment_intent]
+            );
+            if (result.rows.length > 0) disputeUserId = result.rows[0].user_id;
+          } catch (err) {
+            console.error("Dispute lookup query failed:", err.message);
+          }
+        } else {
+          // Fallback: scan in-memory store
+          const match = Object.values(store.purchases || {}).find(
+            (p) => p.paymentIntentId === dispute.payment_intent
+          );
+          if (match) disputeUserId = match.userId;
+        }
+      }
+
+      if (disputeUserId) {
+        const disputedUser = findUserById(disputeUserId);
+        if (disputedUser) {
+          disputedUser.chargebackCount = (disputedUser.chargebackCount || 0) + 1;
+          recordFraudFlag(disputedUser, "chargeback", {
+            disputeId: dispute.id,
+            amountCents: dispute.amount,
+            reason: dispute.reason,
+          });
+          disputedUser.updatedAt = Date.now();
           await saveStore();
         }
       }
@@ -709,6 +765,9 @@ async function loadStore() {
             typeof row.deposit_limit_weekly === "number"
               ? row.deposit_limit_weekly
               : null,
+          chargebackCount:
+            typeof row.chargeback_count === "number" ? row.chargeback_count : 0,
+          fraudFlags: Array.isArray(row.fraud_flags) ? row.fraud_flags : [],
           dailyRewardStreak:
             typeof row.daily_reward_streak === "number"
               ? row.daily_reward_streak
@@ -940,6 +999,8 @@ function saveStore() {
             daily_reward_streak,
             daily_reward_last_claim_day,
             daily_reward_last_claim_at,
+            chargeback_count,
+            fraud_flags,
             created_at,
             updated_at
           )
@@ -947,7 +1008,7 @@ function saveStore() {
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
             $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
             $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
-            $31, $32
+            $31, $32, $33, $34
           )
           ON CONFLICT (id) DO UPDATE SET
             email = EXCLUDED.email,
@@ -979,6 +1040,8 @@ function saveStore() {
             daily_reward_streak = EXCLUDED.daily_reward_streak,
             daily_reward_last_claim_day = EXCLUDED.daily_reward_last_claim_day,
             daily_reward_last_claim_at = EXCLUDED.daily_reward_last_claim_at,
+            chargeback_count = EXCLUDED.chargeback_count,
+            fraud_flags = EXCLUDED.fraud_flags,
             created_at = EXCLUDED.created_at,
             updated_at = EXCLUDED.updated_at
           `,
@@ -1017,6 +1080,8 @@ function saveStore() {
             Number.isFinite(user.dailyRewardLastClaimAt)
               ? user.dailyRewardLastClaimAt
               : null,
+            Number.isFinite(user.chargebackCount) ? user.chargebackCount : 0,
+            JSON.stringify(Array.isArray(user.fraudFlags) ? user.fraudFlags : []),
             user.createdAt || null,
             user.updatedAt || null,
           ]
@@ -1128,17 +1193,17 @@ function saveStore() {
   return writeChain;
 }
 
-async function recordPurchase(sessionId, userId, amountCents, balance) {
+async function recordPurchase(sessionId, userId, amountCents, balance, paymentIntentId = null) {
   if (!sessionId) return false;
   if (pool) {
     try {
       const result = await pool.query(
         `
-        INSERT INTO purchases (session_id, user_id, amount_cents, balance, gems, created_at)
-        VALUES ($1, $2, $3, $4, $4, $5)
+        INSERT INTO purchases (session_id, user_id, amount_cents, balance, gems, payment_intent_id, created_at)
+        VALUES ($1, $2, $3, $4, $4, $5, $6)
         ON CONFLICT (session_id) DO NOTHING
         `,
-        [sessionId, userId || null, amountCents || 0, balance || 0, Date.now()]
+        [sessionId, userId || null, amountCents || 0, balance || 0, paymentIntentId || null, Date.now()]
       );
       return result.rowCount > 0;
     } catch (err) {
@@ -1156,6 +1221,7 @@ async function recordPurchase(sessionId, userId, amountCents, balance) {
     amountCents,
     balance,
     gems: balance, // For backwards compatibility
+    paymentIntentId: paymentIntentId || null,
     createdAt: Date.now(),
   };
   await saveStore();
@@ -1681,6 +1747,14 @@ function ensureUserDefaults(user) {
   }
   if (!("dailyRewardLastClaimAt" in user)) {
     user.dailyRewardLastClaimAt = null;
+    changed = true;
+  }
+  if (!Array.isArray(user.fraudFlags)) {
+    user.fraudFlags = [];
+    changed = true;
+  }
+  if (typeof user.chargebackCount !== "number" || !Number.isFinite(user.chargebackCount)) {
+    user.chargebackCount = 0;
     changed = true;
   }
   return changed;
@@ -4086,6 +4160,67 @@ app.post("/api/shop/cashout/connect", async (req, res) => {
   }
 });
 
+// ── Fraud & risk detection helpers ───────────────────────────────────────────
+
+/**
+ * Append a fraud event to a user's fraudFlags array and emit a server-side warning.
+ * Payouts are not automatically blocked — flags are for admin review.
+ */
+function recordFraudFlag(user, type, metadata) {
+  if (!Array.isArray(user.fraudFlags)) user.fraudFlags = [];
+  user.fraudFlags.push({ type, metadata, createdAt: Date.now() });
+  user.updatedAt = Date.now();
+  console.warn(
+    `[FRAUD] type=${type} userId=${user.id} username=${user.username}`,
+    metadata
+  );
+}
+
+/**
+ * Return cashouts for a user within the given rolling window (milliseconds).
+ * Only counts cashouts with status "sent" (successfully processed).
+ */
+function getRecentCashoutsForUser(userId, windowMs) {
+  const cutoff = Date.now() - windowMs;
+  return Object.values(store.cashouts || {}).filter(
+    (c) => c.userId === userId && c.status === "sent" && (c.createdAt || 0) >= cutoff
+  );
+}
+
+/**
+ * Check whether two CR tags show suspicious match-fixing patterns over the past 7 days.
+ * Returns { suspicious: boolean, matchCount: number, dominanceRatio: number }.
+ */
+function detectCollusion(tagA, tagB) {
+  const cutoff = Date.now() - COLLUSION_LOOKBACK_MS;
+  const nA = normalizeTagValue(tagA);
+  const nB = normalizeTagValue(tagB);
+
+  const pairMatches = Object.values(store.recordedMatches).filter((m) => {
+    const mA = normalizeTagValue(m.tagA);
+    const mB = normalizeTagValue(m.tagB);
+    const inWindow = new Date(m.recordedAt).getTime() >= cutoff;
+    const isPair =
+      (mA === nA && mB === nB) || (mA === nB && mB === nA);
+    return isPair && inWindow;
+  });
+
+  if (pairMatches.length < COLLUSION_PAIR_THRESHOLD) {
+    return { suspicious: false, matchCount: pairMatches.length, dominanceRatio: 0 };
+  }
+
+  const winsForA = pairMatches.filter((m) => m.resultByTag?.[nA] === "win").length;
+  const winsForB = pairMatches.filter((m) => m.resultByTag?.[nB] === "win").length;
+  const dominantWins = Math.max(winsForA, winsForB);
+  const dominanceRatio = dominantWins / pairMatches.length;
+
+  return {
+    suspicious: dominanceRatio >= COLLUSION_DOMINANCE_RATIO,
+    matchCount: pairMatches.length,
+    dominanceRatio,
+  };
+}
+
 app.post("/api/shop/cashout", async (req, res) => {
   const user = requireAuth(req, res);
   if (!user) return;
@@ -4103,6 +4238,52 @@ app.post("/api/shop/cashout", async (req, res) => {
   if (cashoutActiveMatch) {
     return res.status(400).json({
       error: "Cannot cash out while a match is in progress. Please wait for your match to complete.",
+    });
+  }
+
+  // ── Feature 4: New account cashout cooldown ───────────────────────────────
+  const accountAgeMs = Date.now() - (user.createdAt || 0);
+  if (accountAgeMs < MIN_ACCOUNT_AGE_CASHOUT_MS) {
+    const daysLeft = Math.ceil(
+      (MIN_ACCOUNT_AGE_CASHOUT_MS - accountAgeMs) / (24 * 60 * 60 * 1000)
+    );
+    return res.status(403).json({
+      error: `Accounts must be at least 7 days old to cash out. Available in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}.`,
+    });
+  }
+
+  // ── Feature 3: Chargeback history block ──────────────────────────────────
+  if ((user.chargebackCount || 0) > 0) {
+    return res.status(403).json({
+      error: "Cashouts are disabled on this account. Please contact support.",
+    });
+  }
+
+  // ── Feature 2: Cashout velocity limits ───────────────────────────────────
+  const last24hCashouts = getRecentCashoutsForUser(user.id, CASHOUT_COOLDOWN_MS);
+  if (last24hCashouts.length > 0) {
+    return res.status(429).json({
+      error: "Only one cashout is allowed per 24 hours.",
+    });
+  }
+  const weeklyTotal = getRecentCashoutsForUser(user.id, 7 * 24 * 60 * 60 * 1000).reduce(
+    (sum, c) => sum + (c.amountCents || 0),
+    0
+  );
+  if (weeklyTotal + Number(req.body?.amountCents || 0) > CASHOUT_WEEKLY_MAX_CENTS) {
+    const remaining = Math.max(0, CASHOUT_WEEKLY_MAX_CENTS - weeklyTotal);
+    return res.status(429).json({
+      error: `Weekly cashout limit reached. You have $${(remaining / 100).toFixed(2)} remaining this week.`,
+    });
+  }
+  // Deposit → cashout within 1 hour: flag but allow (admin review)
+  const recentDeposits = Object.values(store.purchases || {}).filter(
+    (p) => p.userId === user.id && (p.createdAt || 0) >= Date.now() - DEPOSIT_CASHOUT_SUS_MS
+  );
+  if (recentDeposits.length > 0) {
+    recordFraudFlag(user, "rapid_deposit_cashout", {
+      depositCount: recentDeposits.length,
+      requestedAmountCents: Number(req.body?.amountCents || 0),
     });
   }
 
@@ -4745,6 +4926,15 @@ app.get("/api/matches/:matchId/track", async (req, res) => {
         recordedAt: new Date().toISOString(),
         settled: false,
       };
+
+      // ── Feature 1: Collusion detection ───────────────────────────────────
+      // Check after recording so the current match is included in the window.
+      const collusionResult = detectCollusion(tagA, tagB);
+      if (collusionResult.suspicious) {
+        if (userA) recordFraudFlag(userA, "collusion_suspected", collusionResult);
+        if (userB) recordFraudFlag(userB, "collusion_suspected", collusionResult);
+      }
+
       await saveStore();
 
       // Helper: apply wager transfer with house cut.
