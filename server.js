@@ -512,7 +512,19 @@ app.post(
 app.set("trust proxy", 1);
 app.use(
   helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:"],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'self'"],
+        baseUri: ["'self'"],
+      },
+    },
     crossOriginResourcePolicy: false,
   })
 );
