@@ -1,4 +1,5 @@
 const authPanel = document.getElementById("auth-panel");
+const wagerHintEl = document.getElementById("wager-hint");
 const profilePanel = document.getElementById("profile-panel");
 const queuePanel = document.getElementById("queue-panel");
 const shopPanel = document.getElementById("shop-panel");
@@ -689,6 +690,10 @@ function setCurrency(currency) {
       button.dataset.currency === selectedCurrency
     );
   });
+  if (wagerHintEl) {
+    const maxLabel = selectedCurrency === "balance" ? "$100" : "10,000 coins";
+    wagerHintEl.textContent = `Set to 0 for a friendly match with no wager. Max wager: ${maxLabel}. Winner keeps 92.75% of the pot (7.25% platform fee).`;
+  }
   updateQueueBalance();
   updateWinPreview();
 }
