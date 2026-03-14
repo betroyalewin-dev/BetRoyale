@@ -2136,6 +2136,11 @@ input:focus-visible,
   overflow: hidden;
 }
 
+.daily-rewards-summary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 560px;
+}
+
 .daily-rewards-section::before {
   content: "";
   position: absolute;
@@ -2154,15 +2159,15 @@ input:focus-visible,
 .daily-rewards-track {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
+  gap: 14px;
 }
 
 .daily-reward-day {
-  min-height: 112px;
+  min-height: 120px;
   border-radius: 10px;
   border: 1px solid rgba(125, 211, 252, 0.18);
   background: rgba(10, 21, 39, 0.9);
-  padding: 12px;
+  padding: 16px;
   display: grid;
   gap: 8px;
   align-content: start;
