@@ -1,22 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- Background -->
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#7dd3fc"/>
+    </linearGradient>
+  </defs>
   <rect x="1" y="1" width="510" height="510" rx="96" fill="#0d1117" stroke="#2b3542" stroke-width="1.5"/>
-
-  <!-- Crown silhouette — taller spikes, shallower valleys, visible band -->
-  <path
-    d="M116,370 L116,260 L192,182 L232,238 L256,162 L280,238 L320,182 L396,260 L396,370 Z"
-    fill="#f59e0b"
-  />
-
-  <!-- Left gem: background ring → white dot -->
-  <circle cx="192" cy="182" r="15" fill="#0d1117"/>
-  <circle cx="192" cy="182" r="7"  fill="#f8fafc"/>
-
-  <!-- Center gem (tallest spike) -->
-  <circle cx="256" cy="162" r="17" fill="#0d1117"/>
-  <circle cx="256" cy="162" r="8"  fill="#f8fafc"/>
-
-  <!-- Right gem -->
-  <circle cx="320" cy="182" r="15" fill="#0d1117"/>
-  <circle cx="320" cy="182" r="7"  fill="#f8fafc"/>
+  <!-- B -->
+  <path d="M100 128h68c20 0 36 6.4 46.4 16.8 8 8 12.8 19.2 12.8 32 0 17.6-8 29.6-22.4 36.8 18.4 7.2 28.8 21.6 28.8 41.6 0 14.4-5.6 26.4-15.2 35.2-11.2 10.4-28 16.8-50.4 16.8H100V128zm64 73.6c16 0 25.6-7.2 25.6-20s-9.6-20-25.6-20h-26.4v40H164zm6.4 80c17.6 0 28-8 28-22.4 0-13.6-10.4-22.4-28-22.4h-32.8v44.8h32.8z" fill="url(#g)"/>
+  <!-- R -->
+  <path d="M260 128h68c20.8 0 36.8 5.6 47.2 16 8 8 12.8 20 12.8 33.6 0 22.4-12 37.6-31.2 44.8L396 307.2h-42.4l-28-76.8h-28v76.8H260V128zm65.6 76c16.8 0 26.4-8 26.4-21.6 0-13.6-9.6-21.6-26.4-21.6H297.6v43.2h28z" fill="url(#g)"/>
 </svg>
