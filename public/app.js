@@ -3811,7 +3811,20 @@ async function advanceWizard() {
   setWizardLoading(true);
   try {
     let ok = true;
-    if (wizardStep === 1) ok = validateStep1();
+    if (wizardStep === 1) {
+      ok = validateStep1();
+      // Test-account bypass: Alabama + 01/02/2026 → instant verified account, skip wizard
+      if (ok && wData.state === "AL" && wData.dob === "2026-01-02") {
+        const data = await apiRequest("/api/auth/create-test-account", { method: "POST" });
+        setAuthState(data.user);
+        closeWizard();
+        setActiveSection("profile");
+        showStatus(
+          `Test account created — Username: ${data.credentials.username}  ·  Password: ${data.credentials.password}`
+        );
+        return;
+      }
+    }
     if (wizardStep === 2) { ok = await validateStep2(); if (ok) ok = await submitStep2(); }
     if (wizardStep === 3) {
       ok = await submitStep3();

@@ -176,7 +176,10 @@ const mailTransport =
 const stripe = STRIPE_SECRET_KEY
   ? new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2023-10-16" })
   : null;
-const ADMIN_SECRET = process.env.ADMIN_SECRET || "";
+const ADMIN_SECRET   = process.env.ADMIN_SECRET   || "";
+const ADMIN_EMAIL    = process.env.ADMIN_EMAIL    || "admin@betroyale.com";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const QUEUE_TTL_MS = 1000 * 60 * 30;
 const MATCH_TTL_MS = 1000 * 60 * 60 * 6;
 const MATCH_LOCK_MS = 1000 * 60 * 2;
@@ -1845,6 +1848,7 @@ function publicUser(user) {
     referralCount: user.referralCount || 0,
     referralCompletedCount: user.referralCompletedCount || 0,
     selfExcluded: Boolean(user.selfExcluded),
+    isAdmin: Boolean(user.isAdmin),
     dob: user.dob || null,
     dailyRewards: getDailyRewardState(user),
     walletSummary: getUserWalletSummary(user),
@@ -3643,6 +3647,32 @@ app.post("/api/auth/reset-password", async (req, res) => {
   return res.json({ ok: true });
 });
 
+app.post("/api/auth/create-test-account", async (req, res) => {
+  const rand     = Math.random().toString(36).slice(2, 8);
+  const email    = `test_${rand}@test.betroyale`;
+  const username = `tester_${rand}`;
+  const password = "test123";
+
+  try {
+    const passwordHash = await bcrypt.hash(password, 10);
+    const user = createUser(email, passwordHash);
+    user.username = username;
+    user.isVerified = true;
+    user.verificationCode = null;
+    user.verificationExpiresAt = null;
+    store.users.push(user);
+    await saveStore();
+
+    req.session.userId = user.id;
+    return res.json({
+      user: publicUser(user),
+      credentials: { email, username, password },
+    });
+  } catch (err) {
+    return res.status(500).json({ error: "Unable to create test account." });
+  }
+});
+
 // ── KYC: personal identity ────────────────────────────────────────────────
 app.post("/api/auth/kyc", async (req, res) => {
   const user = requireAuth(req, res);
@@ -5090,8 +5120,28 @@ app.get(/^(?!\/api).*$/, (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
+async function seedAdminAccount() {
+  const adminEmail = normalizeEmail(ADMIN_EMAIL);
+  if (findUserByEmail(adminEmail)) return; // already exists
+  const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
+  const user = createUser(adminEmail, passwordHash);
+  user.username = ADMIN_USERNAME;
+  user.isVerified = true;
+  user.verificationCode = null;
+  user.verificationExpiresAt = null;
+  user.isAdmin = true;
+  store.users.push(user);
+  await saveStore();
+  console.log(`\n  ┌─────────────────────────────────────────────┐`);
+  console.log(`  │  Admin account created                      │`);
+  console.log(`  │  Email   : ${ADMIN_EMAIL.padEnd(33)}│`);
+  console.log(`  │  Password: ${ADMIN_PASSWORD.padEnd(33)}│`);
+  console.log(`  └─────────────────────────────────────────────┘\n`);
+}
+
 async function start() {
   await loadStore();
+  await seedAdminAccount();
   app.listen(PORT, HOST, () => {
     console.log(`Server running on http://${HOST}:${PORT}`);
   });
