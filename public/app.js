@@ -527,11 +527,11 @@ function updateMobileChipActive(cents) {
 function syncDepositDisplays(cents) {
   const safeCents = Math.max(0, Math.floor(Number(cents) || 0));
   const amountText = centsToAmountString(safeCents);
-  if (shopBalancePreview) shopBalancePreview.textContent = String(safeCents);
+  if (shopBalancePreview) shopBalancePreview.textContent = formatUsd(safeCents);
   if (shopMobileAmount) shopMobileAmount.textContent = amountText;
-  if (shopMobileBalancePreview) shopMobileBalancePreview.textContent = String(safeCents);
+  if (shopMobileBalancePreview) shopMobileBalancePreview.textContent = formatUsd(safeCents);
   if (mobileDepositAmountEl) mobileDepositAmountEl.textContent = amountText;
-  if (mobileDepositBalanceEl) mobileDepositBalanceEl.textContent = String(safeCents);
+  if (mobileDepositBalanceEl) mobileDepositBalanceEl.textContent = formatUsd(safeCents);
   updateMobileChipActive(safeCents);
 }
 
@@ -616,9 +616,10 @@ function updateWinPreview() {
   const pot     = wager * 2;
   const payout  = Math.floor(pot * WINNER_PCT_CLIENT);
   const label   = selectedCurrency === "balance" ? "Balance" : "Coins";
+  const winDisplay = selectedCurrency === "balance" ? formatUsd(payout) : `${payout.toLocaleString()} ${label}`;
   el.innerHTML =
     `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>` +
-    `Win <strong>${payout.toLocaleString()} ${label}</strong> if your opponent matches`;
+    `Win <strong>${winDisplay}</strong> if your opponent matches`;
 }
 
 // Show available balance near the wager input so users don't have to look away.
@@ -630,7 +631,8 @@ function updateQueueBalance() {
   const balance  = currentUser.balance ?? 0;
   const bal   = selectedCurrency === "balance" ? balance : coins;
   const label = selectedCurrency === "balance" ? "Balance" : "Coins";
-  el.innerHTML = `Balance: <strong>${bal.toLocaleString()} ${label}</strong>`;
+  const displayVal = selectedCurrency === "balance" ? formatUsd(bal) : `${bal.toLocaleString()} ${label}`;
+  el.innerHTML = `Balance: <strong>${displayVal}</strong>`;
 }
 
 // Show a green ✓ or amber ⚠ above the form based on profile readiness.
@@ -1057,13 +1059,13 @@ function updateProfileUI(user) {
   statMatches.textContent = stats.matchesPlayed || 0;
   const coins = user.coins ?? user.credits ?? 0;
   if (statCoins) statCoins.textContent = coins;
-  if (statBalance) statBalance.textContent = user.balance ?? 0;
+  if (statBalance) statBalance.textContent = formatUsd(user.balance ?? 0);
   if (balanceCoins) balanceCoins.textContent = coins;
-  if (balanceBalance) balanceBalance.textContent = user.balance ?? 0;
+  if (balanceBalance) balanceBalance.textContent = formatUsd(user.balance ?? 0);
   if (shopCoinsEl) shopCoinsEl.textContent = coins;
-  if (shopBalanceEl) shopBalanceEl.textContent = user.balance ?? 0;
+  if (shopBalanceEl) shopBalanceEl.textContent = formatUsd(user.balance ?? 0);
   if (mobileWalletCoinsEl) mobileWalletCoinsEl.textContent = coins;
-  if (mobileWalletBalanceEl) mobileWalletBalanceEl.textContent = user.balance ?? 0;
+  if (mobileWalletBalanceEl) mobileWalletBalanceEl.textContent = formatUsd(user.balance ?? 0);
   updateCoinGemTradeState(user);
   renderProfileReadiness(user);
   renderWalletSummary(user);
@@ -1180,7 +1182,7 @@ function updateShopPreview() {
 function updateCashoutPreview() {
   const cents = parseAmountToCents(cashoutAmountInput?.value);
   const safeCents = cents && cents > 0 ? cents : 0;
-  if (cashoutBalancePreview) cashoutBalancePreview.textContent = String(safeCents);
+  if (cashoutBalancePreview) cashoutBalancePreview.textContent = formatUsd(safeCents);
   if (cashoutUsdPreview) cashoutUsdPreview.textContent = (safeCents / 100).toFixed(2);
 }
 
@@ -1199,9 +1201,8 @@ function updateCoinGemTradeState(user) {
 
 function formatRewardLabel(reward) {
   if (!reward) return "—";
-  const amount = Number(reward.amount || 0).toLocaleString("en-US");
-  const unit = reward.currency === "balance" ? "balance" : "coins";
-  return `${amount} ${unit}`;
+  if (reward.currency === "balance") return formatUsd(Number(reward.amount || 0));
+  return `${Number(reward.amount || 0).toLocaleString("en-US")} coins`;
 }
 
 function renderDailyRewards(user) {
@@ -1298,20 +1299,20 @@ function renderWalletSummary(user) {
     walletCoinsWonEl.textContent = formatNumber(summary.coinsWon || 0);
   }
   if (walletBalanceWonEl) {
-    walletBalanceWonEl.textContent = formatNumber(summary.balanceWon || 0);
+    walletBalanceWonEl.textContent = formatUsd(summary.balanceWon || 0);
   }
   if (walletBalanceCashedOutEl) {
-    walletBalanceCashedOutEl.textContent = formatNumber(summary.balanceCashedOut || 0);
+    walletBalanceCashedOutEl.textContent = formatUsd(summary.balanceCashedOut || 0);
   }
   if (walletFeesPaidEl) {
-    walletFeesPaidEl.textContent = `${formatNumber(summary.feesPaidCoins || 0)} coins · ${formatNumber(summary.feesPaidBalance || 0)} balance`;
+    walletFeesPaidEl.textContent = `${formatNumber(summary.feesPaidCoins || 0)} coins · ${formatUsd(summary.feesPaidBalance || 0)}`;
   }
   if (walletCashableEl) {
     walletCashableEl.textContent = formatUsd(summary.cashableUsdCents || 0);
   }
   if (walletCashableSubtextEl) {
     walletCashableSubtextEl.textContent = summary.readyToCashOut
-      ? `${formatNumber(summary.cashableBalance || 0)} balance are ready to cash out.`
+      ? `${formatUsd(summary.cashableBalance || 0)} are ready to cash out.`
       : `Build to ${formatUsd(MIN_CASHOUT_CENTS)} to unlock cash out.`;
   }
   if (walletAlertEl) {
@@ -1372,9 +1373,9 @@ async function loadExchangeRate() {
     // Keep defaults if unavailable
   }
   if (exchangeCoinsEl) exchangeCoinsEl.textContent = formatNumber(COIN_TO_BALANCE_COINS);
-  if (exchangeBalanceEl) exchangeBalanceEl.textContent = formatNumber(COIN_TO_BALANCE_BALANCE);
+  if (exchangeBalanceEl) exchangeBalanceEl.textContent = formatUsd(COIN_TO_BALANCE_BALANCE);
   if (exchangeCtaCoinsEl) exchangeCtaCoinsEl.textContent = formatNumber(COIN_TO_BALANCE_COINS);
-  if (exchangeCtaBalanceEl) exchangeCtaBalanceEl.textContent = formatNumber(COIN_TO_BALANCE_BALANCE);
+  if (exchangeCtaBalanceEl) exchangeCtaBalanceEl.textContent = formatUsd(COIN_TO_BALANCE_BALANCE);
   updateCoinBalanceTradeState(currentUser);
 }
 
@@ -1400,7 +1401,7 @@ function renderCashoutHistory(entries) {
     const row = document.createElement("div");
     row.className = "cashout-history-item";
     const amount = document.createElement("span");
-    amount.textContent = `${formatUsd(entry.amountCents)} (${entry.balance} balance)`;
+    amount.textContent = `${formatUsd(entry.amountCents)} (${formatUsd(entry.balance)})`;
     const status = document.createElement("span");
     status.textContent = (entry.status || "pending").toUpperCase();
     row.appendChild(amount);
